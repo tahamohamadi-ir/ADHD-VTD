@@ -1,99 +1,64 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
+PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
+ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩"
+ENGLISH_DIGITS = "0123456789"
+DIGIT_TRANSLATION = str.maketrans(
+    {**{p: e for p, e in zip(PERSIAN_DIGITS, ENGLISH_DIGITS)},
+     **{a: e for a, e in zip(ARABIC_DIGITS, ENGLISH_DIGITS)}}
+)
+
+
+# Important: colloquial "یه" is intentionally NOT mapped to 1.
+# In Persian user questions it often means an indefinite article, e.g. "یه آمار کلی بده".
+# Mapping it to 1 would create false numeric filters/signals.
+PERSIAN_NUMBER_WORDS: dict[str, int] = {
+    "صفر": 0, "یک": 1, "دو": 2, "سه": 3, "چهار": 4, "پنج": 5,
+    "شش": 6, "هفت": 7, "هشت": 8, "نه": 9, "ده": 10, "یازده": 11, "دوازده": 12,
+    "سیزده": 13, "چهارده": 14, "پانزده": 15, "شانزده": 16, "هفده": 17,
+    "هجده": 18, "نوزده": 19, "بیست": 20, "سی": 30, "چهل": 40, "پنجاه": 50,
+    "شصت": 60, "هفتاد": 70, "هشتاد": 80, "نود": 90, "صد": 100,
+}
+
+@dataclass(frozen=True)
+class NumberNormalizationResult:
+    original: str
+    normalized: str
+    extracted_numbers: list[float]
 
 class NumberNormalizer:
-    """
-    Converts Persian and Arabic digits into Western digits.
-
-    This component intentionally keeps complex Persian number-word parsing minimal.
-    """
-
-    DIGIT_MAP = str.maketrans(
-        {
-            "۰": "0",
-            "۱": "1",
-            "۲": "2",
-            "۳": "3",
-            "۴": "4",
-            "۵": "5",
-            "۶": "6",
-            "۷": "7",
-            "۸": "8",
-            "۹": "9",
-            "٠": "0",
-            "١": "1",
-            "٢": "2",
-            "٣": "3",
-            "٤": "4",
-            "٥": "5",
-            "٦": "6",
-            "٧": "7",
-            "٨": "8",
-            "٩": "9",
-        }
-    )
-
-    SIMPLE_WORD_NUMBERS = {
-        "صفر": 0,
-        "یک": 1,
-        "یه": 1,
-        "دو": 2,
-        "سه": 3,
-        "چهار": 4,
-        "پنج": 5,
-        "شش": 6,
-        "شیش": 6,
-        "هفت": 7,
-        "هشت": 8,
-        "نه": 9,
-        "ده": 10,
-        "یازده": 11,
-        "دوازده": 12,
-        "سیزده": 13,
-        "چهارده": 14,
-        "پانزده": 15,
-        "شانزده": 16,
-        "هفده": 17,
-        "هجده": 18,
-        "نوزده": 19,
-        "بیست": 20,
-    }
-
-    NUMBER_PATTERN = re.compile(r"[-+]?\d+(?:\.\d+)?")
+    """Normalize Persian/Arabic digits and extract simple numeric signals."""
 
     def normalize_digits(self, text: str) -> str:
-        if not text:
-            return ""
-        return text.translate(self.DIGIT_MAP)
+        return text.translate(DIGIT_TRANSLATION)
 
-    def replace_simple_number_words(self, text: str) -> str:
-        if not text:
-            return ""
-
-        result = text
-        for word, number in sorted(self.SIMPLE_WORD_NUMBERS.items(), key=lambda x: len(x[0]), reverse=True):
-            result = re.sub(rf"\b{re.escape(word)}\b", str(number), result)
-        return result
-
-    def normalize(self, text: str, replace_words: bool = False) -> str:
-        text = self.normalize_digits(text)
-        if replace_words:
-            text = self.replace_simple_number_words(text)
-        return text
+    def normalize_number_words(self, text: str) -> str:
+        out = text
+        for word, value in sorted(PERSIAN_NUMBER_WORDS.items(), key=lambda x: len(x[0]), reverse=True):
+            out = re.sub(rf"(?<!\w){re.escape(word)}(?!\w)", str(value), out)
+        return out
 
     def extract_numbers(self, text: str) -> list[float]:
-        text = self.normalize_digits(text)
+        normalized = self.normalize_digits(text)
         values: list[float] = []
-
-        for match in self.NUMBER_PATTERN.findall(text):
-            if "." in match:
-                values.append(float(match))
-            else:
-                values.append(float(int(match)))
-
+        for match in re.findall(r"[-+]?\d+(?:\.\d+)?", normalized):
+            try:
+                values.append(float(match) if "." in match else int(match))
+            except ValueError:
+                continue
         return values
+
+    def normalize(self, text: str) -> NumberNormalizationResult:
+        normalized = self.normalize_digits(text)
+        normalized = self.normalize_number_words(normalized)
+        return NumberNormalizationResult(
+            original=text,
+            normalized=normalized,
+            extracted_numbers=self.extract_numbers(normalized),
+        )
 
 
 def normalize_digits(text: str) -> str:

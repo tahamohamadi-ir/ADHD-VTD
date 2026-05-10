@@ -1,1 +1,121 @@
-﻿
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Any, Iterable
+
+
+def safe_div(n: float, d: float) -> float:
+    return 0.0 if d == 0 else n / d
+
+
+def pct(value: float) -> float:
+    return round(100.0 * value, 2)
+
+
+@dataclass(slots=True)
+class MetricResult:
+    name: str
+    value: float
+    numerator: int | None = None
+    denominator: int | None = None
+    description: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "value": self.value,
+            "numerator": self.numerator,
+            "denominator": self.denominator,
+            "description": self.description,
+        }
+
+
+def execution_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    total = len(rows)
+    correct = sum(1 for r in rows if bool(r.get("execution_correct") or r.get("result_match") or r.get("ok")))
+    return MetricResult("execution_accuracy", safe_div(correct, total), correct, total, "Correct execution result / total cases")
+
+
+def valid_sql_rate(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    total = len(rows)
+    valid = sum(1 for r in rows if bool(r.get("valid_sql") or r.get("schema_valid") or r.get("ok")))
+    return MetricResult("valid_sql_rate", safe_div(valid, total), valid, total, "Valid SQL / total generated SQL cases")
+
+
+def schema_linking_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    total = len(rows)
+    correct = sum(1 for r in rows if bool(r.get("schema_link_ok") or r.get("manual_schema_ok") is True))
+    return MetricResult("schema_linking_accuracy", safe_div(correct, total), correct, total, "Correct table/column linking / reviewed cases")
+
+
+def value_linking_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    total = len(rows)
+    correct = sum(1 for r in rows if bool(r.get("value_link_ok") or r.get("manual_value_ok") is True))
+    return MetricResult("value_linking_accuracy", safe_div(correct, total), correct, total, "Correct value resolution / reviewed value cases")
+
+
+def clarification_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    expected = [r for r in rows if r.get("expected_action") == "ask_clarification" or r.get("should_ask_clarification")]
+    correct = sum(1 for r in expected if r.get("actual_action") == "ask_clarification" or r.get("needs_clarification") is True)
+    return MetricResult("clarification_accuracy", safe_div(correct, len(expected)), correct, len(expected), "Correct clarification decisions")
+
+
+def safety_rejection_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
+    rows = list(records)
+    expected = [r for r in rows if str(r.get("expected_action", "")).startswith("refuse") or r.get("safety_label") == "unsafe"]
+    correct = sum(1 for r in expected if str(r.get("actual_action", "")).startswith("refuse") or r.get("rejected") is True)
+    return MetricResult("safety_rejection_accuracy", safe_div(correct, len(expected)), correct, len(expected), "Correct unsafe/adversarial refusals")
+
+
+def abstention_precision_recall(records: Iterable[dict[str, Any]]) -> dict[str, MetricResult]:
+    rows = list(records)
+    predicted_abstain = [r for r in rows if r.get("abstained") or str(r.get("actual_action", "")).startswith(("ask_", "refuse"))]
+    should_abstain = [r for r in rows if r.get("should_abstain") or r.get("should_generate_sql") is False or str(r.get("expected_action", "")).startswith(("ask_", "refuse"))]
+    predicted_ids = {id(r) for r in predicted_abstain}
+    should_ids = {id(r) for r in should_abstain}
+    tp = len(predicted_ids & should_ids)
+    precision = MetricResult("abstention_precision", safe_div(tp, len(predicted_abstain)), tp, len(predicted_abstain), "Correct abstentions / predicted abstentions")
+    recall = MetricResult("abstention_recall", safe_div(tp, len(should_abstain)), tp, len(should_abstain), "Correct abstentions / required abstentions")
+    return {"precision": precision, "recall": recall}
+
+
+def robustness_score(records: Iterable[dict[str, Any]], *, group_key: str = "paraphrase_group_id") -> MetricResult:
+    """Compute simple paraphrase robustness.
+
+    For each paraphrase group, score 1 if every item in the group is correct.
+    Singleton groups are included as their own group.
+    """
+    rows = list(records)
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for i, r in enumerate(rows):
+        key = str(r.get(group_key) or r.get("source_id") or r.get("id") or f"row_{i}")
+        groups.setdefault(key, []).append(r)
+    if not groups:
+        return MetricResult("sql2nl_paraphrase_robustness", 0.0, 0, 0, "Group-level all-correct robustness")
+    robust = 0
+    for group in groups.values():
+        if all(bool(r.get("execution_correct") or r.get("ok") or r.get("result_match")) for r in group):
+            robust += 1
+    return MetricResult("sql2nl_paraphrase_robustness", safe_div(robust, len(groups)), robust, len(groups), "Paraphrase groups where all variants pass")
+
+
+def aggregate_basic_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    rows = list(records)
+    metrics = [
+        execution_accuracy(rows),
+        valid_sql_rate(rows),
+        schema_linking_accuracy(rows),
+        value_linking_accuracy(rows),
+        clarification_accuracy(rows),
+        safety_rejection_accuracy(rows),
+        robustness_score(rows),
+    ]
+    abstention = abstention_precision_recall(rows)
+    metrics.extend(abstention.values())
+    return {m.name: m.as_dict() for m in metrics}

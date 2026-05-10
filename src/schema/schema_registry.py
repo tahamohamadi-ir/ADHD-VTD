@@ -1,141 +1,71 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+import json
+from pathlib import Path
 
-from src.schema.schema_loader import SchemaLoader
+try:
+    from src.config.paths import SCHEMA_SNAPSHOT_PATH, SCHEMA_GRAPH_PATH, SCHEMA_DIR
+except Exception:  # pragma: no cover
+    SCHEMA_SNAPSHOT_PATH = Path("data/schema/schema_snapshot.json")
+    SCHEMA_GRAPH_PATH = Path("data/schema/schema_graph.json")
+    SCHEMA_DIR = Path("data/schema")
 
-
-@dataclass
 class SchemaRegistry:
-    """
-    In-memory registry for schema snapshot, schema graph, aliases, glossary, and metrics.
-    """
+    """Current-schema registry. Source of truth: schema_snapshot.json."""
 
-    loader: SchemaLoader = field(default_factory=SchemaLoader)
-    snapshot: dict[str, Any] = field(init=False)
-    graph: dict[str, Any] = field(init=False)
-    aliases: dict[str, list[str]] = field(init=False)
-    glossary: dict[str, Any] = field(init=False)
-    metrics: dict[str, Any] = field(init=False)
+    def __init__(self, snapshot_path: str | Path | None = None, schema_dir: str | Path | None = None) -> None:
+        self.snapshot_path = Path(snapshot_path or SCHEMA_SNAPSHOT_PATH)
+        self.schema_dir = Path(schema_dir or SCHEMA_DIR)
+        self.snapshot = self._load_json(self.snapshot_path)
+        self.tables = self._table_map()
+        self.aliases = self._load_json(self.schema_dir / "column_aliases.fa.json")
+        self.metrics = self._load_json(self.schema_dir / "metric_definitions.json")
 
-    def __post_init__(self) -> None:
-        self.snapshot = self.loader.load_schema_snapshot()
-        self.graph = self.loader.load_schema_graph()
-        self.aliases = self.loader.load_column_aliases()
-        self.glossary = self.loader.load_business_glossary()
-        self.metrics = self.loader.load_metric_definitions()
+    def _load_json(self, path: Path) -> dict:
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
 
-    @property
-    def tables(self) -> dict[str, Any]:
-        return self.snapshot.get("tables", {})
+    def _table_map(self) -> dict[str, dict]:
+        return {t["name"]: t for t in self.snapshot.get("tables", []) if t.get("name")}
 
     def has_table(self, table: str) -> bool:
         return table in self.tables
 
-    def get_table(self, table: str) -> dict[str, Any]:
-        if table not in self.tables:
-            raise KeyError(f"Unknown table: {table}")
-        return self.tables[table]
-
-    def get_columns(self, table: str) -> dict[str, Any]:
-        return self.get_table(table).get("columns", {})
-
     def has_column(self, table: str, column: str) -> bool:
-        return self.has_table(table) and column in self.get_columns(table)
+        return column in self.columns_for_table(table)
 
-    def all_fq_columns(self) -> list[str]:
-        cols: list[str] = []
-        for table, table_info in self.tables.items():
-            for column in table_info.get("columns", {}):
-                cols.append(f"{table}.{column}")
-        return cols
+    def columns_for_table(self, table: str) -> set[str]:
+        t = self.tables.get(table, {})
+        return {c["name"] for c in t.get("columns", []) if c.get("name")}
 
-    def split_fq_column(self, fq_column: str) -> tuple[str, str]:
-        if "." not in fq_column:
-            raise ValueError(f"Expected fully-qualified column, got: {fq_column}")
-        table, column = fq_column.split(".", 1)
-        return table, column
+    def all_columns(self) -> set[str]:
+        return {f"{t}.{c}" for t in self.tables for c in self.columns_for_table(t)}
 
-    def resolve_alias(self, term: str) -> list[str]:
-        return self.aliases.get(term, [])
+    def validate_fq_column(self, fq: str) -> bool:
+        if "." not in fq:
+            return False
+        table, column = fq.split(".", 1)
+        return self.has_column(table, column)
 
-    def _join_columns_for_table(self, table: str) -> set[str]:
-        cols: set[str] = set()
+    def resolve_aliases(self, text: str) -> list[str]:
+        matches: list[str] = []
+        lower = text.lower()
+        for alias, cols in self.aliases.items():
+            if alias.lower() in lower:
+                matches.extend(cols)
+        return [c for c in dict.fromkeys(matches) if self.validate_fq_column(c)]
 
-        table_info = self.get_table(table)
-        for pk_col in table_info.get("primary_key", []):
-            cols.add(pk_col)
-
-        for fk in table_info.get("foreign_keys", []):
-            if fk.get("column"):
-                cols.add(fk["column"])
-
-        for edge in self.graph.get("edges", []):
-            if edge.get("source") == table and edge.get("source_column"):
-                cols.add(edge["source_column"])
-            if edge.get("target") == table and edge.get("target_column"):
-                cols.add(edge["target_column"])
-
-        return cols
-
-    def table_ddl_context(self, tables: list[str], columns: list[str] | None = None) -> str:
-        """
-        Build compact schema context for prompting.
-
-        If a table is included only for joins and has no selected semantic columns,
-        include its PK/FK join columns instead of rendering an empty table.
-        """
-        selected_columns = set(columns or [])
-        lines: list[str] = []
-
+    def ddl_context(self, tables: list[str], columns: list[str] | None = None) -> str:
+        selected_cols = set(columns or [])
+        chunks: list[str] = []
         for table in tables:
             if not self.has_table(table):
                 continue
-
-            table_info = self.get_table(table)
-            all_columns = table_info.get("columns", {})
-
-            selected_for_table = {
-                fq.split(".", 1)[1]
-                for fq in selected_columns
-                if fq.startswith(f"{table}.")
-            }
-
-            if selected_columns:
-                cols_to_show = set(selected_for_table)
-
-                if not cols_to_show:
-                    cols_to_show.update(self._join_columns_for_table(table))
-
-                if not cols_to_show:
-                    cols_to_show.update(list(all_columns.keys())[:3])
-            else:
-                cols_to_show = set(all_columns.keys())
-
-            lines.append(f"TABLE {table}:")
-
-            for column, meta in all_columns.items():
-                if column not in cols_to_show:
-                    continue
-
-                col_type = meta.get("type", "UNKNOWN")
-                desc = meta.get("description", "")
-                lines.append(f"  - {column} ({col_type}): {desc}")
-
-        return "\n".join(lines)
-
-    def join_hints_for_tables(self, tables: list[str]) -> list[str]:
-        table_set = set(tables)
-        hints: list[str] = []
-
-        for edge in self.graph.get("edges", []):
-            source = edge.get("source")
-            target = edge.get("target")
-
-            if source in table_set and target in table_set:
-                hint = edge.get("join_sql", "")
-                if hint:
-                    hints.append(hint)
-
-        return hints
+            t = self.tables[table]
+            chunks.append(f"TABLE {table}")
+            for col in t.get("columns", []):
+                fq = f"{table}.{col['name']}"
+                if not selected_cols or fq in selected_cols or col.get("primary_key"):
+                    chunks.append(f"- {col['name']} {col.get('type','')}")
+        return "\n".join(chunks)

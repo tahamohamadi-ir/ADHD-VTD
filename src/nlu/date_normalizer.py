@@ -1,111 +1,83 @@
 from __future__ import annotations
 
-import calendar
 import re
+from dataclasses import dataclass
 from datetime import date, timedelta
 
-from src.core.types import DateRange
-from src.nlu.number_normalizer import NumberNormalizer
-from src.nlu.persian_normalizer import PersianNormalizer
+try:
+    import jdatetime  # type: ignore
+except Exception:  # pragma: no cover
+    jdatetime = None
 
 try:
-    from persiantools.jdatetime import JalaliDate
+    from src.nlu.number_normalizer import NumberNormalizer
 except Exception:  # pragma: no cover
-    JalaliDate = None
+    from number_normalizer import NumberNormalizer
 
+JALALI_MONTHS = {
+    "فروردین": 1, "اردیبهشت": 2, "خرداد": 3, "تیر": 4, "مرداد": 5, "شهریور": 6,
+    "مهر": 7, "آبان": 8, "ابان": 8, "آذر": 9, "اذر": 9, "دی": 10, "بهمن": 11, "اسفند": 12,
+}
+
+@dataclass(frozen=True)
+class DateNormalizationResult:
+    original: str
+    normalized_text: str
+    has_temporal_expression: bool
+    needs_clarification: bool
+    reason: str | None = None
+    date_range: dict[str, str] | None = None
 
 class PersianDateNormalizer:
-    """
-    Converts common Persian/Jalali date expressions into Gregorian ISO ranges.
-
-    Supported examples:
-    - 1404/01/15
-    - ۱۴۰۴-۰۱-۱۵
-    - فروردین ۱۴۰۴
-    - سال ۱۴۰۴
-    """
-
-    MONTHS = {
-        "فروردین": 1,
-        "اردیبهشت": 2,
-        "خرداد": 3,
-        "تیر": 4,
-        "مرداد": 5,
-        "شهریور": 6,
-        "مهر": 7,
-        "آبان": 8,
-        "اذر": 9,
-        "آذر": 9,
-        "دی": 10,
-        "بهمن": 11,
-        "اسفند": 12,
-    }
-
-    DATE_PATTERN = re.compile(r"(?P<year>13\d{2}|14\d{2})[/-](?P<month>\d{1,2})[/-](?P<day>\d{1,2})")
-    MONTH_YEAR_PATTERN = re.compile(r"(?P<month_name>فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|اذر|آذر|دی|بهمن|اسفند)\s+(?P<year>13\d{2}|14\d{2})")
-    YEAR_PATTERN = re.compile(r"(?:سال\s+)?(?P<year>13\d{2}|14\d{2})")
+    """Resolve explicit Jalali month/year if possible; otherwise request clarification."""
 
     def __init__(self) -> None:
-        self.persian_normalizer = PersianNormalizer()
         self.number_normalizer = NumberNormalizer()
 
-    def normalize_text_dates(self, text: str) -> tuple[str, list[DateRange]]:
-        normalized = self.persian_normalizer.normalize_text(text)
-        normalized = self.number_normalizer.normalize_digits(normalized)
+    def _jalali_month_range(self, jy: int, jm: int) -> dict[str, str] | None:
+        if jdatetime is None:
+            return None
+        start_j = jdatetime.date(jy, jm, 1)
+        if jm == 12:
+            end_j = jdatetime.date(jy + 1, 1, 1)
+        else:
+            end_j = jdatetime.date(jy, jm + 1, 1)
+        start_g = start_j.togregorian()
+        end_g = end_j.togregorian()
+        return {"start": start_g.isoformat(), "end_exclusive": end_g.isoformat(), "calendar": "jalali_to_gregorian"}
 
-        ranges: list[DateRange] = []
+    def normalize(self, text: str, target_date_column: str | None = None) -> DateNormalizationResult:
+        original = text or ""
+        normalized = self.number_normalizer.normalize_digits(original)
+        lower = normalized.lower()
 
-        for match in self.DATE_PATTERN.finditer(normalized):
-            year = int(match.group("year"))
-            month = int(match.group("month"))
-            day = int(match.group("day"))
-            start = self.jalali_to_gregorian(year, month, day)
-            end = start + timedelta(days=1)
-            ranges.append(
-                DateRange(
-                    original_text=match.group(0),
-                    start_date=start.isoformat(),
-                    end_date=end.isoformat(),
-                    calendar="jalali",
-                    granularity="day",
-                )
+        has_temporal = any(m in normalized for m in JALALI_MONTHS) or bool(re.search(r"\b1[34]\d{2}\b", normalized))
+        has_temporal = has_temporal or any(x in normalized for x in ["امسال", "پارسال", "سال قبل", "ماه قبل", "آخرین سال", "latest", "last year"])
+        if not has_temporal:
+            return DateNormalizationResult(original, normalized, False, False)
+
+        if not target_date_column and any(x in normalized for x in ["امسال", "پارسال", "ماه", "سال", "آخرین سال", "latest", "last year"]):
+            return DateNormalizationResult(
+                original, normalized, True, True,
+                "Temporal expression detected but target date/year column is not fixed yet.",
             )
 
-        for match in self.MONTH_YEAR_PATTERN.finditer(normalized):
-            month_name = match.group("month_name")
-            year = int(match.group("year"))
-            month = self.MONTHS[month_name]
-            start = self.jalali_to_gregorian(year, month, 1)
+        # Explicit Jalali month + year e.g. فروردین 1404
+        for month_name, month_no in JALALI_MONTHS.items():
+            if month_name in normalized:
+                m = re.search(r"\b(13\d{2}|14\d{2})\b", normalized)
+                if not m:
+                    return DateNormalizationResult(original, normalized, True, True, "Jalali month found without explicit year.")
+                jy = int(m.group(1))
+                rng = self._jalali_month_range(jy, month_no)
+                if rng is None:
+                    return DateNormalizationResult(
+                        original, normalized, True, True,
+                        "jdatetime is not installed; cannot safely convert Jalali date.",
+                    )
+                return DateNormalizationResult(original, normalized, True, False, None, rng)
 
-            if month == 12:
-                next_year, next_month = year + 1, 1
-            else:
-                next_year, next_month = year, month + 1
-
-            end = self.jalali_to_gregorian(next_year, next_month, 1)
-            ranges.append(
-                DateRange(
-                    original_text=match.group(0),
-                    start_date=start.isoformat(),
-                    end_date=end.isoformat(),
-                    calendar="jalali",
-                    granularity="month",
-                )
-            )
-
-        return normalized, ranges
-
-    def jalali_to_gregorian(self, year: int, month: int, day: int) -> date:
-        if JalaliDate is None:
-            raise RuntimeError("persiantools is required for Jalali date conversion.")
-        return JalaliDate(year, month, day).to_gregorian()
-
-    def gregorian_month_range(self, year: int, month: int) -> tuple[date, date]:
-        last_day = calendar.monthrange(year, month)[1]
-        start = date(year, month, 1)
-        end = date(year, month, last_day) + timedelta(days=1)
-        return start, end
-
-
-def normalize_persian_dates(text: str) -> tuple[str, list[DateRange]]:
-    return PersianDateNormalizer().normalize_text_dates(text)
+        return DateNormalizationResult(
+            original, normalized, True, True,
+            "Temporal expression requires schema-specific interpretation before SQL generation.",
+        )

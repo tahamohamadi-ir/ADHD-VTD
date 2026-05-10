@@ -1,281 +1,447 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-import re
-from collections import defaultdict
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
-from src.core.types import ColumnRef, LinkedSchema, TableRef
-from src.nlu.persian_normalizer import PersianNormalizer
-from src.schema.schema_registry import SchemaRegistry
 
-try:
-    from rapidfuzz import fuzz, process
-except Exception:  # pragma: no cover
-    fuzz = None
-    process = None
+@dataclass
+class SchemaLinkingResult:
+    question: str
+    normalized_question: str
+    tables: list[str] = field(default_factory=list)
+    columns: list[str] = field(default_factory=list)
+    metrics: list[str] = field(default_factory=list)
+    join_hints: list[str] = field(default_factory=list)
+    schema_context: str = ""
+    unresolved_terms: list[str] = field(default_factory=list)
+    confidence: float = 0.0
+    evidence: list[dict[str, Any]] = field(default_factory=list)
+
+    def model_dump(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 class SchemaLinker:
     """
-    Persian-aware schema linker.
+    Defensive schema linker aligned with the current Phase-0 schema metadata.
 
-    Strategy:
-    1. Normalize question.
-    2. Match explicit aliases from column_aliases.fa.json.
-    3. Match direct table/column names.
-    4. Use controlled fuzzy matching only for meaningful tokens.
-    5. Return compact schema context and join hints.
+    Key design choice:
+    - Do not assume every value in metric_definitions.json is a metric spec.
+    - Skip project/version/notes/meta fields safely.
+    - Never return columns that do not exist in the frozen schema snapshot.
     """
 
-    IMPORTANT_SHORT_ALIASES = {
-        "زن",
-        "مرد",
+    EXTRA_ALIASES: dict[str, list[str]] = {
+        # Student depression dataset
+        "افسردگی": [
+            "student_depression.depression_flag",
+            "mental_health_general.depression_score",
+            "university_student_mental_health.depression_diagnosis",
+            "country_prevalence_long.disorder",
+            "country_prevalence_wide.depression_pct",
+        ],
+        "افسرده": ["student_depression.depression_flag"],
+        "depressed": ["student_depression.depression_flag"],
+        "depression": [
+            "student_depression.depression_flag",
+            "mental_health_general.depression_score",
+            "country_prevalence_long.disorder",
+            "country_prevalence_wide.depression_pct",
+        ],
+        "اضطراب": [
+            "mental_health_general.anxiety_score",
+            "university_student_mental_health.anxiety_diagnosis",
+            "country_prevalence_long.disorder",
+            "country_prevalence_wide.anxiety_pct",
+        ],
+        "anxiety": [
+            "mental_health_general.anxiety_score",
+            "country_prevalence_long.disorder",
+            "country_prevalence_wide.anxiety_pct",
+        ],
+        "ezterab": ["mental_health_general.anxiety_score", "country_prevalence_long.disorder"],
+        "معدل": ["student_depression.cgpa_10", "university_student_mental_health.cgpa_mid"],
+        "cgpa": ["student_depression.cgpa_10", "university_student_mental_health.cgpa_mid"],
+        "نمره امتحان": ["student_habits_performance.exam_score"],
+        "exam score": ["student_habits_performance.exam_score"],
+        "خواب": [
+            "student_depression.sleep_mid_hours",
+            "student_depression.sleep_duration_category",
+            "mental_health_general.sleep_hours",
+            "student_habits_performance.sleep_hours",
+        ],
+        "ساعت خواب": [
+            "student_depression.sleep_mid_hours",
+            "mental_health_general.sleep_hours",
+            "student_habits_performance.sleep_hours",
+        ],
+        "جنسیت": [
+            "student_depression.gender",
+            "student_habits_performance.gender",
+            "mental_health_general.gender",
+            "university_student_mental_health.gender",
+        ],
+        "زن": [
+            "student_depression.gender",
+            "student_habits_performance.gender",
+            "mental_health_general.gender",
+            "university_student_mental_health.gender",
+        ],
+        "مرد": [
+            "student_depression.gender",
+            "student_habits_performance.gender",
+            "mental_health_general.gender",
+            "university_student_mental_health.gender",
+        ],
+        "gender": [
+            "student_depression.gender",
+            "student_habits_performance.gender",
+            "mental_health_general.gender",
+            "university_student_mental_health.gender",
+        ],
+        "دانشجو": ["student_depression.student_id", "student_habits_performance.student_id"],
+        "دانشجوها": ["student_depression.student_id", "student_habits_performance.student_id"],
+        "student": ["student_depression.student_id", "student_habits_performance.student_id"],
+        "ریسک": ["mental_health_general.mental_health_risk"],
+        "mental health risk": ["mental_health_general.mental_health_risk"],
+        "درمان": ["mental_health_general.seeks_treatment", "workplace_mental_health_survey.treatment"],
+        "treatment": ["mental_health_general.seeks_treatment", "workplace_mental_health_survey.treatment"],
+        "کشور": ["country_prevalence_long.country_name", "country_prevalence_wide.country_name"],
+        "سال": ["country_prevalence_long.year", "country_prevalence_wide.year"],
+        "شیوع": ["country_prevalence_long.prevalence_pct"],
+        "prevalence": ["country_prevalence_long.prevalence_pct"],
     }
 
-    STOPWORDS = {
-        "است",
-        "هست",
-        "هستن",
-        "هستند",
-        "بود",
-        "بوده",
-        "باشد",
-        "باشند",
-        "را",
-        "رو",
-        "به",
-        "در",
-        "از",
-        "با",
-        "برای",
-        "تا",
-        "که",
-        "چه",
-        "چی",
-        "چیه",
-        "چند",
-        "چقدر",
-        "کدام",
-        "کدوم",
-        "آیا",
-        "ایا",
-        "لطفا",
-        "لطفاً",
-        "بده",
-        "نشان",
-        "نمایش",
-        "کن",
-        "کنم",
-        "کنید",
-        "میانگین",
-        "متوسط",
-        "تعداد",
-        "افراد",
-        "فرد",
-        "کمتر",
-        "بیشتر",
-        "بالای",
-        "زیر",
-        "برابر",
-        "دارند",
-        "دارد",
-        "داشته",
-        "های",
-        "هایی",
-        "ها",
-        "؟",
-        "?",
-    }
+    def __init__(self, project_root: str | Path | None = None) -> None:
+        self.project_root = Path(project_root) if project_root else self._find_project_root()
+        self.schema_dir = self.project_root / "data" / "schema"
 
-    TOKEN_PATTERN = re.compile(r"[\w\u0600-\u06FF\-]+")
+        self.schema_snapshot = self._load_json("schema_snapshot.json")
+        self.schema_graph = self._load_json("schema_graph.json")
+        self.column_aliases = self._load_json("column_aliases.fa.json")
+        self.business_glossary = self._load_json("business_glossary.fa.json")
+        self.metric_definitions = self._load_json("metric_definitions.json")
 
-    def __init__(self, registry: SchemaRegistry | None = None, fuzzy_threshold: int = 88) -> None:
-        self.registry = registry or SchemaRegistry()
-        self.normalizer = PersianNormalizer()
-        self.fuzzy_threshold = fuzzy_threshold
+        self.tables = self._extract_tables(self.schema_snapshot)
+        self.valid_columns = self._build_valid_columns(self.tables)
 
-    def _tokens(self, text: str) -> list[str]:
-        normalized = self.normalizer.normalize_for_search(text)
-        tokens = self.TOKEN_PATTERN.findall(normalized)
+    def _find_project_root(self) -> Path:
+        current = Path(__file__).resolve()
+        for parent in [current.parent, *current.parents]:
+            if (parent / "data" / "schema").exists() and (parent / "src").exists():
+                return parent
+        return Path.cwd().resolve()
 
-        cleaned: list[str] = []
-        for token in tokens:
-            token = token.strip().lower()
+    def _load_json(self, filename: str) -> dict[str, Any]:
+        path = self.schema_dir / filename
+        if not path.exists():
+            return {}
+        import json
 
-            if len(token) < 3 and token not in self.IMPORTANT_SHORT_ALIASES:
-                continue
+        return json.loads(path.read_text(encoding="utf-8"))
 
-            if token in self.STOPWORDS and token not in self.IMPORTANT_SHORT_ALIASES:
-                continue
+    def _extract_tables(self, snapshot: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        raw_tables = snapshot.get("tables", {})
 
-            cleaned.append(token)
+        if isinstance(raw_tables, dict):
+            return raw_tables
 
-        return cleaned
+        if isinstance(raw_tables, list):
+            result: dict[str, dict[str, Any]] = {}
+            for table in raw_tables:
+                if not isinstance(table, dict):
+                    continue
+                name = table.get("name")
+                if not name:
+                    continue
 
-    def _update_column(
+                cols: dict[str, dict[str, Any]] = {}
+                for col in table.get("columns", []):
+                    if isinstance(col, dict) and col.get("name"):
+                        cols[col["name"]] = col
+
+                result[name] = {**table, "columns": cols}
+            return result
+
+        return {}
+
+    def _build_valid_columns(self, tables: dict[str, dict[str, Any]]) -> set[str]:
+        values: set[str] = set()
+        for table_name, table_info in tables.items():
+            columns = table_info.get("columns", {})
+            if isinstance(columns, dict):
+                for column_name in columns:
+                    values.add(f"{table_name}.{column_name}")
+        return values
+
+    def _normalize(self, text: str) -> str:
+        try:
+            from src.nlu.persian_normalizer import PersianNormalizer
+
+            value = PersianNormalizer().normalize_text(text)
+        except Exception:
+            value = text
+
+        try:
+            from src.nlu.colloquial_mapper import ColloquialMapper
+
+            value = ColloquialMapper().map_text(value)
+        except Exception:
+            pass
+
+        return value.strip().lower()
+
+    def _contains(self, normalized_question: str, alias: str) -> bool:
+        alias_norm = self._normalize(alias)
+        if not alias_norm:
+            return False
+        return alias_norm in normalized_question
+
+    def _safe_add_column(
         self,
-        column_scores: dict[str, float],
-        column_sources: dict[str, str],
+        columns: list[str],
+        evidence: list[dict[str, Any]],
         fq_column: str,
-        score: float,
         source: str,
+        score: float = 0.85,
     ) -> None:
-        previous_score = column_scores.get(fq_column, -1.0)
+        if fq_column in self.valid_columns and fq_column not in columns:
+            columns.append(fq_column)
+            table = fq_column.split(".", 1)[0]
+            evidence.append(
+                {
+                    "type": "column",
+                    "value": fq_column,
+                    "source": source,
+                    "score": score,
+                    "table": table,
+                }
+            )
 
-        if score > previous_score:
-            column_scores[fq_column] = score
-            column_sources[fq_column] = source
+    def _iter_alias_entries(self) -> list[tuple[str, list[str]]]:
+        raw = self.column_aliases
 
-        # If exact match already exists, do not overwrite it with fuzzy match.
-        if score == previous_score and not column_sources.get(fq_column, "").startswith("alias:"):
-            column_sources[fq_column] = source
+        if isinstance(raw.get("aliases"), dict):
+            raw = raw["aliases"]
 
-    def _alias_exact_match(self, alias_norm: str, normalized: str, tokens: set[str]) -> bool:
-        if not alias_norm:
-            return False
+        entries: list[tuple[str, list[str]]] = []
 
-        if " " in alias_norm:
-            return alias_norm in normalized
+        if isinstance(raw, dict):
+            for alias, targets in raw.items():
+                if isinstance(targets, str):
+                    targets = [targets]
+                if isinstance(targets, list):
+                    entries.append((str(alias), [str(x) for x in targets]))
+        return entries
 
-        return alias_norm in tokens
+    def _iter_glossary_terms(self) -> list[tuple[str, dict[str, Any]]]:
+        raw = self.business_glossary
 
-    def _can_fuzzy_match(self, token: str, alias: str) -> bool:
-        alias_norm = self.normalizer.normalize_for_search(alias)
+        if isinstance(raw.get("terms"), dict):
+            raw = raw["terms"]
 
-        if not alias_norm:
-            return False
+        if not isinstance(raw, dict):
+            return []
 
-        if token in self.STOPWORDS or alias_norm in self.STOPWORDS:
-            return False
+        terms: list[tuple[str, dict[str, Any]]] = []
+        for term, spec in raw.items():
+            if isinstance(spec, dict):
+                terms.append((str(term), spec))
+        return terms
 
-        if token in self.IMPORTANT_SHORT_ALIASES and alias_norm in self.IMPORTANT_SHORT_ALIASES:
-            return True
+    def _iter_metric_specs(self) -> list[tuple[str, dict[str, Any]]]:
+        raw = self.metric_definitions
 
-        if token in self.IMPORTANT_SHORT_ALIASES and alias_norm in self.IMPORTANT_SHORT_ALIASES:
-            return True
+        # Support either {"metrics": {...}} or a direct metric dictionary.
+        if isinstance(raw.get("metrics"), dict):
+            raw = raw["metrics"]
 
-        if len(token) < 4 or len(alias_norm) < 4:
-            return False
+        if not isinstance(raw, dict):
+            return []
 
-        # Prevent matches like "است" -> "استان".
-        if token[0] != alias_norm[0]:
-            return False
+        specs: list[tuple[str, dict[str, Any]]] = []
+        meta_keys = {
+            "project",
+            "artifact",
+            "version",
+            "created_at_utc",
+            "generated_at_utc",
+            "notes",
+            "policy",
+            "description",
+        }
 
-        return True
+        for metric_name, spec in raw.items():
+            if metric_name in meta_keys:
+                continue
+            if not isinstance(spec, dict):
+                # Defensive fix: skip strings/lists/meta values.
+                continue
 
-    def link(self, question: str) -> LinkedSchema:
-        normalized = self.normalizer.normalize_for_search(question)
-        tokens = set(self._tokens(question))
+            # A real metric usually has at least one of these keys.
+            if not any(k in spec for k in ("sql_expression", "required_columns", "columns", "default_table", "aliases_fa", "aliases_en")):
+                continue
 
-        column_scores: dict[str, float] = {}
-        column_sources: dict[str, str] = {}
-        unresolved_terms: list[str] = []
+            specs.append((str(metric_name), spec))
 
-        # 1) Exact alias matching
-        for alias, fq_columns in self.registry.aliases.items():
-            alias_norm = self.normalizer.normalize_for_search(alias)
+        return specs
 
-            if self._alias_exact_match(alias_norm, normalized, tokens):
-                for fq in fq_columns:
-                    self._update_column(
-                        column_scores,
-                        column_sources,
-                        fq,
-                        1.0,
-                        f"alias:{alias}",
-                    )
+    def _extract_columns_from_metric(self, spec: dict[str, Any]) -> list[str]:
+        candidates: list[str] = []
 
-        # 2) Direct column/table name matching
-        for fq in self.registry.all_fq_columns():
-            table, column = self.registry.split_fq_column(fq)
-            column_lower = column.lower()
-            table_lower = table.lower()
+        for key in ("required_columns", "columns", "preferred_columns"):
+            value = spec.get(key)
+            if isinstance(value, str):
+                candidates.append(value)
+            elif isinstance(value, list):
+                candidates.extend(str(x) for x in value)
 
-            if column_lower in tokens or column_lower in normalized:
-                self._update_column(
-                    column_scores,
-                    column_sources,
-                    fq,
-                    0.95,
-                    "direct_column_name",
-                )
+        # If the metric defines a default table and metric_column, combine them.
+        table = spec.get("default_table")
+        metric_column = spec.get("metric_column") or spec.get("column")
+        if isinstance(table, str) and isinstance(metric_column, str):
+            candidates.append(f"{table}.{metric_column}")
 
-            if table_lower in normalized:
-                for col in self.registry.get_columns(table):
-                    table_fq = f"{table}.{col}"
-                    self._update_column(
-                        column_scores,
-                        column_sources,
-                        table_fq,
-                        0.60,
-                        "direct_table_name",
-                    )
+        return candidates
 
-        # 3) Controlled fuzzy alias matching
-        if process is not None and fuzz is not None:
-            alias_keys = list(self.registry.aliases.keys())
+    def _make_schema_context(self, tables: list[str], columns: list[str]) -> str:
+        lines: list[str] = []
 
-            for token in tokens:
-                candidates = [
-                    alias for alias in alias_keys
-                    if self._can_fuzzy_match(token, alias)
-                ]
+        columns_by_table: dict[str, list[str]] = {}
+        for fq_column in columns:
+            table, col = fq_column.split(".", 1)
+            columns_by_table.setdefault(table, []).append(col)
 
-                if not candidates:
-                    continue
+        for table_name in tables:
+            table_info = self.tables.get(table_name, {})
+            table_columns = table_info.get("columns", {})
+            if not isinstance(table_columns, dict):
+                continue
 
-                match = process.extractOne(token, candidates, scorer=fuzz.WRatio)
-                if not match:
-                    continue
+            row_count = table_info.get("row_count")
+            header = f"TABLE {table_name}"
+            if row_count is not None:
+                header += f" -- rows: {row_count}"
+            lines.append(header)
 
-                alias, score, _ = match
+            selected_cols = columns_by_table.get(table_name) or list(table_columns.keys())[:6]
+            for col in selected_cols:
+                meta = table_columns.get(col, {})
+                col_type = meta.get("type", "UNKNOWN") if isinstance(meta, dict) else "UNKNOWN"
+                lines.append(f"  - {col} ({col_type})")
 
-                if score >= self.fuzzy_threshold:
-                    for fq in self.registry.aliases[alias]:
-                        self._update_column(
-                            column_scores,
-                            column_sources,
-                            fq,
-                            score / 100.0,
-                            f"fuzzy_alias:{alias}",
-                        )
+        return "\n".join(lines)
 
-        table_scores: dict[str, float] = defaultdict(float)
+    def _join_hints_for_tables(self, tables: list[str]) -> list[str]:
+        hints: list[str] = []
+        table_set = set(tables)
 
-        columns: list[ColumnRef] = []
-        for fq, score in sorted(column_scores.items(), key=lambda item: item[1], reverse=True):
-            table, column = self.registry.split_fq_column(fq)
+        for edge in self.schema_graph.get("edges", []):
+            if not isinstance(edge, dict):
+                continue
 
-            if self.registry.has_column(table, column):
-                columns.append(
-                    ColumnRef(
-                        table=table,
-                        column=column,
-                        score=score,
-                        source=column_sources.get(fq, "unknown"),
-                    )
-                )
-                table_scores[table] = max(table_scores[table], score)
+            source = edge.get("source")
+            target = edge.get("target")
 
-        # Include base table when more than one non-base table is involved or joins need identity context.
-        if columns and "individuals_core" not in table_scores:
-            table_scores["individuals_core"] = 0.50
+            if source in table_set and target in table_set:
+                join_sql = edge.get("join_sql")
+                if join_sql:
+                    hints.append(str(join_sql))
 
-        tables = [
-            TableRef(table=table, score=score, source="derived_from_columns")
-            for table, score in sorted(table_scores.items(), key=lambda item: item[1], reverse=True)
-            if self.registry.has_table(table)
-        ]
+        return hints
 
-        table_names = [t.table for t in tables]
-        fq_columns = [c.fqdn for c in columns]
+    def link(self, question: str) -> SchemaLinkingResult:
+        normalized = self._normalize(question)
+        columns: list[str] = []
+        metrics: list[str] = []
+        evidence: list[dict[str, Any]] = []
 
-        join_hints = self.registry.join_hints_for_tables(table_names)
-        schema_context = self.registry.table_ddl_context(table_names, fq_columns)
+        # 1) Column aliases from metadata
+        for alias, targets in self._iter_alias_entries():
+            if self._contains(normalized, alias):
+                for fq_column in targets:
+                    self._safe_add_column(columns, evidence, fq_column, f"column_alias:{alias}", 1.0)
 
-        return LinkedSchema(
+        # 2) Extra robust aliases for stress-test and common Persian/Finglish expressions
+        for alias, targets in self.EXTRA_ALIASES.items():
+            if self._contains(normalized, alias):
+                for fq_column in targets:
+                    self._safe_add_column(columns, evidence, fq_column, f"extra_alias:{alias}", 0.94)
+
+        # 3) Business glossary preferred columns
+        for term, spec in self._iter_glossary_terms():
+            aliases = [term]
+            for k in ("aliases_fa", "aliases_en", "synonyms_fa", "synonyms_en"):
+                v = spec.get(k, [])
+                if isinstance(v, str):
+                    aliases.append(v)
+                elif isinstance(v, list):
+                    aliases.extend(str(x) for x in v)
+
+            if any(self._contains(normalized, alias) for alias in aliases):
+                preferred = spec.get("preferred_columns", [])
+                if isinstance(preferred, str):
+                    preferred = [preferred]
+                if isinstance(preferred, list):
+                    for fq_column in preferred:
+                        self._safe_add_column(columns, evidence, str(fq_column), f"business_glossary:{term}", 0.92)
+
+        # 4) Metrics
+        for metric_name, spec in self._iter_metric_specs():
+            aliases = [metric_name]
+            for k in ("aliases_fa", "aliases_en", "synonyms_fa", "synonyms_en"):
+                v = spec.get(k, [])
+                if isinstance(v, str):
+                    aliases.append(v)
+                elif isinstance(v, list):
+                    aliases.extend(str(x) for x in v)
+
+            if any(self._contains(normalized, alias) for alias in aliases):
+                if metric_name not in metrics:
+                    metrics.append(metric_name)
+                    evidence.append({"type": "metric", "value": metric_name, "source": "metric_definitions", "score": 0.9})
+                for fq_column in self._extract_columns_from_metric(spec):
+                    self._safe_add_column(columns, evidence, fq_column, f"metric:{metric_name}", 0.88)
+
+        # 5) Direct column/table mention
+        for fq_column in sorted(self.valid_columns):
+            table, column = fq_column.split(".", 1)
+            if column.lower() in normalized:
+                self._safe_add_column(columns, evidence, fq_column, "direct_column_name", 0.75)
+
+        tables: list[str] = []
+        for fq_column in columns:
+            table = fq_column.split(".", 1)[0]
+            if table not in tables:
+                tables.append(table)
+
+        # If a metric references a default_table but no column was linked, add table.
+        for metric_name, spec in self._iter_metric_specs():
+            if metric_name in metrics:
+                table = spec.get("default_table")
+                if isinstance(table, str) and table in self.tables and table not in tables:
+                    tables.append(table)
+
+        join_hints = self._join_hints_for_tables(tables)
+        schema_context = self._make_schema_context(tables, columns)
+
+        confidence = 0.0
+        if columns:
+            confidence = min(1.0, 0.55 + 0.08 * len(columns) + 0.05 * len(metrics))
+
+        return SchemaLinkingResult(
+            question=question,
+            normalized_question=normalized,
             tables=tables,
             columns=columns,
+            metrics=metrics,
             join_hints=join_hints,
             schema_context=schema_context,
-            unresolved_terms=unresolved_terms,
+            unresolved_terms=[],
+            confidence=round(confidence, 3),
+            evidence=evidence,
         )
