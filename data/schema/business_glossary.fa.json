@@ -1,0 +1,295 @@
+{
+  "project": "ADHD-VTD / VTD-Edge / PARS-SQL",
+  "artifact": "business_glossary_fa",
+  "version": "vtd_health_research_v1_semantic_glossary_v2",
+  "language": "fa",
+  "purpose": "Resolve Persian, Finglish, colloquial and domain terms to the current schema without referencing obsolete tables.",
+  "global_rules": {
+    "no_cross_dataset_join_without_explicit_graph_edge": true,
+    "if_term_maps_to_multiple_domains": "prefer explicit dataset/domain mentioned in the user question; otherwise ask clarification",
+    "binary_flags": "Treat 1 as Yes/True/has condition and 0 as No/False/does not have condition unless value dictionary says otherwise.",
+    "privacy": "For mental-health and suicidal-thought fields, prefer aggregate queries and avoid row-level disclosure."
+  },
+  "terms": {
+    "افسردگی": {
+      "canonical_term": "depression",
+      "ambiguity_level": "high",
+      "why_ambiguous_fa": "افسردگی در دیتاست‌های مختلف به صورت binary flag، score، diagnosis flag، disorder value یا prevalence percentage آمده است.",
+      "domain_interpretations": [
+        {
+          "domain": "student_depression",
+          "preferred_table": "student_depression",
+          "preferred_columns": [
+            "student_depression.depression_flag"
+          ],
+          "meaning_fa": "وجود/عدم وجود افسردگی در دیتاست اصلی دانشجویان",
+          "default_filter": "student_depression.depression_flag = 1",
+          "negative_filter": "student_depression.depression_flag = 0",
+          "example_question_fa": "چند دانشجو افسردگی دارند؟"
+        },
+        {
+          "domain": "general_mental_health",
+          "preferred_table": "mental_health_general",
+          "preferred_columns": [
+            "mental_health_general.depression_score"
+          ],
+          "meaning_fa": "نمره افسردگی در دیتاست عمومی سلامت روان",
+          "default_metric": "AVG(mental_health_general.depression_score)",
+          "example_question_fa": "میانگین نمره افسردگی در دیتاست عمومی چقدر است؟"
+        },
+        {
+          "domain": "university_student_survey",
+          "preferred_table": "university_student_mental_health",
+          "preferred_columns": [
+            "university_student_mental_health.depression_diagnosis"
+          ],
+          "meaning_fa": "تشخیص افسردگی در نظرسنجی کوچک دانشگاهی",
+          "default_filter": "university_student_mental_health.depression_diagnosis = 'Yes'",
+          "example_question_fa": "در نظرسنجی دانشگاهی چند نفر تشخیص افسردگی دارند؟"
+        },
+        {
+          "domain": "global_prevalence_long",
+          "preferred_table": "country_prevalence_long",
+          "preferred_columns": [
+            "country_prevalence_long.disorder",
+            "country_prevalence_long.prevalence_pct"
+          ],
+          "meaning_fa": "شیوع depression در کشور/سال",
+          "default_filter": "country_prevalence_long.disorder = 'depression'",
+          "default_metric": "AVG(country_prevalence_long.prevalence_pct)",
+          "example_question_fa": "روند شیوع depression در Iran چگونه است؟"
+        },
+        {
+          "domain": "global_prevalence_wide",
+          "preferred_table": "country_prevalence_wide",
+          "preferred_columns": [
+            "country_prevalence_wide.depression_pct"
+          ],
+          "meaning_fa": "ستون wide شیوع depression",
+          "default_metric": "AVG(country_prevalence_wide.depression_pct)",
+          "example_question_fa": "برای Iran آخرین مقدار depression_pct چقدر است؟"
+        }
+      ],
+      "routing_rule_fa": "اگر سؤال به دانشجو/CGPA/فشار تحصیلی/شهر اشاره کرد از student_depression استفاده کن؛ اگر به نمره/دیتاست عمومی اشاره کرد از mental_health_general؛ اگر به کشور/سال/شیوع جهانی اشاره کرد از country_prevalence؛ اگر به نظرسنجی دانشگاهی/تشخیص اشاره کرد از university_student_mental_health."
+    },
+    "اضطراب": {
+      "canonical_term": "anxiety",
+      "ambiguity_level": "medium",
+      "domain_interpretations": [
+        {
+          "domain": "general_mental_health",
+          "preferred_columns": [
+            "mental_health_general.anxiety_score"
+          ],
+          "meaning_fa": "نمره اضطراب در دیتاست عمومی",
+          "default_metric": "AVG(mental_health_general.anxiety_score)"
+        },
+        {
+          "domain": "university_student_survey",
+          "preferred_columns": [
+            "university_student_mental_health.anxiety_diagnosis"
+          ],
+          "meaning_fa": "تشخیص اضطراب در نظرسنجی دانشگاهی",
+          "default_filter": "university_student_mental_health.anxiety_diagnosis = 'Yes'"
+        },
+        {
+          "domain": "global_prevalence",
+          "preferred_columns": [
+            "country_prevalence_long.disorder",
+            "country_prevalence_long.prevalence_pct",
+            "country_prevalence_wide.anxiety_pct"
+          ],
+          "meaning_fa": "شیوع anxiety در سطح کشور/سال",
+          "default_filter": "country_prevalence_long.disorder = 'anxiety'"
+        }
+      ],
+      "routing_rule_fa": "اگر سؤال درباره دانشجویان افسردگی باشد و anxiety column وجود نداشته باشد نباید ستون hallucinate شود؛ باید به دیتاست عمومی/دانشگاهی/جهانی route کند یا clarification بخواهد."
+    },
+    "CGPA / معدل": {
+      "canonical_term": "cgpa",
+      "ambiguity_level": "medium",
+      "domain_interpretations": [
+        {
+          "domain": "student_depression",
+          "preferred_columns": [
+            "student_depression.cgpa_10"
+          ],
+          "meaning_fa": "CGPA عددی در مقیاس ۱۰ در دیتاست اصلی دانشجویان",
+          "default_metric": "AVG(student_depression.cgpa_10)"
+        },
+        {
+          "domain": "university_student_survey",
+          "preferred_columns": [
+            "university_student_mental_health.cgpa_range",
+            "university_student_mental_health.cgpa_mid"
+          ],
+          "meaning_fa": "CGPA range/mid در نظرسنجی دانشگاهی",
+          "default_metric": "AVG(university_student_mental_health.cgpa_mid)"
+        }
+      ],
+      "anti_hallucination": [
+        "Do not use deprecated schema/table names from older drafts.",
+        "Do not use gpa when user means cgpa_10 or cgpa_mid."
+      ],
+      "routing_rule_fa": "اگر سؤال 'دیتاست اصلی دانشجوها' یا افسردگی دانشجویان را گفت از cgpa_10 استفاده کن؛ اگر نظرسنجی دانشگاهی را گفت از cgpa_mid/cgpa_range."
+    },
+    "خواب": {
+      "canonical_term": "sleep",
+      "ambiguity_level": "high",
+      "domain_interpretations": [
+        {
+          "domain": "student_depression",
+          "preferred_columns": [
+            "student_depression.sleep_mid_hours",
+            "student_depression.sleep_duration_category"
+          ],
+          "meaning_fa": "خواب در دیتاست افسردگی دانشجویان؛ هم category و هم midpoint عددی دارد."
+        },
+        {
+          "domain": "student_habits",
+          "preferred_columns": [
+            "student_habits_performance.sleep_hours"
+          ],
+          "meaning_fa": "ساعت خواب در دیتاست عادت‌های دانشجویی."
+        },
+        {
+          "domain": "general_mental_health",
+          "preferred_columns": [
+            "mental_health_general.sleep_hours"
+          ],
+          "meaning_fa": "ساعت خواب در دیتاست عمومی سلامت روان."
+        }
+      ],
+      "routing_rule_fa": "اگر سؤال هم‌زمان افسردگی دانشجویی و خواب را گفت از student_depression.sleep_mid_hours/ sleep_duration_category استفاده کن؛ اگر نمره امتحان یا عادت‌ها را گفت از student_habits_performance.sleep_hours."
+    },
+    "درمان‌جویی": {
+      "canonical_term": "treatment_seeking",
+      "ambiguity_level": "medium",
+      "domain_interpretations": [
+        {
+          "domain": "general_mental_health",
+          "preferred_columns": [
+            "mental_health_general.seeks_treatment"
+          ],
+          "meaning_fa": "آیا فرد در دیتاست عمومی دنبال درمان است؟",
+          "positive_value": 1,
+          "negative_value": 0
+        },
+        {
+          "domain": "university_student_survey",
+          "preferred_columns": [
+            "university_student_mental_health.treatment_seeking"
+          ],
+          "meaning_fa": "درمان‌جویی در نظرسنجی دانشگاهی."
+        },
+        {
+          "domain": "workplace_survey",
+          "preferred_columns": [
+            "workplace_mental_health_survey.treatment"
+          ],
+          "meaning_fa": "treatment در نظرسنجی محیط کار."
+        }
+      ]
+    },
+    "ریسک سلامت روان": {
+      "canonical_term": "mental_health_risk",
+      "preferred_columns": [
+        "mental_health_general.mental_health_risk"
+      ],
+      "known_values": [
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "value_aliases": {
+        "کم": "Low",
+        "متوسط": "Medium",
+        "بالا": "High",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    },
+    "شیوع جهانی": {
+      "canonical_term": "global_prevalence",
+      "preferred_tables": [
+        "country_prevalence_long",
+        "country_prevalence_wide"
+      ],
+      "preferred_columns": [
+        "country_prevalence_long.country_name",
+        "country_prevalence_long.year",
+        "country_prevalence_long.disorder",
+        "country_prevalence_long.prevalence_pct",
+        "country_prevalence_wide.depression_pct",
+        "country_prevalence_wide.anxiety_pct"
+      ],
+      "routing_rule_fa": "اگر سؤال درباره کشور، سال، Iran/India، رتبه جهانی یا روند جهانی باشد از domain global_prevalence استفاده کن."
+    },
+    "محیط کار": {
+      "canonical_term": "workplace",
+      "preferred_table": "workplace_mental_health_survey",
+      "preferred_columns": [
+        "workplace_mental_health_survey.treatment",
+        "workplace_mental_health_survey.benefits",
+        "workplace_mental_health_survey.care_options"
+      ],
+      "routing_rule_fa": "سؤال‌های مربوط به benefits، care options، remote work، tech company و work_interfere باید به workplace_mental_health_survey بروند."
+    }
+  },
+  "value_aliases": {
+    "gender": {
+      "زن": "Female",
+      "دختر": "Female",
+      "female": "Female",
+      "مرد": "Male",
+      "پسر": "Male",
+      "male": "Male",
+      "غیرباینری": "Other/Non-binary",
+      "نامشخص": "Other/Unspecified"
+    },
+    "binary_flags": {
+      "دارد": 1,
+      "دارن": 1,
+      "داشته": 1,
+      "بله": 1,
+      "yes": 1,
+      "true": 1,
+      "ندارد": 0,
+      "ندارن": 0,
+      "خیر": 0,
+      "no": 0,
+      "false": 0
+    },
+    "disorder": {
+      "افسردگی": "depression",
+      "depression": "depression",
+      "اضطراب": "anxiety",
+      "anxiety": "anxiety",
+      "دوقطبی": "bipolar",
+      "bipolar": "bipolar",
+      "اسکیزوفرنی": "schizophrenia",
+      "schizophrenia": "schizophrenia",
+      "اختلال خوردن": "eating_disorder",
+      "eating disorder": "eating_disorder"
+    },
+    "mental_health_risk": {
+      "ریسک بالا": "High",
+      "بالا": "High",
+      "high": "High",
+      "ریسک متوسط": "Medium",
+      "متوسط": "Medium",
+      "medium": "Medium",
+      "ریسک پایین": "Low",
+      "پایین": "Low",
+      "low": "Low"
+    }
+  },
+  "forbidden_old_references": [
+    "deprecated_schema_reference",
+    "deprecated_schema_reference",
+    "deprecated_schema_reference",
+    "deprecated_schema_reference",
+    "deprecated_schema_reference"
+  ]
+}

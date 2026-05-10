@@ -1,0 +1,85 @@
+# Recommended runtime: CPython 3.12.10 64-bit on Windows
+# Project: VTD-Edge / ADHD-VTD Persian Text-to-SQL Research Pipeline
+# Important:
+# - Do NOT pin tokenizers directly unless required by a tested lock file.
+# - sqlite3 is included in CPython.
+# - If llama-cpp-python fails to build on Windows, use the proper CPU/CUDA wheel source.
+
+# =========================
+# Core runtime & utilities
+# =========================
+python-dotenv==1.2.2
+pydantic==2.13.4
+pydantic-settings==2.14.1
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+tqdm==4.67.3
+orjson==3.11.9
+PyYAML==6.0.3
+jsonschema==4.26.0
+typer==0.25.1
+rich==15.0.0
+tabulate>=0.9.0,<1
+
+# =========================
+# Workflow orchestration
+# =========================
+langgraph==1.1.10
+langgraph-checkpoint-sqlite==3.0.3
+
+# =========================
+# Prompt templates / retry helpers
+# =========================
+Jinja2==3.1.6
+tenacity==9.1.4
+
+# =========================
+# LLM / Local Inference
+# =========================
+llama-cpp-python==0.3.22
+
+# =========================
+# Retrieval / Vector DB & Embeddings
+# =========================
+chromadb==1.5.9
+sentence-transformers==5.4.1
+torch==2.11.0
+transformers==5.8.0
+sentencepiece>=0.2.0,<0.3
+rank-bm25>=0.2.2,<0.3
+networkx>=3.4,<4
+# Do NOT add tokenizers==0.23.1.
+# Let transformers/chromadb resolve a compatible tokenizers version.
+
+# =========================
+# SQL Parsing / Safety
+# =========================
+sqlglot==30.7.0
+
+# =========================
+# Persian NLP / Normalization
+# =========================
+hazm==0.12.1
+regex==2026.5.9
+persiantools==5.5.1
+RapidFuzz==3.14.5
+
+# =========================
+# Logging, Visualization, Analysis
+# =========================
+loguru==0.7.3
+matplotlib==3.10.9
+seaborn==0.13.2
+openpyxl>=3.1.0,<4
+statsmodels>=0.14.0,<0.16
+
+# =========================
+# Dev / Testing / Quality
+# =========================
+pytest==9.0.3
+black==26.3.1
+isort==8.0.1
+ruff==0.15.12
+mypy==2.0.0

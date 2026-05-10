@@ -1,0 +1,494 @@
+{
+  "دیتاست اصلی دانشجوها": [
+    "student_depression.student_depression_id"
+  ],
+  "دانشجویان افسردگی": [
+    "student_depression.student_depression_id"
+  ],
+  "دیتاست افسردگی دانشجوها": [
+    "student_depression.student_depression_id"
+  ],
+  "دیتاست عادت‌ها": [
+    "student_habits_performance.habit_row_id"
+  ],
+  "عادت‌های دانشجویی": [
+    "student_habits_performance.habit_row_id"
+  ],
+  "دیتاست عمومی": [
+    "mental_health_general.general_row_id"
+  ],
+  "سلامت روان عمومی": [
+    "mental_health_general.general_row_id"
+  ],
+  "نظرسنجی دانشگاهی": [
+    "university_student_mental_health.university_row_id"
+  ],
+  "محیط کار": [
+    "workplace_mental_health_survey.workplace_row_id"
+  ],
+  "شیوع جهانی": [
+    "country_prevalence_long.prevalence_pct",
+    "country_prevalence_wide.depression_pct",
+    "country_prevalence_wide.anxiety_pct"
+  ],
+  "کشورها": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name"
+  ],
+  "کشور": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name",
+    "student_depression.country",
+    "workplace_mental_health_survey.country"
+  ],
+  "سال": [
+    "country_prevalence_long.year",
+    "country_prevalence_wide.year",
+    "workplace_mental_health_survey.survey_year"
+  ],
+  "منبع": [
+    "dim_source.source_name",
+    "dim_source.description",
+    "dim_source.file_name"
+  ],
+  "افسردگی": [
+    "student_depression.depression_flag",
+    "mental_health_general.depression_score",
+    "university_student_mental_health.depression_diagnosis",
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.depression_pct"
+  ],
+  "افسرده": [
+    "student_depression.depression_flag",
+    "university_student_mental_health.depression_diagnosis"
+  ],
+  "دیپرشن": [
+    "student_depression.depression_flag",
+    "mental_health_general.depression_score",
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.depression_pct"
+  ],
+  "depression": [
+    "student_depression.depression_flag",
+    "mental_health_general.depression_score",
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.depression_pct"
+  ],
+  "depressed": [
+    "student_depression.depression_flag",
+    "university_student_mental_health.depression_diagnosis"
+  ],
+  "افسوردگی": [
+    "student_depression.depression_flag",
+    "mental_health_general.depression_score",
+    "country_prevalence_wide.depression_pct"
+  ],
+  "نرخ افسردگی": [
+    "student_depression.depression_flag",
+    "country_prevalence_wide.depression_pct",
+    "country_prevalence_long.prevalence_pct"
+  ],
+  "درصد افسردگی": [
+    "student_depression.depression_flag",
+    "country_prevalence_wide.depression_pct",
+    "country_prevalence_long.prevalence_pct"
+  ],
+  "نمره افسردگی": [
+    "mental_health_general.depression_score"
+  ],
+  "تشخیص افسردگی": [
+    "university_student_mental_health.depression_diagnosis"
+  ],
+  "اضطراب": [
+    "mental_health_general.anxiety_score",
+    "university_student_mental_health.anxiety_diagnosis",
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.anxiety_pct"
+  ],
+  "اضتراب": [
+    "mental_health_general.anxiety_score",
+    "university_student_mental_health.anxiety_diagnosis",
+    "country_prevalence_wide.anxiety_pct"
+  ],
+  "anxiety": [
+    "mental_health_general.anxiety_score",
+    "university_student_mental_health.anxiety_diagnosis",
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.anxiety_pct"
+  ],
+  "ezterab": [
+    "mental_health_general.anxiety_score",
+    "university_student_mental_health.anxiety_diagnosis",
+    "country_prevalence_wide.anxiety_pct"
+  ],
+  "نمره اضطراب": [
+    "mental_health_general.anxiety_score"
+  ],
+  "تشخیص اضطراب": [
+    "university_student_mental_health.anxiety_diagnosis"
+  ],
+  "حمله پانیک": [
+    "university_student_mental_health.panic_attack"
+  ],
+  "panic attack": [
+    "university_student_mental_health.panic_attack"
+  ],
+  "panik attack": [
+    "university_student_mental_health.panic_attack"
+  ],
+  "پانیک": [
+    "university_student_mental_health.panic_attack"
+  ],
+  "استرس": [
+    "mental_health_general.stress_level",
+    "student_depression.financial_stress",
+    "student_depression.academic_pressure"
+  ],
+  "فشار تحصیلی": [
+    "student_depression.academic_pressure"
+  ],
+  "academic pressure": [
+    "student_depression.academic_pressure"
+  ],
+  "فشار مالی": [
+    "student_depression.financial_stress"
+  ],
+  "financial stress": [
+    "student_depression.financial_stress"
+  ],
+  "فشار کاری": [
+    "student_depression.work_pressure"
+  ],
+  "افکار خودکشی": [
+    "student_depression.suicidal_thoughts"
+  ],
+  "خودکشی": [
+    "student_depression.suicidal_thoughts"
+  ],
+  "suicidal": [
+    "student_depression.suicidal_thoughts"
+  ],
+  "سابقه خانوادگی": [
+    "student_depression.family_history_mental_illness",
+    "workplace_mental_health_survey.family_history"
+  ],
+  "family history": [
+    "student_depression.family_history_mental_illness",
+    "workplace_mental_health_survey.family_history"
+  ],
+  "معدل": [
+    "student_depression.cgpa_10",
+    "university_student_mental_health.cgpa_mid",
+    "university_student_mental_health.cgpa_range"
+  ],
+  "cgpa": [
+    "student_depression.cgpa_10",
+    "university_student_mental_health.cgpa_mid",
+    "university_student_mental_health.cgpa_range"
+  ],
+  "CGPA": [
+    "student_depression.cgpa_10",
+    "university_student_mental_health.cgpa_mid",
+    "university_student_mental_health.cgpa_range"
+  ],
+  "نمره امتحان": [
+    "student_habits_performance.exam_score"
+  ],
+  "exam score": [
+    "student_habits_performance.exam_score"
+  ],
+  "عملکرد تحصیلی": [
+    "student_habits_performance.exam_score",
+    "student_depression.cgpa_10"
+  ],
+  "حضور": [
+    "student_habits_performance.attendance_percentage"
+  ],
+  "درصد حضور": [
+    "student_habits_performance.attendance_percentage"
+  ],
+  "خواب": [
+    "student_depression.sleep_mid_hours",
+    "student_depression.sleep_duration_category",
+    "mental_health_general.sleep_hours",
+    "student_habits_performance.sleep_hours"
+  ],
+  "ساعت خواب": [
+    "student_depression.sleep_mid_hours",
+    "mental_health_general.sleep_hours",
+    "student_habits_performance.sleep_hours"
+  ],
+  "مدت خواب": [
+    "student_depression.sleep_duration_category",
+    "student_depression.sleep_mid_hours"
+  ],
+  "sleep": [
+    "student_depression.sleep_mid_hours",
+    "student_depression.sleep_duration_category",
+    "mental_health_general.sleep_hours",
+    "student_habits_performance.sleep_hours"
+  ],
+  "جنسیت": [
+    "student_depression.gender",
+    "student_habits_performance.gender",
+    "mental_health_general.gender",
+    "university_student_mental_health.gender",
+    "workplace_mental_health_survey.gender"
+  ],
+  "gender": [
+    "student_depression.gender",
+    "student_habits_performance.gender",
+    "mental_health_general.gender",
+    "university_student_mental_health.gender",
+    "workplace_mental_health_survey.gender"
+  ],
+  "زن": [
+    "student_depression.gender",
+    "student_habits_performance.gender",
+    "mental_health_general.gender",
+    "university_student_mental_health.gender",
+    "workplace_mental_health_survey.gender"
+  ],
+  "مرد": [
+    "student_depression.gender",
+    "student_habits_performance.gender",
+    "mental_health_general.gender",
+    "university_student_mental_health.gender",
+    "workplace_mental_health_survey.gender"
+  ],
+  "سن": [
+    "student_depression.age",
+    "student_habits_performance.age",
+    "mental_health_general.age",
+    "university_student_mental_health.age",
+    "workplace_mental_health_survey.age"
+  ],
+  "age": [
+    "student_depression.age",
+    "student_habits_performance.age",
+    "mental_health_general.age",
+    "university_student_mental_health.age",
+    "workplace_mental_health_survey.age"
+  ],
+  "شهر": [
+    "student_depression.city"
+  ],
+  "city": [
+    "student_depression.city"
+  ],
+  "مدرک": [
+    "student_depression.degree",
+    "student_habits_performance.parental_education_level"
+  ],
+  "degree": [
+    "student_depression.degree"
+  ],
+  "رشته": [
+    "university_student_mental_health.course"
+  ],
+  "course": [
+    "university_student_mental_health.course"
+  ],
+  "سال تحصیل": [
+    "university_student_mental_health.year_of_study"
+  ],
+  "year of study": [
+    "university_student_mental_health.year_of_study"
+  ],
+  "رژیم غذایی": [
+    "student_depression.dietary_habits",
+    "student_habits_performance.diet_quality"
+  ],
+  "کیفیت رژیم": [
+    "student_habits_performance.diet_quality"
+  ],
+  "diet": [
+    "student_depression.dietary_habits",
+    "student_habits_performance.diet_quality"
+  ],
+  "ورزش": [
+    "student_habits_performance.exercise_frequency",
+    "mental_health_general.physical_activity_days"
+  ],
+  "exercise": [
+    "student_habits_performance.exercise_frequency",
+    "mental_health_general.physical_activity_days"
+  ],
+  "ساعت مطالعه": [
+    "student_habits_performance.study_hours_per_day"
+  ],
+  "study hours": [
+    "student_habits_performance.study_hours_per_day"
+  ],
+  "شبکه اجتماعی": [
+    "student_habits_performance.social_media_hours"
+  ],
+  "سوشال مدیا": [
+    "student_habits_performance.social_media_hours"
+  ],
+  "social media": [
+    "student_habits_performance.social_media_hours"
+  ],
+  "نتفلیکس": [
+    "student_habits_performance.netflix_hours"
+  ],
+  "netflix": [
+    "student_habits_performance.netflix_hours"
+  ],
+  "کیفیت اینترنت": [
+    "student_habits_performance.internet_quality"
+  ],
+  "internet": [
+    "student_habits_performance.internet_quality"
+  ],
+  "شغل پاره وقت": [
+    "student_habits_performance.part_time_job"
+  ],
+  "part time": [
+    "student_habits_performance.part_time_job"
+  ],
+  "فعالیت فوق برنامه": [
+    "student_habits_performance.extracurricular_participation"
+  ],
+  "درمان‌جویی": [
+    "mental_health_general.seeks_treatment",
+    "university_student_mental_health.treatment_seeking",
+    "workplace_mental_health_survey.treatment"
+  ],
+  "دنبال درمان": [
+    "mental_health_general.seeks_treatment",
+    "university_student_mental_health.treatment_seeking",
+    "workplace_mental_health_survey.treatment"
+  ],
+  "treatment": [
+    "mental_health_general.seeks_treatment",
+    "university_student_mental_health.treatment_seeking",
+    "workplace_mental_health_survey.treatment"
+  ],
+  "treatment seeking": [
+    "mental_health_general.seeks_treatment",
+    "university_student_mental_health.treatment_seeking"
+  ],
+  "ریسک سلامت روان": [
+    "mental_health_general.mental_health_risk"
+  ],
+  "mental health risk": [
+    "mental_health_general.mental_health_risk"
+  ],
+  "حمایت اجتماعی": [
+    "mental_health_general.social_support_score"
+  ],
+  "social support": [
+    "mental_health_general.social_support_score"
+  ],
+  "بهره‌وری": [
+    "mental_health_general.productivity_score"
+  ],
+  "productivity": [
+    "mental_health_general.productivity_score"
+  ],
+  "سابقه سلامت روان": [
+    "mental_health_general.mental_health_history"
+  ],
+  "مزایا": [
+    "workplace_mental_health_survey.benefits"
+  ],
+  "benefits": [
+    "workplace_mental_health_survey.benefits"
+  ],
+  "care options": [
+    "workplace_mental_health_survey.care_options"
+  ],
+  "گزینه‌های مراقبت": [
+    "workplace_mental_health_survey.care_options"
+  ],
+  "remote work": [
+    "workplace_mental_health_survey.remote_work"
+  ],
+  "دورکاری": [
+    "workplace_mental_health_survey.remote_work"
+  ],
+  "tech company": [
+    "workplace_mental_health_survey.tech_company"
+  ],
+  "شرکت تکنولوژی": [
+    "workplace_mental_health_survey.tech_company"
+  ],
+  "wellness program": [
+    "workplace_mental_health_survey.wellness_program"
+  ],
+  "seek help": [
+    "workplace_mental_health_survey.seek_help"
+  ],
+  "leave difficulty": [
+    "workplace_mental_health_survey.leave_difficulty"
+  ],
+  "work interfere": [
+    "workplace_mental_health_survey.work_interfere"
+  ],
+  "پیامد منفی": [
+    "workplace_mental_health_survey.mental_health_consequence"
+  ],
+  "اختلال": [
+    "country_prevalence_long.disorder"
+  ],
+  "disorder": [
+    "country_prevalence_long.disorder"
+  ],
+  "شیوع": [
+    "country_prevalence_long.prevalence_pct",
+    "country_prevalence_wide.depression_pct",
+    "country_prevalence_wide.anxiety_pct",
+    "country_prevalence_wide.bipolar_pct",
+    "country_prevalence_wide.schizophrenia_pct",
+    "country_prevalence_wide.eating_disorder_pct"
+  ],
+  "prevalence": [
+    "country_prevalence_long.prevalence_pct",
+    "country_prevalence_wide.depression_pct",
+    "country_prevalence_wide.anxiety_pct",
+    "country_prevalence_wide.bipolar_pct",
+    "country_prevalence_wide.schizophrenia_pct",
+    "country_prevalence_wide.eating_disorder_pct"
+  ],
+  "اسکیزوفرنی": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.schizophrenia_pct"
+  ],
+  "schizophrenia": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.schizophrenia_pct"
+  ],
+  "دوقطبی": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.bipolar_pct"
+  ],
+  "bipolar": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.bipolar_pct"
+  ],
+  "اختلال خوردن": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.eating_disorder_pct"
+  ],
+  "eating disorder": [
+    "country_prevalence_long.disorder",
+    "country_prevalence_wide.eating_disorder_pct"
+  ],
+  "Iran": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name"
+  ],
+  "ایران": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name"
+  ],
+  "India": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name"
+  ],
+  "هند": [
+    "country_prevalence_long.country_name",
+    "country_prevalence_wide.country_name"
+  ]
+}

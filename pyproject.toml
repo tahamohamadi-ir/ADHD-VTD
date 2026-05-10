@@ -1,0 +1,15 @@
+﻿[project]
+name = "adhd-vtd"
+version = "0.1.0"
+description = "Persian-aware reflexive Text-to-SQL system for mental health data"
+requires-python = ">=3.12,<3.13"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

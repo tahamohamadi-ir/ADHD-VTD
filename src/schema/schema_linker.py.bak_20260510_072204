@@ -1,0 +1,278 @@
+from __future__ import annotations
+
+import re
+from collections import defaultdict
+
+from src.core.types import ColumnRef, LinkedSchema, TableRef
+from src.nlu.persian_normalizer import PersianNormalizer
+from src.schema.schema_registry import SchemaRegistry
+
+try:
+    from rapidfuzz import fuzz, process
+except Exception:  # pragma: no cover
+    fuzz = None
+    process = None
+
+
+class SchemaLinker:
+    """
+    Persian-aware schema linker.
+
+    Strategy:
+    1. Normalize question.
+    2. Match explicit aliases from column_aliases.fa.json.
+    3. Match direct table/column names.
+    4. Use controlled fuzzy matching only for meaningful tokens.
+    5. Return compact schema context and join hints.
+    """
+
+    IMPORTANT_SHORT_ALIASES = {
+        "زن",
+        "مرد",
+    }
+
+    STOPWORDS = {
+        "است",
+        "هست",
+        "هستن",
+        "هستند",
+        "بود",
+        "بوده",
+        "باشد",
+        "باشند",
+        "را",
+        "رو",
+        "به",
+        "در",
+        "از",
+        "با",
+        "برای",
+        "تا",
+        "که",
+        "چه",
+        "چی",
+        "چیه",
+        "چند",
+        "چقدر",
+        "کدام",
+        "کدوم",
+        "آیا",
+        "ایا",
+        "لطفا",
+        "لطفاً",
+        "بده",
+        "نشان",
+        "نمایش",
+        "کن",
+        "کنم",
+        "کنید",
+        "میانگین",
+        "متوسط",
+        "تعداد",
+        "افراد",
+        "فرد",
+        "کمتر",
+        "بیشتر",
+        "بالای",
+        "زیر",
+        "برابر",
+        "دارند",
+        "دارد",
+        "داشته",
+        "های",
+        "هایی",
+        "ها",
+        "؟",
+        "?",
+    }
+
+    TOKEN_PATTERN = re.compile(r"[\w\u0600-\u06FF\-]+")
+
+    def __init__(self, registry: SchemaRegistry | None = None, fuzzy_threshold: int = 88) -> None:
+        self.registry = registry or SchemaRegistry()
+        self.normalizer = PersianNormalizer()
+        self.fuzzy_threshold = fuzzy_threshold
+
+    def _tokens(self, text: str) -> list[str]:
+        normalized = self.normalizer.normalize_for_search(text)
+        tokens = self.TOKEN_PATTERN.findall(normalized)
+
+        cleaned: list[str] = []
+        for token in tokens:
+            token = token.strip().lower()
+
+            if len(token) < 3 and token not in self.IMPORTANT_SHORT_ALIASES:
+                continue
+
+            if token in self.STOPWORDS and token not in self.IMPORTANT_SHORT_ALIASES:
+                continue
+
+            cleaned.append(token)
+
+        return cleaned
+
+    def _update_column(
+        self,
+        column_scores: dict[str, float],
+        column_sources: dict[str, str],
+        fq_column: str,
+        score: float,
+        source: str,
+    ) -> None:
+        previous_score = column_scores.get(fq_column, -1.0)
+
+        if score > previous_score:
+            column_scores[fq_column] = score
+            column_sources[fq_column] = source
+
+        # If exact match already exists, do not overwrite it with fuzzy match.
+        if score == previous_score and not column_sources.get(fq_column, "").startswith("alias:"):
+            column_sources[fq_column] = source
+
+    def _alias_exact_match(self, alias_norm: str, normalized: str, tokens: set[str]) -> bool:
+        if not alias_norm:
+            return False
+
+        if " " in alias_norm:
+            return alias_norm in normalized
+
+        return alias_norm in tokens
+
+    def _can_fuzzy_match(self, token: str, alias: str) -> bool:
+        alias_norm = self.normalizer.normalize_for_search(alias)
+
+        if not alias_norm:
+            return False
+
+        if token in self.STOPWORDS or alias_norm in self.STOPWORDS:
+            return False
+
+        if token in self.IMPORTANT_SHORT_ALIASES and alias_norm in self.IMPORTANT_SHORT_ALIASES:
+            return True
+
+        if len(token) < 4 or len(alias_norm) < 4:
+            return False
+
+        # Prevent matches like "است" -> "استان".
+        if token[0] != alias_norm[0]:
+            return False
+
+        return True
+
+    def link(self, question: str) -> LinkedSchema:
+        normalized = self.normalizer.normalize_for_search(question)
+        tokens = set(self._tokens(question))
+
+        column_scores: dict[str, float] = {}
+        column_sources: dict[str, str] = {}
+        unresolved_terms: list[str] = []
+
+        # 1) Exact alias matching
+        for alias, fq_columns in self.registry.aliases.items():
+            alias_norm = self.normalizer.normalize_for_search(alias)
+
+            if self._alias_exact_match(alias_norm, normalized, tokens):
+                for fq in fq_columns:
+                    self._update_column(
+                        column_scores,
+                        column_sources,
+                        fq,
+                        1.0,
+                        f"alias:{alias}",
+                    )
+
+        # 2) Direct column/table name matching
+        for fq in self.registry.all_fq_columns():
+            table, column = self.registry.split_fq_column(fq)
+            column_lower = column.lower()
+            table_lower = table.lower()
+
+            if column_lower in tokens or column_lower in normalized:
+                self._update_column(
+                    column_scores,
+                    column_sources,
+                    fq,
+                    0.95,
+                    "direct_column_name",
+                )
+
+            if table_lower in normalized:
+                for col in self.registry.get_columns(table):
+                    table_fq = f"{table}.{col}"
+                    self._update_column(
+                        column_scores,
+                        column_sources,
+                        table_fq,
+                        0.60,
+                        "direct_table_name",
+                    )
+
+        # 3) Controlled fuzzy alias matching
+        if process is not None and fuzz is not None:
+            alias_keys = list(self.registry.aliases.keys())
+
+            for token in tokens:
+                candidates = [
+                    alias for alias in alias_keys
+                    if self._can_fuzzy_match(token, alias)
+                ]
+
+                if not candidates:
+                    continue
+
+                match = process.extractOne(token, candidates, scorer=fuzz.WRatio)
+                if not match:
+                    continue
+
+                alias, score, _ = match
+
+                if score >= self.fuzzy_threshold:
+                    for fq in self.registry.aliases[alias]:
+                        self._update_column(
+                            column_scores,
+                            column_sources,
+                            fq,
+                            score / 100.0,
+                            f"fuzzy_alias:{alias}",
+                        )
+
+        table_scores: dict[str, float] = defaultdict(float)
+
+        columns: list[ColumnRef] = []
+        for fq, score in sorted(column_scores.items(), key=lambda item: item[1], reverse=True):
+            table, column = self.registry.split_fq_column(fq)
+
+            if self.registry.has_column(table, column):
+                columns.append(
+                    ColumnRef(
+                        table=table,
+                        column=column,
+                        score=score,
+                        source=column_sources.get(fq, "unknown"),
+                    )
+                )
+                table_scores[table] = max(table_scores[table], score)
+
+        # Include base table when more than one non-base table is involved or joins need identity context.
+        if columns and "individuals_core" not in table_scores:
+            table_scores["individuals_core"] = 0.50
+
+        tables = [
+            TableRef(table=table, score=score, source="derived_from_columns")
+            for table, score in sorted(table_scores.items(), key=lambda item: item[1], reverse=True)
+            if self.registry.has_table(table)
+        ]
+
+        table_names = [t.table for t in tables]
+        fq_columns = [c.fqdn for c in columns]
+
+        join_hints = self.registry.join_hints_for_tables(table_names)
+        schema_context = self.registry.table_ddl_context(table_names, fq_columns)
+
+        return LinkedSchema(
+            tables=tables,
+            columns=columns,
+            join_hints=join_hints,
+            schema_context=schema_context,
+            unresolved_terms=unresolved_terms,
+        )

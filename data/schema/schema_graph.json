@@ -1,0 +1,358 @@
+{
+  "project": "ADHD-VTD / VTD-Edge / PARS-SQL",
+  "artifact": "schema_graph",
+  "version": "vtd_health_research_v1_semantic_graph_v2",
+  "generated_for_schema_snapshot": "generated_at_utc:2026-05-10T19:14:44.504813+00:00",
+  "design_principle": "The current SQLite database has no declared foreign keys. Therefore, this graph treats most tables as independent semantic domains and avoids synthetic joins. Only semantically defensible joins are listed explicitly.",
+  "default_policy": {
+    "allow_cross_domain_joins_by_default": false,
+    "join_without_declared_edge": "forbidden",
+    "preferred_routing": "single_domain_first",
+    "if_question_mentions_multiple_domains": "ask_clarification_or_use_dashboard_mode_without_join",
+    "reason": "No stable individual-level identifier exists across most datasets."
+  },
+  "nodes": [
+    {
+      "id": "student_depression",
+      "type": "table",
+      "role": "student_depression_dataset",
+      "domain": "student_depression",
+      "primary_key": "student_depression_id",
+      "row_count": 27901,
+      "description_fa": "دیتاست اصلی دانشجویان با متغیرهای افسردگی، فشار تحصیلی، CGPA، خواب، شهر، جنسیت و ریسک‌های فردی.",
+      "safe_for": [
+        "student_depression_rate",
+        "academic_pressure",
+        "financial_stress",
+        "sleep_category",
+        "city_ranking",
+        "student_dashboard"
+      ],
+      "do_not_join_with": [
+        "student_habits_performance",
+        "university_student_mental_health",
+        "mental_health_general",
+        "workplace_mental_health_survey"
+      ],
+      "reason_no_join_fa": "شناسه مشترک پایدار بین این جدول و سایر دیتاست‌های فردی وجود ندارد."
+    },
+    {
+      "id": "student_habits_performance",
+      "type": "table",
+      "role": "student_lifestyle_performance_dataset",
+      "domain": "student_habits",
+      "primary_key": "habit_row_id",
+      "row_count": 1000,
+      "description_fa": "دیتاست عادت‌های دانشجویی، مطالعه، شبکه اجتماعی، خواب، کیفیت رژیم، ورزش و نمره امتحان.",
+      "safe_for": [
+        "exam_score",
+        "study_hours",
+        "social_media_hours",
+        "sleep_hours",
+        "mental_health_rating",
+        "performance_dashboard"
+      ],
+      "do_not_join_with": [
+        "student_depression",
+        "university_student_mental_health",
+        "mental_health_general"
+      ],
+      "reason_no_join_fa": "original_student_id با شناسه‌های سایر دیتاست‌ها هم‌معنا یا قابل join قطعی نیست."
+    },
+    {
+      "id": "mental_health_general",
+      "type": "table",
+      "role": "general_mental_health_dataset",
+      "domain": "general_mental_health",
+      "primary_key": "general_row_id",
+      "row_count": 10000,
+      "description_fa": "دیتاست عمومی سلامت روان با امتیاز افسردگی، اضطراب، استرس، خواب، حمایت اجتماعی، بهره‌وری و درمان‌جویی.",
+      "safe_for": [
+        "general_depression_score",
+        "general_anxiety_score",
+        "treatment_seeking",
+        "mental_health_risk",
+        "productivity_gap"
+      ],
+      "do_not_join_with": [
+        "student_depression",
+        "student_habits_performance",
+        "workplace_mental_health_survey"
+      ],
+      "reason_no_join_fa": "این dataset مستقل است و شناسه فردی مشترک ندارد."
+    },
+    {
+      "id": "university_student_mental_health",
+      "type": "table",
+      "role": "small_university_survey",
+      "domain": "university_student_survey",
+      "primary_key": "university_row_id",
+      "row_count": 101,
+      "description_fa": "نظرسنجی کوچک دانشگاهی شامل CGPA range، diagnosis flags، panic attack و treatment seeking.",
+      "safe_for": [
+        "university_depression_diagnosis",
+        "university_anxiety_diagnosis",
+        "panic_attack",
+        "treatment_seeking"
+      ],
+      "do_not_join_with": [
+        "student_depression",
+        "student_habits_performance"
+      ],
+      "reason_no_join_fa": "survey مستقل است و شناسه مشترک با دیتاست‌های دیگر ندارد."
+    },
+    {
+      "id": "workplace_mental_health_survey",
+      "type": "table",
+      "role": "workplace_mental_health_survey",
+      "domain": "workplace_survey",
+      "primary_key": "workplace_row_id",
+      "row_count": 1259,
+      "description_fa": "نظرسنجی محیط کار شامل treatment، benefits، care options، remote work، company attributes و نگرش‌ها.",
+      "safe_for": [
+        "workplace_treatment",
+        "benefits",
+        "care_options",
+        "remote_work",
+        "workplace_policy_matrix"
+      ],
+      "do_not_join_with": [
+        "mental_health_general",
+        "student_depression"
+      ],
+      "reason_no_join_fa": "این survey مستقل است و شناسه مشترک ندارد."
+    },
+    {
+      "id": "country_prevalence_long",
+      "type": "table",
+      "role": "global_prevalence_long",
+      "domain": "global_prevalence",
+      "primary_key": "prevalence_id",
+      "row_count": 32100,
+      "description_fa": "دیتاست طولی کشور/سال/اختلال برای شیوع جهانی اختلالات روان.",
+      "safe_for": [
+        "global_trend",
+        "country_ranking",
+        "disorder_comparison",
+        "yearly_prevalence"
+      ],
+      "preferred_for": "سؤال‌هایی که اختلال را به صورت value مثل disorder='depression' فیلتر می‌کنند."
+    },
+    {
+      "id": "country_prevalence_wide",
+      "type": "table",
+      "role": "global_prevalence_wide",
+      "domain": "global_prevalence",
+      "primary_key": "prevalence_row_id",
+      "row_count": 6420,
+      "description_fa": "دیتاست wide کشور/سال با ستون‌های جداگانه depression_pct، anxiety_pct و سایر اختلالات.",
+      "safe_for": [
+        "multi_disorder_country_dashboard",
+        "wide_country_comparison"
+      ],
+      "preferred_for": "سؤال‌هایی که چند اختلال را هم‌زمان در یک کشور/سال مقایسه می‌کنند."
+    },
+    {
+      "id": "dim_source",
+      "type": "table",
+      "role": "source_catalog",
+      "domain": "metadata",
+      "primary_key": "source_id",
+      "row_count": 6,
+      "description_fa": "کاتالوگ منبع داده‌ها؛ برای توضیح منشأ datasetها، نه تحلیل فردی.",
+      "safe_for": [
+        "metadata_lookup",
+        "source_description"
+      ],
+      "do_not_join_by_default": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "global_long_to_wide_country_year",
+      "source": "country_prevalence_long",
+      "target": "country_prevalence_wide",
+      "relationship": "many_long_rows_to_one_wide_row_per_country_year",
+      "source_columns": [
+        "country_name",
+        "year"
+      ],
+      "target_columns": [
+        "country_name",
+        "year"
+      ],
+      "optional_columns": [
+        "country_code"
+      ],
+      "join_sql": "country_prevalence_long.country_name = country_prevalence_wide.country_name AND country_prevalence_long.year = country_prevalence_wide.year",
+      "allowed": true,
+      "use_cases": [
+        "compare long-format disorder values with wide-format disorder columns",
+        "validate equivalence between disorder='depression' and depression_pct"
+      ],
+      "caution_fa": "اگر country_code در هر دو طرف non-null بود می‌توان برای دقت بیشتر آن را نیز اضافه کرد."
+    }
+  ],
+  "semantic_domain_routing": {
+    "student_depression": {
+      "preferred_table": "student_depression",
+      "keywords_fa": [
+        "دانشجویان افسردگی",
+        "دیتاست اصلی دانشجوها",
+        "دانشجوهای افسرده",
+        "فشار تحصیلی",
+        "فشار مالی",
+        "افکار خودکشی",
+        "CGPA",
+        "شهر دانشجو",
+        "خواب دانشجویان افسردگی"
+      ],
+      "keywords_en": [
+        "student depression",
+        "depressed students",
+        "cgpa",
+        "academic pressure",
+        "financial stress",
+        "suicidal thoughts"
+      ],
+      "avoid_if_question_mentions": [
+        "نمره امتحان",
+        "exam score",
+        "محیط کار",
+        "کشورها",
+        "شیوع جهانی"
+      ]
+    },
+    "student_habits": {
+      "preferred_table": "student_habits_performance",
+      "keywords_fa": [
+        "عادت‌های دانشجویی",
+        "نمره امتحان",
+        "ساعت مطالعه",
+        "شبکه اجتماعی",
+        "نتفلیکس",
+        "کیفیت اینترنت",
+        "فعالیت فوق برنامه"
+      ],
+      "keywords_en": [
+        "student habits",
+        "exam score",
+        "study hours",
+        "social media",
+        "netflix"
+      ],
+      "avoid_if_question_mentions": [
+        "افکار خودکشی",
+        "فشار مالی",
+        "شیوع جهانی"
+      ]
+    },
+    "general_mental_health": {
+      "preferred_table": "mental_health_general",
+      "keywords_fa": [
+        "دیتاست عمومی",
+        "سلامت روان عمومی",
+        "حمایت اجتماعی",
+        "بهره‌وری",
+        "ریسک سلامت روان",
+        "درمان‌جویی",
+        "seeks treatment"
+      ],
+      "keywords_en": [
+        "general mental health",
+        "productivity",
+        "social support",
+        "mental health risk",
+        "treatment seeking"
+      ],
+      "avoid_if_question_mentions": [
+        "دانشجویان افسردگی",
+        "نمره امتحان",
+        "محیط کار"
+      ]
+    },
+    "university_student_survey": {
+      "preferred_table": "university_student_mental_health",
+      "keywords_fa": [
+        "نظرسنجی دانشگاهی",
+        "panic attack",
+        "حمله پانیک",
+        "تشخیص اضطراب",
+        "تشخیص افسردگی",
+        "CGPA range"
+      ],
+      "keywords_en": [
+        "university survey",
+        "panic attack",
+        "diagnosis",
+        "cgpa range"
+      ],
+      "avoid_if_question_mentions": [
+        "شیوع جهانی",
+        "محیط کار"
+      ]
+    },
+    "workplace_survey": {
+      "preferred_table": "workplace_mental_health_survey",
+      "keywords_fa": [
+        "محیط کار",
+        "مزایا",
+        "care options",
+        "remote work",
+        "شرکت تکنولوژی",
+        "درمان در محیط کار",
+        "workplace"
+      ],
+      "keywords_en": [
+        "workplace",
+        "benefits",
+        "care options",
+        "remote work",
+        "tech company"
+      ],
+      "avoid_if_question_mentions": [
+        "دانشجو",
+        "CGPA",
+        "شیوع جهانی"
+      ]
+    },
+    "global_prevalence": {
+      "preferred_tables": [
+        "country_prevalence_long",
+        "country_prevalence_wide"
+      ],
+      "keywords_fa": [
+        "کشورها",
+        "کشور",
+        "شیوع جهانی",
+        "Iran",
+        "India",
+        "سال",
+        "۱۹۹۰",
+        "آخرین سال",
+        "رتبه جهانی"
+      ],
+      "keywords_en": [
+        "country",
+        "global",
+        "prevalence",
+        "year",
+        "Iran",
+        "India",
+        "rank"
+      ],
+      "avoid_if_question_mentions": [
+        "دانشجو",
+        "محیط کار",
+        "CGPA"
+      ]
+    }
+  },
+  "forbidden_old_tables": [
+    "individuals_core",
+    "student_metrics",
+    "clinical_assessments",
+    "lifestyle_risk_factors",
+    "global_benchmarks"
+  ]
+}

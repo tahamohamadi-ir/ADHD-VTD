@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+from collections import defaultdict
+
+from src.core.types import ColumnRef, LinkedSchema, TableRef
+from src.nlu.persian_normalizer import PersianNormalizer
+from src.schema.schema_registry import SchemaRegistry
+
+try:
+    from rapidfuzz import fuzz, process
+except Exception:  # pragma: no cover
+    fuzz = None
+    process = None
+
+
+class SchemaLinker:
+    """
+    Persian-aware schema linker.
+
+    Strategy:
+    1. Normalize question.
+    2. Match explicit aliases from column_aliases.fa.json.
+    3. Match direct table/column names.
+    4. Optional fuzzy matching for near-miss Persian terms.
+    5. Return compact schema context and join hints.
+    """
+
+    def __init__(self, registry: SchemaRegistry | None = None, fuzzy_threshold: int = 85) -> None:
+        self.registry = registry or SchemaRegistry()
+        self.normalizer = PersianNormalizer()
+        self.fuzzy_threshold = fuzzy_threshold
+
+    def link(self, question: str) -> LinkedSchema:
+        normalized = self.normalizer.normalize_for_search(question)
+
+        column_scores: dict[str, float] = {}
+        column_sources: dict[str, str] = {}
+        unresolved_terms: list[str] = []
+
+        # 1) Exact alias matching
+        for alias, fq_columns in self.registry.aliases.items():
+            alias_norm = self.normalizer.normalize_for_search(alias)
+            if alias_norm and alias_norm in normalized:
+                for fq in fq_columns:
+                    column_scores[fq] = max(column_scores.get(fq, 0.0), 1.0)
+                    column_sources[fq] = f"alias:{alias}"
+
+        # 2) Direct column/table name matching
+        for fq in self.registry.all_fq_columns():
+            table, column = self.registry.split_fq_column(fq)
+            if column.lower() in normalized:
+                column_scores[fq] = max(column_scores.get(fq, 0.0), 0.95)
+                column_sources[fq] = "direct_column_name"
+
+            if table.lower() in normalized:
+                for col in self.registry.get_columns(table):
+                    table_fq = f"{table}.{col}"
+                    column_scores[table_fq] = max(column_scores.get(table_fq, 0.0), 0.60)
+                    column_sources[table_fq] = "direct_table_name"
+
+        # 3) Fuzzy alias matching
+        if process is not None and fuzz is not None:
+            alias_keys = list(self.registry.aliases.keys())
+            for token in normalized.split():
+                if len(token) < 3:
+                    continue
+
+                match = process.extractOne(token, alias_keys, scorer=fuzz.WRatio)
+                if match:
+                    alias, score, _ = match
+                    if score >= self.fuzzy_threshold:
+                        for fq in self.registry.aliases[alias]:
+                            column_scores[fq] = max(column_scores.get(fq, 0.0), score / 100.0)
+                            column_sources[fq] = f"fuzzy_alias:{alias}"
+
+        table_scores: dict[str, float] = defaultdict(float)
+
+        columns: list[ColumnRef] = []
+        for fq, score in sorted(column_scores.items(), key=lambda item: item[1], reverse=True):
+            table, column = self.registry.split_fq_column(fq)
+            if self.registry.has_column(table, column):
+                columns.append(
+                    ColumnRef(
+                        table=table,
+                        column=column,
+                        score=score,
+                        source=column_sources.get(fq, "unknown"),
+                    )
+                )
+                table_scores[table] = max(table_scores[table], score)
+
+        # Always include base table when joins may be needed
+        if columns and "individuals_core" not in table_scores:
+            table_scores["individuals_core"] = 0.50
+
+        tables = [
+            TableRef(table=table, score=score, source="derived_from_columns")
+            for table, score in sorted(table_scores.items(), key=lambda item: item[1], reverse=True)
+            if self.registry.has_table(table)
+        ]
+
+        table_names = [t.table for t in tables]
+        fq_columns = [c.fqdn for c in columns]
+
+        join_hints = self.registry.join_hints_for_tables(table_names)
+        schema_context = self.registry.table_ddl_context(table_names, fq_columns)
+
+        return LinkedSchema(
+            tables=tables,
+            columns=columns,
+            join_hints=join_hints,
+            schema_context=schema_context,
+            unresolved_terms=unresolved_terms,
+        )

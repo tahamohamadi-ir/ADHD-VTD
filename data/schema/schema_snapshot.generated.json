@@ -1,0 +1,1160 @@
+{
+  "project": "ADHD-VTD / VTD-Edge / PARS-SQL",
+  "artifact": "schema_snapshot.generated",
+  "generated_at_utc": "2026-05-10T19:14:44.504813+00:00",
+  "database_file": "data\\db\\vtd_health_research_v1.db",
+  "sqlite_version": "3.49.1",
+  "table_count": 8,
+  "tables": [
+    {
+      "name": "country_prevalence_long",
+      "sql": "CREATE TABLE country_prevalence_long (\n    prevalence_id INTEGER PRIMARY KEY,\n    country_name TEXT NOT NULL,\n    country_code TEXT,\n    year INTEGER NOT NULL,\n    is_country_like INTEGER NOT NULL DEFAULT 1,\n    disorder TEXT NOT NULL CHECK (disorder IN ('schizophrenia','depression','anxiety','bipolar','eating_disorder')),\n    prevalence_pct REAL NOT NULL,\n    UNIQUE(country_name, year, disorder)\n)",
+      "row_count": 32100,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "prevalence_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "country_name",
+          "type": "TEXT",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "country_code",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "year",
+          "type": "INTEGER",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "is_country_like",
+          "type": "INTEGER",
+          "notnull": true,
+          "default_value": "1",
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "disorder",
+          "type": "TEXT",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "prevalence_pct",
+          "type": "REAL",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_country_prevalence_long_disorder_year",
+          "unique": false,
+          "columns": [
+            "disorder",
+            "year"
+          ]
+        },
+        {
+          "name": "idx_country_prevalence_long_country_year",
+          "unique": false,
+          "columns": [
+            "country_name",
+            "year"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_country_prevalence_long_1",
+          "unique": true,
+          "columns": [
+            "country_name",
+            "year",
+            "disorder"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "country_prevalence_wide",
+      "sql": "CREATE TABLE country_prevalence_wide (\n    prevalence_row_id INTEGER PRIMARY KEY,\n    country_name TEXT NOT NULL,\n    country_code TEXT,\n    year INTEGER NOT NULL,\n    is_country_like INTEGER NOT NULL DEFAULT 1,\n    schizophrenia_pct REAL,\n    depression_pct REAL,\n    anxiety_pct REAL,\n    bipolar_pct REAL,\n    eating_disorder_pct REAL,\n    UNIQUE(country_name, year)\n)",
+      "row_count": 6420,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "prevalence_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "country_name",
+          "type": "TEXT",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "country_code",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "year",
+          "type": "INTEGER",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "is_country_like",
+          "type": "INTEGER",
+          "notnull": true,
+          "default_value": "1",
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "schizophrenia_pct",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "depression_pct",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "anxiety_pct",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "bipolar_pct",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "eating_disorder_pct",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_country_prevalence_wide_1",
+          "unique": true,
+          "columns": [
+            "country_name",
+            "year"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dim_source",
+      "sql": "CREATE TABLE dim_source (\n    source_id INTEGER PRIMARY KEY,\n    source_name TEXT NOT NULL UNIQUE,\n    file_name TEXT NOT NULL,\n    description TEXT,\n    row_count INTEGER NOT NULL\n)",
+      "row_count": 6,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "source_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "source_name",
+          "type": "TEXT",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "file_name",
+          "type": "TEXT",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "description",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "row_count",
+          "type": "INTEGER",
+          "notnull": true,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_dim_source_1",
+          "unique": true,
+          "columns": [
+            "source_name"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mental_health_general",
+      "sql": "CREATE TABLE mental_health_general (\n    general_row_id INTEGER PRIMARY KEY,\n    age INTEGER,\n    gender TEXT,\n    employment_status TEXT,\n    work_environment TEXT,\n    mental_health_history INTEGER CHECK (mental_health_history IN (0,1) OR mental_health_history IS NULL),\n    seeks_treatment INTEGER CHECK (seeks_treatment IN (0,1) OR seeks_treatment IS NULL),\n    stress_level INTEGER,\n    sleep_hours REAL,\n    physical_activity_days INTEGER,\n    depression_score INTEGER,\n    anxiety_score INTEGER,\n    social_support_score INTEGER,\n    productivity_score REAL,\n    mental_health_risk TEXT\n)",
+      "row_count": 10000,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "general_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "age",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "gender",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "employment_status",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "work_environment",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "mental_health_history",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "seeks_treatment",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "stress_level",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "sleep_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "physical_activity_days",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 10,
+          "name": "depression_score",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 11,
+          "name": "anxiety_score",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 12,
+          "name": "social_support_score",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 13,
+          "name": "productivity_score",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 14,
+          "name": "mental_health_risk",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_general_gender",
+          "unique": false,
+          "columns": [
+            "gender"
+          ]
+        },
+        {
+          "name": "idx_general_risk",
+          "unique": false,
+          "columns": [
+            "mental_health_risk"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "student_depression",
+      "sql": "CREATE TABLE student_depression (\n    student_depression_id INTEGER PRIMARY KEY,\n    source_row_id INTEGER UNIQUE,\n    gender TEXT,\n    age REAL,\n    city TEXT,\n    country TEXT DEFAULT 'India',\n    profession TEXT,\n    academic_pressure REAL,\n    work_pressure REAL,\n    cgpa_10 REAL,\n    study_satisfaction REAL,\n    job_satisfaction REAL,\n    sleep_duration_category TEXT,\n    dietary_habits TEXT,\n    degree TEXT,\n    suicidal_thoughts INTEGER CHECK (suicidal_thoughts IN (0,1) OR suicidal_thoughts IS NULL),\n    work_study_hours REAL,\n    financial_stress REAL,\n    family_history_mental_illness INTEGER CHECK (family_history_mental_illness IN (0,1) OR family_history_mental_illness IS NULL),\n    depression_flag INTEGER CHECK (depression_flag IN (0,1) OR depression_flag IS NULL),\n    sleep_mid_hours REAL\n)",
+      "row_count": 27901,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "student_depression_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "source_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "gender",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "age",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "city",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "country",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": "'India'",
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "profession",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "academic_pressure",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "work_pressure",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "cgpa_10",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 10,
+          "name": "study_satisfaction",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 11,
+          "name": "job_satisfaction",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 12,
+          "name": "sleep_duration_category",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 13,
+          "name": "dietary_habits",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 14,
+          "name": "degree",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 15,
+          "name": "suicidal_thoughts",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 16,
+          "name": "work_study_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 17,
+          "name": "financial_stress",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 18,
+          "name": "family_history_mental_illness",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 19,
+          "name": "depression_flag",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 20,
+          "name": "sleep_mid_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_student_depression_depression",
+          "unique": false,
+          "columns": [
+            "depression_flag"
+          ]
+        },
+        {
+          "name": "idx_student_depression_gender",
+          "unique": false,
+          "columns": [
+            "gender"
+          ]
+        },
+        {
+          "name": "idx_student_depression_city",
+          "unique": false,
+          "columns": [
+            "city"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_student_depression_1",
+          "unique": true,
+          "columns": [
+            "source_row_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "student_habits_performance",
+      "sql": "CREATE TABLE student_habits_performance (\n    habit_row_id INTEGER PRIMARY KEY,\n    original_student_id TEXT UNIQUE,\n    age INTEGER,\n    gender TEXT,\n    study_hours_per_day REAL,\n    social_media_hours REAL,\n    netflix_hours REAL,\n    part_time_job INTEGER CHECK (part_time_job IN (0,1) OR part_time_job IS NULL),\n    attendance_percentage REAL,\n    sleep_hours REAL,\n    diet_quality TEXT,\n    exercise_frequency INTEGER,\n    parental_education_level TEXT,\n    internet_quality TEXT,\n    mental_health_rating INTEGER,\n    extracurricular_participation INTEGER CHECK (extracurricular_participation IN (0,1) OR extracurricular_participation IS NULL),\n    exam_score REAL\n)",
+      "row_count": 1000,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "habit_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "original_student_id",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "age",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "gender",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "study_hours_per_day",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "social_media_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "netflix_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "part_time_job",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "attendance_percentage",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "sleep_hours",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 10,
+          "name": "diet_quality",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 11,
+          "name": "exercise_frequency",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 12,
+          "name": "parental_education_level",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 13,
+          "name": "internet_quality",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 14,
+          "name": "mental_health_rating",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 15,
+          "name": "extracurricular_participation",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 16,
+          "name": "exam_score",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_student_habits_gender",
+          "unique": false,
+          "columns": [
+            "gender"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_student_habits_performance_1",
+          "unique": true,
+          "columns": [
+            "original_student_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "university_student_mental_health",
+      "sql": "CREATE TABLE university_student_mental_health (\n    university_row_id INTEGER PRIMARY KEY,\n    survey_timestamp TEXT,\n    age REAL,\n    gender TEXT,\n    course TEXT,\n    year_of_study INTEGER,\n    cgpa_range TEXT,\n    cgpa_mid REAL,\n    marital_status INTEGER CHECK (marital_status IN (0,1) OR marital_status IS NULL),\n    depression_diagnosis INTEGER CHECK (depression_diagnosis IN (0,1) OR depression_diagnosis IS NULL),\n    anxiety_diagnosis INTEGER CHECK (anxiety_diagnosis IN (0,1) OR anxiety_diagnosis IS NULL),\n    panic_attack INTEGER CHECK (panic_attack IN (0,1) OR panic_attack IS NULL),\n    treatment_seeking INTEGER CHECK (treatment_seeking IN (0,1) OR treatment_seeking IS NULL)\n)",
+      "row_count": 101,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "university_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "survey_timestamp",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "age",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "gender",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "course",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "year_of_study",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "cgpa_range",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "cgpa_mid",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "marital_status",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "depression_diagnosis",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 10,
+          "name": "anxiety_diagnosis",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 11,
+          "name": "panic_attack",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 12,
+          "name": "treatment_seeking",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_university_course",
+          "unique": false,
+          "columns": [
+            "course"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "workplace_mental_health_survey",
+      "sql": "CREATE TABLE workplace_mental_health_survey (\n    workplace_row_id INTEGER PRIMARY KEY,\n    survey_timestamp TEXT,\n    survey_year INTEGER,\n    age_raw REAL,\n    age REAL,\n    gender_raw TEXT,\n    gender TEXT,\n    country TEXT,\n    state TEXT,\n    self_employed INTEGER CHECK (self_employed IN (0,1) OR self_employed IS NULL),\n    family_history INTEGER CHECK (family_history IN (0,1) OR family_history IS NULL),\n    treatment INTEGER CHECK (treatment IN (0,1) OR treatment IS NULL),\n    work_interfere TEXT,\n    no_employees TEXT,\n    remote_work INTEGER CHECK (remote_work IN (0,1) OR remote_work IS NULL),\n    tech_company INTEGER CHECK (tech_company IN (0,1) OR tech_company IS NULL),\n    benefits TEXT,\n    care_options TEXT,\n    wellness_program TEXT,\n    seek_help TEXT,\n    anonymity TEXT,\n    leave_difficulty TEXT,\n    mental_health_consequence TEXT,\n    phys_health_consequence TEXT,\n    coworkers TEXT,\n    supervisor TEXT,\n    mental_health_interview TEXT,\n    phys_health_interview TEXT,\n    mental_vs_physical TEXT,\n    obs_consequence INTEGER CHECK (obs_consequence IN (0,1) OR obs_consequence IS NULL),\n    comments TEXT\n)",
+      "row_count": 1259,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "workplace_row_id",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": true
+        },
+        {
+          "cid": 1,
+          "name": "survey_timestamp",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 2,
+          "name": "survey_year",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 3,
+          "name": "age_raw",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 4,
+          "name": "age",
+          "type": "REAL",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 5,
+          "name": "gender_raw",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 6,
+          "name": "gender",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 7,
+          "name": "country",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 8,
+          "name": "state",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 9,
+          "name": "self_employed",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 10,
+          "name": "family_history",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 11,
+          "name": "treatment",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 12,
+          "name": "work_interfere",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 13,
+          "name": "no_employees",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 14,
+          "name": "remote_work",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 15,
+          "name": "tech_company",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 16,
+          "name": "benefits",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 17,
+          "name": "care_options",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 18,
+          "name": "wellness_program",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 19,
+          "name": "seek_help",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 20,
+          "name": "anonymity",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 21,
+          "name": "leave_difficulty",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 22,
+          "name": "mental_health_consequence",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 23,
+          "name": "phys_health_consequence",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 24,
+          "name": "coworkers",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 25,
+          "name": "supervisor",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 26,
+          "name": "mental_health_interview",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 27,
+          "name": "phys_health_interview",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 28,
+          "name": "mental_vs_physical",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 29,
+          "name": "obs_consequence",
+          "type": "INTEGER",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        },
+        {
+          "cid": 30,
+          "name": "comments",
+          "type": "TEXT",
+          "notnull": false,
+          "default_value": null,
+          "primary_key": false
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "idx_workplace_gender",
+          "unique": false,
+          "columns": [
+            "gender"
+          ]
+        },
+        {
+          "name": "idx_workplace_country_year",
+          "unique": false,
+          "columns": [
+            "country",
+            "survey_year"
+          ]
+        }
+      ]
+    }
+  ]
+}

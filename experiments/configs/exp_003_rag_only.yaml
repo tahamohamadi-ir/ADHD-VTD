@@ -1,0 +1,9 @@
+﻿name: exp_003_rag_only
+use_normalization: true
+use_schema_linking: true
+use_rag: true
+use_reranker: false
+use_reflexion: false
+use_semantic_critic: false
+max_retries: 0
+dataset: data/questions/full/vtd_total_500_dataset_package.json

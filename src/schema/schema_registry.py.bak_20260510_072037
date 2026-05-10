@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from src.schema.schema_loader import SchemaLoader
+
+
+@dataclass
+class SchemaRegistry:
+    """
+    In-memory registry for schema snapshot, schema graph, aliases, glossary, and metrics.
+    """
+
+    loader: SchemaLoader = field(default_factory=SchemaLoader)
+    snapshot: dict[str, Any] = field(init=False)
+    graph: dict[str, Any] = field(init=False)
+    aliases: dict[str, list[str]] = field(init=False)
+    glossary: dict[str, Any] = field(init=False)
+    metrics: dict[str, Any] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.snapshot = self.loader.load_schema_snapshot()
+        self.graph = self.loader.load_schema_graph()
+        self.aliases = self.loader.load_column_aliases()
+        self.glossary = self.loader.load_business_glossary()
+        self.metrics = self.loader.load_metric_definitions()
+
+    @property
+    def tables(self) -> dict[str, Any]:
+        return self.snapshot.get("tables", {})
+
+    def has_table(self, table: str) -> bool:
+        return table in self.tables
+
+    def get_table(self, table: str) -> dict[str, Any]:
+        if table not in self.tables:
+            raise KeyError(f"Unknown table: {table}")
+        return self.tables[table]
+
+    def get_columns(self, table: str) -> dict[str, Any]:
+        return self.get_table(table).get("columns", {})
+
+    def has_column(self, table: str, column: str) -> bool:
+        return self.has_table(table) and column in self.get_columns(table)
+
+    def all_fq_columns(self) -> list[str]:
+        cols: list[str] = []
+        for table, table_info in self.tables.items():
+            for column in table_info.get("columns", {}):
+                cols.append(f"{table}.{column}")
+        return cols
+
+    def split_fq_column(self, fq_column: str) -> tuple[str, str]:
+        if "." not in fq_column:
+            raise ValueError(f"Expected fully-qualified column, got: {fq_column}")
+        table, column = fq_column.split(".", 1)
+        return table, column
+
+    def resolve_alias(self, term: str) -> list[str]:
+        return self.aliases.get(term, [])
+
+    def table_ddl_context(self, tables: list[str], columns: list[str] | None = None) -> str:
+        """
+        Build compact schema context for prompting.
+        """
+        selected_columns = set(columns or [])
+        lines: list[str] = []
+
+        for table in tables:
+            if not self.has_table(table):
+                continue
+
+            table_info = self.get_table(table)
+            lines.append(f"TABLE {table}:")
+
+            for column, meta in table_info.get("columns", {}).items():
+                fq = f"{table}.{column}"
+                if selected_columns and fq not in selected_columns:
+                    continue
+                col_type = meta.get("type", "UNKNOWN")
+                desc = meta.get("description", "")
+                lines.append(f"  - {column} ({col_type}): {desc}")
+
+        return "\n".join(lines)
+
+    def join_hints_for_tables(self, tables: list[str]) -> list[str]:
+        table_set = set(tables)
+        hints: list[str] = []
+
+        for edge in self.graph.get("edges", []):
+            source = edge.get("source")
+            target = edge.get("target")
+            if source in table_set and target in table_set:
+                hints.append(edge.get("join_sql", ""))
+
+        return [h for h in hints if h]

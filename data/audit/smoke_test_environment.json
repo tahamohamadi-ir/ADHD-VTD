@@ -1,0 +1,94 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "check": "project_root",
+      "ok": true,
+      "value": "D:\\Project\\ADHD-VTD"
+    },
+    {
+      "check": "python_version",
+      "ok": true,
+      "value": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]"
+    },
+    {
+      "check": "platform",
+      "ok": true,
+      "value": "Windows-11-10.0.26200-SP0"
+    },
+    {
+      "check": "data_dir_exists",
+      "ok": true,
+      "value": "D:\\Project\\ADHD-VTD\\data"
+    },
+    {
+      "check": "db_exists",
+      "ok": true,
+      "value": "D:\\Project\\ADHD-VTD\\data\\db\\vtd_health_research_v1.db"
+    },
+    {
+      "check": "models_dir_exists",
+      "ok": true,
+      "value": "D:\\Project\\ADHD-VTD\\models"
+    },
+    {
+      "check": "gguf_models_found",
+      "ok": true,
+      "count": 3,
+      "models": [
+        "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        "Qwen3.5-4B-Q4_K_M.gguf",
+        "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+      ]
+    },
+    {
+      "check": "db_opens_readonly",
+      "ok": true,
+      "table_count": 8
+    },
+    {
+      "check": "import:pydantic",
+      "ok": true
+    },
+    {
+      "check": "import:sqlglot",
+      "ok": true
+    },
+    {
+      "check": "import:llama_cpp",
+      "ok": true
+    },
+    {
+      "check": "import:chromadb",
+      "ok": true
+    },
+    {
+      "check": "import:sentence_transformers",
+      "ok": true
+    },
+    {
+      "check": "import:rank_bm25",
+      "ok": true
+    },
+    {
+      "check": "import:rapidfuzz",
+      "ok": true
+    },
+    {
+      "check": "import:networkx",
+      "ok": true
+    },
+    {
+      "check": "import:src.config.paths",
+      "ok": true
+    },
+    {
+      "check": "import:src.core.enums",
+      "ok": true
+    },
+    {
+      "check": "import:src.core.types",
+      "ok": true
+    }
+  ]
+}

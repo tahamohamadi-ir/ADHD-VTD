@@ -1,0 +1,294 @@
+{
+  "project": "ADHD-VTD / VTD-Edge / PARS-SQL",
+  "artifact": "metric_definitions",
+  "version": "vtd_health_research_v1_metrics_v2",
+  "dialect": "sqlite",
+  "metric_policy": {
+    "all_metrics_must_reference_current_schema": true,
+    "no_cross_dataset_join_unless_schema_graph_allows_it": true,
+    "default_null_policy": "Exclude NULL values from AVG/rate denominators where appropriate.",
+    "rate_policy": "Use ROUND(100.0 * numerator / denominator, 2) for percentages."
+  },
+  "metrics": {
+    "student_count_depression_dataset": {
+      "description_fa": "تعداد رکوردهای دیتاست اصلی دانشجویان افسردگی.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "COUNT(*)",
+      "required_columns": [
+        "student_depression.student_depression_id"
+      ],
+      "result_shape": "single_value"
+    },
+    "depression_rate_student": {
+      "description_fa": "درصد دانشجویان دارای depression_flag=1 در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(100.0 * SUM(depression_flag) / COUNT(*), 2)",
+      "required_columns": [
+        "student_depression.depression_flag"
+      ],
+      "positive_filter": "student_depression.depression_flag = 1",
+      "result_shape": "percentage"
+    },
+    "depression_count_student": {
+      "description_fa": "تعداد دانشجویان افسرده در دیتاست اصلی.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "SUM(depression_flag)",
+      "required_columns": [
+        "student_depression.depression_flag"
+      ],
+      "result_shape": "single_value"
+    },
+    "avg_cgpa_10": {
+      "description_fa": "میانگین CGPA در مقیاس ۱۰ در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(AVG(cgpa_10), 2)",
+      "required_columns": [
+        "student_depression.cgpa_10"
+      ],
+      "null_filter": "student_depression.cgpa_10 IS NOT NULL",
+      "result_shape": "single_value"
+    },
+    "avg_academic_pressure": {
+      "description_fa": "میانگین فشار تحصیلی در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(AVG(academic_pressure), 2)",
+      "required_columns": [
+        "student_depression.academic_pressure"
+      ],
+      "null_filter": "student_depression.academic_pressure IS NOT NULL",
+      "result_shape": "single_value"
+    },
+    "avg_financial_stress": {
+      "description_fa": "میانگین فشار مالی در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(AVG(financial_stress), 2)",
+      "required_columns": [
+        "student_depression.financial_stress"
+      ],
+      "null_filter": "student_depression.financial_stress IS NOT NULL",
+      "result_shape": "single_value"
+    },
+    "avg_sleep_mid_hours": {
+      "description_fa": "میانگین ساعت خواب تقریبی در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(AVG(sleep_mid_hours), 2)",
+      "required_columns": [
+        "student_depression.sleep_mid_hours"
+      ],
+      "null_filter": "student_depression.sleep_mid_hours IS NOT NULL",
+      "result_shape": "single_value"
+    },
+    "low_sleep_student_count": {
+      "description_fa": "تعداد دانشجویان با خواب کمتر از ۶ ساعت در دیتاست student_depression.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "COUNT(*)",
+      "required_columns": [
+        "student_depression.sleep_mid_hours"
+      ],
+      "default_filter": "student_depression.sleep_mid_hours < 6",
+      "result_shape": "single_value"
+    },
+    "suicidal_thoughts_rate_student": {
+      "description_fa": "درصد گزارش افکار خودکشی در دیتاست دانشجویان افسردگی؛ فقط aggregate و با احتیاط.",
+      "domain": "student_depression",
+      "default_table": "student_depression",
+      "sql_expression": "ROUND(100.0 * SUM(suicidal_thoughts) / COUNT(*), 2)",
+      "required_columns": [
+        "student_depression.suicidal_thoughts"
+      ],
+      "privacy_level": "sensitive_aggregate_only",
+      "result_shape": "percentage"
+    },
+    "avg_exam_score": {
+      "description_fa": "میانگین نمره امتحان در دیتاست عادت‌های دانشجویی.",
+      "domain": "student_habits",
+      "default_table": "student_habits_performance",
+      "sql_expression": "ROUND(AVG(exam_score), 2)",
+      "required_columns": [
+        "student_habits_performance.exam_score"
+      ],
+      "null_filter": "student_habits_performance.exam_score IS NOT NULL",
+      "result_shape": "single_value"
+    },
+    "avg_study_hours": {
+      "description_fa": "میانگین ساعات مطالعه روزانه.",
+      "domain": "student_habits",
+      "default_table": "student_habits_performance",
+      "sql_expression": "ROUND(AVG(study_hours_per_day), 2)",
+      "required_columns": [
+        "student_habits_performance.study_hours_per_day"
+      ],
+      "result_shape": "single_value"
+    },
+    "avg_social_media_hours": {
+      "description_fa": "میانگین ساعت شبکه اجتماعی.",
+      "domain": "student_habits",
+      "default_table": "student_habits_performance",
+      "sql_expression": "ROUND(AVG(social_media_hours), 2)",
+      "required_columns": [
+        "student_habits_performance.social_media_hours"
+      ],
+      "result_shape": "single_value"
+    },
+    "avg_mental_health_rating": {
+      "description_fa": "میانگین رتبه سلامت روان در دیتاست عادت‌های دانشجویی.",
+      "domain": "student_habits",
+      "default_table": "student_habits_performance",
+      "sql_expression": "ROUND(AVG(mental_health_rating), 2)",
+      "required_columns": [
+        "student_habits_performance.mental_health_rating"
+      ],
+      "result_shape": "single_value"
+    },
+    "general_avg_depression_score": {
+      "description_fa": "میانگین نمره افسردگی در دیتاست عمومی سلامت روان.",
+      "domain": "general_mental_health",
+      "default_table": "mental_health_general",
+      "sql_expression": "ROUND(AVG(depression_score), 2)",
+      "required_columns": [
+        "mental_health_general.depression_score"
+      ],
+      "result_shape": "single_value"
+    },
+    "general_avg_anxiety_score": {
+      "description_fa": "میانگین نمره اضطراب در دیتاست عمومی سلامت روان.",
+      "domain": "general_mental_health",
+      "default_table": "mental_health_general",
+      "sql_expression": "ROUND(AVG(anxiety_score), 2)",
+      "required_columns": [
+        "mental_health_general.anxiety_score"
+      ],
+      "result_shape": "single_value"
+    },
+    "treatment_seeking_rate": {
+      "description_fa": "درصد درمان‌جویی در دیتاست عمومی سلامت روان.",
+      "domain": "general_mental_health",
+      "default_table": "mental_health_general",
+      "sql_expression": "ROUND(100.0 * SUM(seeks_treatment) / COUNT(*), 2)",
+      "required_columns": [
+        "mental_health_general.seeks_treatment"
+      ],
+      "result_shape": "percentage"
+    },
+    "avg_social_support_score": {
+      "description_fa": "میانگین حمایت اجتماعی در دیتاست عمومی سلامت روان.",
+      "domain": "general_mental_health",
+      "default_table": "mental_health_general",
+      "sql_expression": "ROUND(AVG(social_support_score), 2)",
+      "required_columns": [
+        "mental_health_general.social_support_score"
+      ],
+      "result_shape": "single_value"
+    },
+    "avg_productivity_score": {
+      "description_fa": "میانگین بهره‌وری در دیتاست عمومی سلامت روان.",
+      "domain": "general_mental_health",
+      "default_table": "mental_health_general",
+      "sql_expression": "ROUND(AVG(productivity_score), 2)",
+      "required_columns": [
+        "mental_health_general.productivity_score"
+      ],
+      "result_shape": "single_value"
+    },
+    "university_depression_diagnosis_rate": {
+      "description_fa": "درصد تشخیص افسردگی در نظرسنجی دانشگاهی.",
+      "domain": "university_student_survey",
+      "default_table": "university_student_mental_health",
+      "sql_expression": "ROUND(100.0 * SUM(CASE WHEN depression_diagnosis = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2)",
+      "required_columns": [
+        "university_student_mental_health.depression_diagnosis"
+      ],
+      "result_shape": "percentage"
+    },
+    "university_anxiety_diagnosis_rate": {
+      "description_fa": "درصد تشخیص اضطراب در نظرسنجی دانشگاهی.",
+      "domain": "university_student_survey",
+      "default_table": "university_student_mental_health",
+      "sql_expression": "ROUND(100.0 * SUM(CASE WHEN anxiety_diagnosis = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2)",
+      "required_columns": [
+        "university_student_mental_health.anxiety_diagnosis"
+      ],
+      "result_shape": "percentage"
+    },
+    "panic_attack_rate": {
+      "description_fa": "درصد panic attack در نظرسنجی دانشگاهی.",
+      "domain": "university_student_survey",
+      "default_table": "university_student_mental_health",
+      "sql_expression": "ROUND(100.0 * SUM(CASE WHEN panic_attack = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2)",
+      "required_columns": [
+        "university_student_mental_health.panic_attack"
+      ],
+      "result_shape": "percentage"
+    },
+    "workplace_treatment_rate": {
+      "description_fa": "درصد treatment در نظرسنجی محیط کار.",
+      "domain": "workplace_survey",
+      "default_table": "workplace_mental_health_survey",
+      "sql_expression": "ROUND(100.0 * SUM(CASE WHEN treatment = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2)",
+      "required_columns": [
+        "workplace_mental_health_survey.treatment"
+      ],
+      "result_shape": "percentage"
+    },
+    "global_depression_prevalence": {
+      "description_fa": "میانگین یا مقدار شیوع جهانی/کشوری depression در دیتاست long.",
+      "domain": "global_prevalence",
+      "default_table": "country_prevalence_long",
+      "sql_expression": "AVG(prevalence_pct)",
+      "required_columns": [
+        "country_prevalence_long.disorder",
+        "country_prevalence_long.prevalence_pct"
+      ],
+      "default_filter": "country_prevalence_long.disorder = 'depression'",
+      "result_shape": "single_value_or_time_series"
+    },
+    "global_anxiety_prevalence": {
+      "description_fa": "میانگین یا مقدار شیوع جهانی/کشوری anxiety در دیتاست long.",
+      "domain": "global_prevalence",
+      "default_table": "country_prevalence_long",
+      "sql_expression": "AVG(prevalence_pct)",
+      "required_columns": [
+        "country_prevalence_long.disorder",
+        "country_prevalence_long.prevalence_pct"
+      ],
+      "default_filter": "country_prevalence_long.disorder = 'anxiety'",
+      "result_shape": "single_value_or_time_series"
+    },
+    "country_latest_disorder_prevalence": {
+      "description_fa": "آخرین مقدار شیوع یک اختلال برای هر کشور.",
+      "domain": "global_prevalence",
+      "default_table": "country_prevalence_long",
+      "sql_expression": "prevalence_pct",
+      "required_columns": [
+        "country_prevalence_long.country_name",
+        "country_prevalence_long.year",
+        "country_prevalence_long.disorder",
+        "country_prevalence_long.prevalence_pct"
+      ],
+      "requires": [
+        "latest_year_subquery"
+      ],
+      "result_shape": "ranking_or_table"
+    }
+  },
+  "deprecated_metrics_do_not_use": {
+    "average_phq9": "Do not use the old clinical_assessments plus phq9_score design; it is not in the current schema.",
+    "average_gad7": "Do not use the old clinical_assessments plus gad7_score design; it is not in the current schema.",
+    "average_cgpa": "Use student_depression.cgpa_10 or university_student_mental_health.cgpa_mid."
+  },
+  "forbidden_old_references": [
+    "individuals_core",
+    "student_metrics",
+    "clinical_assessments",
+    "lifestyle_risk_factors",
+    "global_benchmarks"
+  ]
+}
