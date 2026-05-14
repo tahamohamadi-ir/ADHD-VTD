@@ -1,0 +1,65 @@
+# Benchmark Config — Qwen3 4B (GGUF, Local)
+# Usage: python scripts/run_benchmark.py --config benchmark/configs/local_llm_qwen3_4b.yaml
+
+config_id: "local_llm_qwen3_4b"
+config_version: "1.0"
+created_at: "2026-05-11"
+
+# ─── Model ───────────────────────────────────────────────────────────────────
+model:
+  model_name: "Qwen3-4B-Instruct"
+  model_family: "qwen3"
+  model_path: "models/qwen3-4b-instruct-q4_k_m.gguf"
+  size_b: 4
+  quantization: "Q4_K_M"
+  context_length: 32768
+  recommended_n_gpu_layers: 35
+  ram_estimate_gb: 3.2
+  edge_profile: false
+  sql_capability_tag: "high"
+  persian_capability_tag: "medium"   # Qwen3 has improved multilingual support
+
+# ─── Inference ────────────────────────────────────────────────────────────────
+inference:
+  n_ctx: 4096
+  temperature: 0.1
+  top_p: 0.9
+  top_k: 40
+  max_tokens: 512
+  repeat_penalty: 1.05
+  seed: 42
+
+# ─── Prompt ───────────────────────────────────────────────────────────────────
+prompt:
+  template_id: "sql_generation_v1"
+  template_file: "src/generation/prompts/sql_generation_v1.j2"
+  output_format: "json"
+
+# ─── Dataset ──────────────────────────────────────────────────────────────────
+dataset:
+  source: "data/questions/full/vtd_question_sql_400_merged_validated.json"
+  sample_size: 50
+  split: "dev"
+  difficulty_filter: null
+  category_filter: null
+
+# ─── Pipeline Features ────────────────────────────────────────────────────────
+features:
+  enable_persian_normalization: true
+  enable_nlu: true
+  enable_schema_linking: true
+  enable_value_linking: true
+  enable_cag: false
+  enable_rag: false
+  enable_reflexion: false
+  enable_validation: true
+  enable_sql_rewriter: true
+  enable_reliability_gate: false
+  max_retries: 1
+
+# ─── Output ───────────────────────────────────────────────────────────────────
+output:
+  results_dir: "results/benchmark"
+  save_predictions: true
+  save_failures: true
+  save_prompt_samples: true

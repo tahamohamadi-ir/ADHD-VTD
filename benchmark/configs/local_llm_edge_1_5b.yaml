@@ -1,0 +1,74 @@
+# Benchmark Config — Edge 1.5B (GGUF, Ultra-lightweight)
+# Target: Mobile / tablet / CPU-only environments
+# Usage: python scripts/run_benchmark.py --config benchmark/configs/local_llm_edge_1_5b.yaml
+
+config_id: "local_llm_edge_1_5b"
+config_version: "1.0"
+created_at: "2026-05-11"
+
+# ─── Model ───────────────────────────────────────────────────────────────────
+model:
+  model_name: "Qwen2.5-Coder-1.5B-Instruct"   # or SmolLM2-1.7B — update path when confirmed
+  model_family: "qwen2.5-coder"
+  model_path: "models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+  size_b: 1.5
+  quantization: "Q4_K_M"
+  context_length: 4096
+  recommended_n_gpu_layers: 0        # CPU-only profile
+  ram_estimate_gb: 1.2
+  edge_profile: true                 # marks this as an edge/mobile benchmark
+  sql_capability_tag: "low"
+  persian_capability_tag: "low"
+
+# ─── Inference ────────────────────────────────────────────────────────────────
+inference:
+  n_ctx: 2048                        # smaller context for memory efficiency
+  temperature: 0.05                  # very low — edge models need greedy-like decoding
+  top_p: 0.85
+  top_k: 20
+  max_tokens: 256                    # shorter output for latency
+  repeat_penalty: 1.15
+  seed: 42
+
+# ─── Prompt ───────────────────────────────────────────────────────────────────
+prompt:
+  template_id: "sql_generation_v1"
+  template_file: "src/generation/prompts/sql_generation_v1.j2"
+  output_format: "plain_sql"         # edge models may not reliably output JSON
+
+# ─── Dataset ──────────────────────────────────────────────────────────────────
+dataset:
+  source: "data/questions/full/vtd_question_sql_400_merged_validated.json"
+  sample_size: 50
+  split: "dev"
+  difficulty_filter: "easy"          # edge baseline: easy questions only
+  category_filter: null
+
+# ─── Pipeline Features ────────────────────────────────────────────────────────
+features:
+  enable_persian_normalization: true
+  enable_nlu: true
+  enable_schema_linking: true
+  enable_value_linking: true
+  enable_cag: false
+  enable_rag: false
+  enable_reflexion: false
+  enable_validation: true
+  enable_sql_rewriter: true
+  enable_reliability_gate: false
+  max_retries: 0                     # no retry on edge profile (latency constraint)
+
+# ─── Hardware / Latency Tracking (edge-specific) ──────────────────────────────
+hardware:
+  profile: "cpu_only"                # cpu_only | gpu_offload | full_gpu
+  measure_latency: true
+  measure_ram_peak: true
+  measure_tokens_per_sec: true
+  target_latency_ms: 5000            # acceptable latency threshold for edge
+
+# ─── Output ───────────────────────────────────────────────────────────────────
+output:
+  results_dir: "results/benchmark"
+  save_predictions: true
+  save_failures: true
+  save_prompt_samples: true
