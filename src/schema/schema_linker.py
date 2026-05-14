@@ -189,7 +189,7 @@ class SchemaLinker:
         try:
             from src.nlu.colloquial_mapper import ColloquialMapper
 
-            value = ColloquialMapper().map_text(value)
+            value = ColloquialMapper().normalize(value).normalized
         except Exception:
             pass
 
@@ -199,7 +199,14 @@ class SchemaLinker:
         alias_norm = self._normalize(alias)
         if not alias_norm:
             return False
-        return alias_norm in normalized_question
+        if alias_norm in normalized_question:
+            return True
+        try:
+            import rapidfuzz
+            score = rapidfuzz.fuzz.partial_ratio(alias_norm, normalized_question)
+            return score >= 85
+        except ImportError:
+            return False
 
     def _safe_add_column(
         self,
@@ -359,16 +366,26 @@ class SchemaLinker:
         columns: list[str] = []
         metrics: list[str] = []
         evidence: list[dict[str, Any]] = []
+        matched_aliases: list[str] = []
+
+        try:
+            from src.nlu.term_extractor import TermExtractor
+            extractor = TermExtractor()
+            extracted_terms = extractor.extract_terms(normalized)
+        except Exception:
+            extracted_terms = []
 
         # 1) Column aliases from metadata
         for alias, targets in self._iter_alias_entries():
             if self._contains(normalized, alias):
+                matched_aliases.append(self._normalize(alias))
                 for fq_column in targets:
                     self._safe_add_column(columns, evidence, fq_column, f"column_alias:{alias}", 1.0)
 
         # 2) Extra robust aliases for stress-test and common Persian/Finglish expressions
         for alias, targets in self.EXTRA_ALIASES.items():
             if self._contains(normalized, alias):
+                matched_aliases.append(self._normalize(alias))
                 for fq_column in targets:
                     self._safe_add_column(columns, evidence, fq_column, f"extra_alias:{alias}", 0.94)
 
@@ -382,7 +399,13 @@ class SchemaLinker:
                 elif isinstance(v, list):
                     aliases.extend(str(x) for x in v)
 
-            if any(self._contains(normalized, alias) for alias in aliases):
+            matched_any = False
+            for alias in aliases:
+                if self._contains(normalized, alias):
+                    matched_aliases.append(self._normalize(alias))
+                    matched_any = True
+            
+            if matched_any:
                 preferred = spec.get("preferred_columns", [])
                 if isinstance(preferred, str):
                     preferred = [preferred]
@@ -400,7 +423,13 @@ class SchemaLinker:
                 elif isinstance(v, list):
                     aliases.extend(str(x) for x in v)
 
-            if any(self._contains(normalized, alias) for alias in aliases):
+            matched_any = False
+            for alias in aliases:
+                if self._contains(normalized, alias):
+                    matched_aliases.append(self._normalize(alias))
+                    matched_any = True
+
+            if matched_any:
                 if metric_name not in metrics:
                     metrics.append(metric_name)
                     evidence.append({"type": "metric", "value": metric_name, "source": "metric_definitions", "score": 0.9})
@@ -411,6 +440,7 @@ class SchemaLinker:
         for fq_column in sorted(self.valid_columns):
             table, column = fq_column.split(".", 1)
             if column.lower() in normalized:
+                matched_aliases.append(column.lower())
                 self._safe_add_column(columns, evidence, fq_column, "direct_column_name", 0.75)
 
         tables: list[str] = []
@@ -433,6 +463,22 @@ class SchemaLinker:
         if columns:
             confidence = min(1.0, 0.55 + 0.08 * len(columns) + 0.05 * len(metrics))
 
+        # Calculate unresolved terms
+        unresolved_terms: list[str] = []
+        try:
+            import rapidfuzz
+            for term in extracted_terms:
+                term_lower = term.lower()
+                matched = False
+                for alias in matched_aliases:
+                    if term_lower in alias or rapidfuzz.fuzz.partial_ratio(term_lower, alias) >= 85:
+                        matched = True
+                        break
+                if not matched:
+                    unresolved_terms.append(term)
+        except ImportError:
+            unresolved_terms = extracted_terms
+
         return SchemaLinkingResult(
             question=question,
             normalized_question=normalized,
@@ -441,7 +487,8 @@ class SchemaLinker:
             metrics=metrics,
             join_hints=join_hints,
             schema_context=schema_context,
-            unresolved_terms=[],
+            unresolved_terms=unresolved_terms,
             confidence=round(confidence, 3),
             evidence=evidence,
         )
+

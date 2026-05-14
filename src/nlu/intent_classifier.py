@@ -2,21 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-try:
-    from src.nlu.persian_normalizer import PersianNormalizer
-    from src.nlu.safety_intent_detector import SafetyIntentDetector
-    from src.nlu.ambiguity_detector import AmbiguityDetector
-except Exception:  # pragma: no cover
-    from persian_normalizer import PersianNormalizer
-    from safety_intent_detector import SafetyIntentDetector
-    from ambiguity_detector import AmbiguityDetector
+from src.nlu.persian_normalizer import PersianNormalizer
+from src.nlu.safety_intent_detector import SafetyIntentDetector
+from src.nlu.ambiguity_detector import AmbiguityDetector
+from src.core.enums import IntentLabel, ExpectedAction
 
 @dataclass(frozen=True)
 class IntentDecision:
-    intent: str
+    intent: IntentLabel
     confidence: float
     should_generate_sql: bool
-    expected_action: str
+    expected_action: ExpectedAction
     reasons: list[str] = field(default_factory=list)
 
 class IntentClassifier:
@@ -48,12 +44,12 @@ class IntentClassifier:
         # 1. Safety gate: always first
         safety = self.safety.detect(text)
         if not safety.is_safe:
-            return IntentDecision("unsafe", 1.0, False, "refuse_unsafe_sql", safety.reasons)
+            return IntentDecision(IntentLabel.UNSAFE_QUERY, 1.0, False, ExpectedAction.REFUSE_UNSAFE_SQL, safety.reasons)
 
         # 2. Ambiguity gate
         amb = self.ambiguity.detect(text)
         if amb.is_ambiguous:
-            return IntentDecision("ambiguous", amb.score, False, "ask_clarification", amb.reasons)
+            return IntentDecision(IntentLabel.AMBIGUOUS_QUERY, amb.score, False, ExpectedAction.ASK_CLARIFICATION, amb.reasons)
 
         norm = self.normalizer.normalize_text(text).lower()
         reasons: list[str] = []
@@ -61,7 +57,7 @@ class IntentClassifier:
         # 3. Definition query — "X چیست" / "what is X" / "تعریف X"
         if any(x in norm for x in ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition"]):
             return IntentDecision(
-                "definition_query", 0.90, False, "answer_without_sql",
+                IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
                 ["Definition/explanation question detected — no SQL needed."],
             )
 
@@ -71,7 +67,7 @@ class IntentClassifier:
             "در مقابل", "نسبت به", "بیشتر از", "کمتر از",
         ]):
             return IntentDecision(
-                "comparison_query", 0.85, True, "generate_sql",
+                IntentLabel.COMPARISON_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL,
                 ["Comparison between groups/metrics detected."],
             )
 
@@ -83,53 +79,54 @@ class IntentClassifier:
             # Only if no aggregation signal
             if not any(x in norm for x in ["میانگین", "تعداد", "avg", "count", "sum", "درصد"]):
                 return IntentDecision(
-                    "raw_retrieval_query", 0.70, True, "generate_sql",
+                    IntentLabel.RAW_RETRIEVAL_QUERY, 0.70, True, ExpectedAction.GENERATE_SQL,
                     ["Raw data retrieval request — will need LIMIT enforcement."],
                 )
 
         # 6. Chart/visualization query
         if any(x in norm for x in ["نمودار", "چارت", "chart", "graph", "plot", "رسم", "histogram"]):
             return IntentDecision(
-                "chart_query", 0.80, True, "generate_sql",
+                IntentLabel.CHART_QUERY, 0.80, True, ExpectedAction.GENERATE_SQL,
                 ["Chart/visualization request detected."],
             )
 
         # 7. Dashboard/storytelling
         if any(x in norm for x in ["داشبورد", "داستان", "روایت", "story"]):
             return IntentDecision(
-                "dashboard_or_storytelling", 0.75, True, "generate_sql",
+                IntentLabel.NON_SQL_REQUEST, 0.75, True, ExpectedAction.GENERATE_SQL,
                 ["Dashboard/storytelling cue."],
             )
 
         # 8. Time series / trend
         if any(x in norm for x in ["روند", "سال", "آخرین سال", "time", "trend", "طی سال"]):
             return IntentDecision(
-                "time_series_query", 0.75, True, "generate_sql",
+                IntentLabel.TREND_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
                 ["Temporal cue."],
             )
 
         # 9. Rate / percentage
         if any(x in norm for x in ["درصد", "نرخ", "rate", "%"]):
-            return IntentDecision("rate_query", 0.85, True, "generate_sql", ["Rate/percentage cue."])
+            return IntentDecision(IntentLabel.RATE_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL, ["Rate/percentage cue."])
 
         # 10. Aggregation
         if any(x in norm for x in ["میانگین", "مجموع", "avg", "average", "sum", "min", "max"]):
-            return IntentDecision("aggregation_query", 0.9, True, "generate_sql", ["Aggregation cue."])
+            return IntentDecision(IntentLabel.AGGREGATION_QUERY, 0.9, True, ExpectedAction.GENERATE_SQL, ["Aggregation cue."])
 
         # 11. Count
         if any(x in norm for x in ["تعداد", "چند", "count"]):
-            return IntentDecision("count_query", 0.85, True, "generate_sql", ["Count cue."])
+            return IntentDecision(IntentLabel.COUNT_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL, ["Count cue."])
 
         # 12. Grouping / distribution
         if any(x in norm for x in ["توزیع", "تفکیک", "بر اساس", "گروه", "group by"]):
-            return IntentDecision("grouping_query", 0.75, True, "generate_sql", ["Grouping cue."])
+            return IntentDecision(IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL, ["Grouping cue."])
 
         # 13. Ranking
         if any(x in norm for x in ["رتبه", "بیشترین", "کمترین", "top", "اول", "بالاترین", "بهترین", "بدترین"]):
-            return IntentDecision("ranking_query", 0.75, True, "generate_sql", ["Ranking cue."])
+            return IntentDecision(IntentLabel.RANKING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL, ["Ranking cue."])
 
         # Default
         return IntentDecision(
-            "general_sql_query", 0.55, True, "generate_sql",
+            IntentLabel.UNKNOWN, 0.55, True, ExpectedAction.GENERATE_SQL,
             reasons or ["Default safe SQL-capable request."],
         )
+

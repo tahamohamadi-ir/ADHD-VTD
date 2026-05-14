@@ -9,6 +9,7 @@ class IntentLabel(StrEnum):
     GROUPING_QUERY = "grouping_query"
     RANKING_QUERY = "ranking_query"
     TREND_QUERY = "trend_query"
+    RATE_QUERY = "rate_query"
     RAW_RETRIEVAL_QUERY = "raw_retrieval_query"
     COMPARISON_QUERY = "comparison_query"
     DEFINITION_QUERY = "definition_query"

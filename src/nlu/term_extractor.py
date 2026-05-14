@@ -9,10 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-try:
-    from src.nlu.persian_normalizer import PersianNormalizer
-except Exception:  # pragma: no cover
-    from persian_normalizer import PersianNormalizer
+from src.nlu.persian_normalizer import PersianNormalizer
 
 
 # Common Persian stopwords that carry no schema-linking signal
@@ -59,13 +56,17 @@ class TermExtractor:
 
     def __init__(self, extra_stopwords: set[str] | None = None) -> None:
         self.normalizer = PersianNormalizer()
+        import hazm
+        self.tokenizer = hazm.WordTokenizer()
         self.stopwords = PERSIAN_STOPWORDS | ENGLISH_STOPWORDS
         if extra_stopwords:
             self.stopwords = self.stopwords | extra_stopwords
 
     def _tokenize(self, text: str) -> list[str]:
-        """Split text into tokens, preserving Persian and English words."""
-        return re.findall(r"[\w\u0600-\u06FF]+", text.lower())
+        """Split text into tokens using hazm tokenizer, preserving valid words."""
+        tokens = self.tokenizer.tokenize(text.lower())
+        # Filter out pure punctuation tokens
+        return [t for t in tokens if re.match(r"[\w\u0600-\u06FF]+", t)]
 
     def _is_stopword(self, token: str) -> bool:
         return token in self.stopwords
