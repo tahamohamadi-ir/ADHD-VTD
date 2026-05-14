@@ -1,0 +1,127 @@
+{
+  "cases": {
+    "total": 50,
+    "sql_positive": 50,
+    "non_sql_or_behavioral": 0,
+    "by_difficulty": {
+      "complex": 12,
+      "easy": 12,
+      "hard": 13,
+      "medium": 13
+    },
+    "by_category": {
+      "advanced_analysis": 2,
+      "advanced_sql": 2,
+      "analysis": 2,
+      "average": 2,
+      "benchmark_rank": 2,
+      "bucket": 2,
+      "change_analysis": 2,
+      "comorbidity_group": 1,
+      "compare_to_overall": 1,
+      "comparison": 1,
+      "complex_dashboard": 2,
+      "count": 2,
+      "country_benchmark_dashboard": 2,
+      "dashboard_story": 2,
+      "distribution": 2,
+      "general_health": 1,
+      "global_change_dashboard": 1,
+      "global_or_university": 1,
+      "group_comparison": 1,
+      "intervention_priority_dashboard": 1,
+      "min_max": 2,
+      "multi_metric_rank": 1,
+      "percentage_by_group": 1,
+      "performance": 1,
+      "policy_matrix": 1,
+      "productivity_gap_dashboard": 1,
+      "rank_by_group": 1,
+      "rate": 1,
+      "risk_matrix": 1,
+      "segmentation_dashboard": 1,
+      "simple": 2,
+      "time_series": 2,
+      "top_n": 2,
+      "workplace": 1
+    }
+  },
+  "execution_results_count": 50,
+  "gold_sql_executed_successfully": 50,
+  "gold_sql_failed": 0,
+  "metrics": {
+    "execution_accuracy": {
+      "name": "execution_accuracy",
+      "value": 1.0,
+      "numerator": 50,
+      "denominator": 50,
+      "description": "Correct execution result / total cases"
+    },
+    "valid_sql_rate": {
+      "name": "valid_sql_rate",
+      "value": 1.0,
+      "numerator": 50,
+      "denominator": 50,
+      "description": "Valid SQL / total generated SQL cases"
+    },
+    "schema_linking_accuracy": {
+      "name": "schema_linking_accuracy",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 50,
+      "description": "Correct table/column linking / reviewed cases"
+    },
+    "value_linking_accuracy": {
+      "name": "value_linking_accuracy",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 50,
+      "description": "Correct value resolution / reviewed value cases"
+    },
+    "clarification_accuracy": {
+      "name": "clarification_accuracy",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 0,
+      "description": "Correct clarification decisions"
+    },
+    "safety_rejection_accuracy": {
+      "name": "safety_rejection_accuracy",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 0,
+      "description": "Correct unsafe/adversarial refusals"
+    },
+    "sql2nl_paraphrase_robustness": {
+      "name": "sql2nl_paraphrase_robustness",
+      "value": 1.0,
+      "numerator": 50,
+      "denominator": 50,
+      "description": "Paraphrase groups where all variants pass"
+    },
+    "abstention_precision": {
+      "name": "abstention_precision",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 0,
+      "description": "Correct abstentions / predicted abstentions"
+    },
+    "abstention_recall": {
+      "name": "abstention_recall",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 0,
+      "description": "Correct abstentions / required abstentions"
+    }
+  },
+  "reliability": {
+    "score": 50.0,
+    "normalized_score": 1.0,
+    "total_cases": 50,
+    "correct_sql": 50,
+    "correct_abstention": 0,
+    "wrong_sql": 0,
+    "wrong_abstention": 0,
+    "unsafe_sql": 0
+  }
+}

@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-try:
-    import sqlglot
-    from sqlglot import exp
-except Exception:  # pragma: no cover
-    sqlglot = None
-    exp = None
+import sqlglot
+from sqlglot import exp
 
-try:
-    from src.schema.schema_registry import SchemaRegistry
-    from src.sql_validation.validation_result import ValidationIssue, ValidationResult
-except Exception:  # pragma: no cover
-    from schema_registry import SchemaRegistry
-    from validation_result import ValidationIssue, ValidationResult
+from src.schema.schema_registry import SchemaRegistry
+from src.sql_validation.validation_result import ValidationIssue, ValidationResult
 
 class SQLSchemaValidator:
     OLD_TABLES = {"individuals_core", "student_metrics", "clinical_assessments", "lifestyle_risk_factors", "global_benchmarks"}
@@ -30,9 +22,17 @@ class SQLSchemaValidator:
         except Exception as exc:
             return ValidationResult.fail("PARSE_ERROR", f"Cannot parse SQL for schema validation: {exc}")
 
+        # Get CTEs
+        ctes = {cte.alias for cte in tree.find_all(exp.CTE)}
+
+        # Get SELECT aliases
+        select_aliases = {alias.alias for alias in tree.find_all(exp.Alias)}
+
         tables: dict[str, str] = {}
         for table in tree.find_all(exp.Table):
             table_name = table.name
+            if table_name in ctes:
+                continue
             alias = table.alias_or_name
             tables[alias] = table_name
             tables[table_name] = table_name
@@ -45,7 +45,7 @@ class SQLSchemaValidator:
         for column in tree.find_all(exp.Column):
             col_name = column.name
             table_ref = column.table
-            if col_name == "*":
+            if col_name == "*" or col_name in select_aliases:
                 continue
             if table_ref:
                 real_table = tables.get(table_ref, table_ref)

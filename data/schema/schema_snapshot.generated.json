@@ -1155,6 +1155,363 @@
           ]
         }
       ]
+    },
+    {
+      "name": "vw_country_prevalence_pivot",
+      "description": "View vw_country_prevalence_pivot",
+      "row_count": 6420,
+      "columns": [
+        {
+          "name": "country_name",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column country_name from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "country_code",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column country_code from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "year",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column year from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "schizophrenia_pct",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column schizophrenia_pct from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "depression_pct",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column depression_pct from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "anxiety_pct",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column anxiety_pct from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "bipolar_pct",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column bipolar_pct from view vw_country_prevalence_pivot"
+        },
+        {
+          "name": "eating_disorder_pct",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column eating_disorder_pct from view vw_country_prevalence_pivot"
+        }
+      ]
+    },
+    {
+      "name": "vw_unified_individual_mental_health",
+      "description": "View vw_unified_individual_mental_health",
+      "row_count": 40261,
+      "columns": [
+        {
+          "name": "source_name",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column source_name from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "record_id",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column record_id from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "age",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column age from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "gender",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column gender from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "country",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column country from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "location",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column location from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "population_type",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column population_type from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "depression_flag",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column depression_flag from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "anxiety_flag",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column anxiety_flag from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "treatment_flag",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column treatment_flag from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "sleep_hours",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column sleep_hours from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "stress_score",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column stress_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "social_support_score",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column social_support_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "depression_score",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column depression_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "anxiety_score",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column anxiety_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "productivity_score",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column productivity_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "cgpa_10",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column cgpa_10 from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "exam_score",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column exam_score from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "study_hours_per_day",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column study_hours_per_day from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "work_study_hours",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column work_study_hours from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "physical_activity_days",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column physical_activity_days from view vw_unified_individual_mental_health"
+        },
+        {
+          "name": "family_history_flag",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column family_history_flag from view vw_unified_individual_mental_health"
+        }
+      ]
+    },
+    {
+      "name": "vw_student_dashboard",
+      "description": "View vw_student_dashboard",
+      "row_count": 28901,
+      "columns": [
+        {
+          "name": "source_name",
+          "type": "ANY",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column source_name from view vw_student_dashboard"
+        },
+        {
+          "name": "record_id",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column record_id from view vw_student_dashboard"
+        },
+        {
+          "name": "age",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column age from view vw_student_dashboard"
+        },
+        {
+          "name": "gender",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column gender from view vw_student_dashboard"
+        },
+        {
+          "name": "city",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column city from view vw_student_dashboard"
+        },
+        {
+          "name": "degree",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column degree from view vw_student_dashboard"
+        },
+        {
+          "name": "depression_flag",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column depression_flag from view vw_student_dashboard"
+        },
+        {
+          "name": "academic_pressure",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column academic_pressure from view vw_student_dashboard"
+        },
+        {
+          "name": "cgpa_10",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column cgpa_10 from view vw_student_dashboard"
+        },
+        {
+          "name": "sleep_hours",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column sleep_hours from view vw_student_dashboard"
+        },
+        {
+          "name": "dietary_habits",
+          "type": "TEXT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column dietary_habits from view vw_student_dashboard"
+        },
+        {
+          "name": "suicidal_thoughts",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column suicidal_thoughts from view vw_student_dashboard"
+        },
+        {
+          "name": "family_history_mental_illness",
+          "type": "INTEGER",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column family_history_mental_illness from view vw_student_dashboard"
+        },
+        {
+          "name": "exam_score",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column exam_score from view vw_student_dashboard"
+        },
+        {
+          "name": "attendance_percentage",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column attendance_percentage from view vw_student_dashboard"
+        },
+        {
+          "name": "social_media_hours",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column social_media_hours from view vw_student_dashboard"
+        },
+        {
+          "name": "netflix_hours",
+          "type": "REAL",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column netflix_hours from view vw_student_dashboard"
+        },
+        {
+          "name": "mental_health_rating",
+          "type": "INT",
+          "primary_key": false,
+          "nullable": true,
+          "description": "Column mental_health_rating from view vw_student_dashboard"
+        }
+      ]
     }
   ]
 }
