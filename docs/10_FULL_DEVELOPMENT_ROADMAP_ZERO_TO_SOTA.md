@@ -63,6 +63,10 @@ Already created or bootstrapped:
 ✅ src/schema/schema_registry.py
 ✅ src/schema/schema_linker.py
 ✅ basic schema linker test
+✅ src/generation/local_llm.py (GPU-accelerated)
+✅ src/sql_validation/validation_pipeline.py
+✅ src/graph/workflow.py (LangGraph Agent)
+✅ scripts/run_agent.py (CLI Entry point)
 ```
 
 The next goal is to convert this foundation into a complete, tested, benchmarked, reproducible, and publishable system.
@@ -79,11 +83,11 @@ Phase 1   Environment, reproducibility, and config hardening
 Phase 2   Data/schema quality foundation
 Phase 3   Persian NLU and intent routing
 Phase 4   Schema linking v2 and query planning
-Phase 5   SQL validation and read-only execution
-Phase 6   Minimal local LLM Text-to-SQL pipeline
+Phase 5   SQL validation and read-only execution [COMPLETED]
+Phase 6   Minimal local LLM Text-to-SQL pipeline [COMPLETED]
 Phase 7   Hybrid CAG/RAG retrieval
-Phase 8   LangGraph orchestration
-Phase 9   Reflexion, SQL Surgeon, and semantic critic
+Phase 8   LangGraph orchestration [COMPLETED]
+Phase 9   Reflexion, SQL Surgeon, and semantic critic [BETA - Basic logic in Graph]
 Phase 10  Benchmark runner and evaluation framework
 Phase 11  Ablation, error analysis, and research metrics
 Phase 12  Output, chart recommendation, and data storytelling

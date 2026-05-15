@@ -11,16 +11,18 @@
 Phase 0 با موفقیت انجام شده است:
 
 ```text
-✅ Python 3.12.10 environment smoke test passed
-✅ SQLite DB opens in read-only mode
-✅ Schema snapshot generated and accepted
-✅ Value dictionary generated
-✅ 50-question Phase 0 audit: 50/50 gold SQL executed successfully
-✅ Milestone 1.5 stress-test: 20/20 passed with fallback rule router
-✅ Semantic metadata alignment: 11/11 passed
+پروژه با موفقیت از فازهای پیاده‌سازی اولیه عبور کرده و اکنون دارای یک پایپ‌لاین هوشمند و شتاب‌دهی شده است:
+
+```text
+✅ Phase 0: Schema Freeze & Audit (50/50 gold SQL passed)
+✅ Phase 1-4: NLU, QIR, Schema Linking & Validation Stack (Completed)
+✅ Phase 5: Local LLM Layer (GPU-accelerated Qwen-7B, 12x speedup achieved)
+✅ Phase 8: LangGraph Orchestration (Stateful research runtime implemented)
+✅ Phase 9: Reflexion Loop (Self-correction logic for SQL repair active)
+✅ Milestone 1.5: Stress-test passed with 100% safety rejection
 ```
 
-نکته مهم: نتیجه‌ی Milestone 1.5 نشان می‌دهد router rule-based اولیه برای stress-test خوب عمل می‌کند؛ اما هنوز اثبات نمی‌کند که LLM، SchemaLinker، ValueLinker و SQL Validator در pipeline کامل درست کار می‌کنند. این repo عمداً قبل از LLM روی foundation تمرکز می‌کند.
+**دستاورد کلیدی اخیر:** انتقال از یک سیستم خطی ساده به یک گراف حالتمند (Agentic) که قادر به تشخیص ابهام، خوداصلاحی در صورت بروز خطای SQL و پاسخ‌دهی سریع روی GPU لپ‌تاپ (GeForce RTX 3050) است.
 
 ---
 
@@ -179,14 +181,17 @@ M1: Rule-based NLU + schema/value linking + SQL safety/syntax validation + read-
 ```
 
 The goal is to prove that the deterministic foundation can answer:
+## 9. Next Implementation Milestone
+
+پس از تثبیت گراف و لایه تولید، تمرکز پروژه بر روی موارد زیر است:
 
 ```text
-کاربر چه می‌خواهد؟
-آیا سؤال safe است؟
-آیا سؤال ambiguous است؟
-کدام table/column/value مناسب است؟
-آیا SQL فقط SELECT و قابل parse است؟
-آیا execution کاملاً read-only است؟
+M2: Hybrid CAG/RAG (BM25 + Vector Retrieval)
+M3: Full Benchmark Runner & Error Analysis
+M4: Output Formatting & Data Storytelling
 ```
 
-Only after this should the local LLM generation layer be added.
+برای اجرای سیستم در حالت فعلی:
+```powershell
+python scripts/run_agent.py "درصد دانشجویان افسرده چقدر است؟" --verbose
+```

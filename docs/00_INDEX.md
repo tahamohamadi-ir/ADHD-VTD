@@ -1,6 +1,7 @@
 # VTD-Edge Research-Grade Documentation Suite
 
 **Status:** Finalized documentation suite aligned with PARS-SQL / VTD-Edge v2.3 Execution-Ready proposal  
+**Last Updated:** 2026-05-15 (Phase 5 & 6 Completed)
 **Project:** VTD-Edge / ADHD-VTD Persian Text-to-SQL System  
 **Target:** Research-grade and edge-deployable, offline, privacy-preserving, Persian-first Text-to-SQL pipeline  
 **Primary Goal:** Build a measurable, reliable, and publishable local/edge NL2SQL system for mental-health and student-lifestyle analytics while keeping data private.  

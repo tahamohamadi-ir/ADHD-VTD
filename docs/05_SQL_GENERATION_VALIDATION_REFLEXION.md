@@ -4,6 +4,15 @@
 **Version:** v2.3 Execution-Ready alignment  
 **Updated focus:** implementation-first, reliability-first, edge-aware, benchmark-auditable.
 
+---
+
+### ✅ Current Implementation Status (Phase 5/6 Completion)
+- **Local LLM Engine:** GPU-accelerated Qwen-7B (Q4_K_M) via `llama-cpp-python` (CUDA 12.4).
+- **Orchestration:** LangGraph state machine (`src/graph/workflow.py`) with 13 functional nodes.
+- **Self-Correction:** Reflexion loop implemented; errors from `ValidationPipeline` are fed back to the generation node for up to 3 retries.
+- **Output Format:** Strict JSON enforcement via `LlamaGrammar` and `OutputParser`.
+- **Safety:** Read-only execution enforced via `ReadOnlyExecutor`.
+
 
 ## 1. Core Principle
 

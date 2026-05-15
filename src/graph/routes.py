@@ -1,1 +1,28 @@
-﻿
+from typing import Literal
+from src.graph.state import VTDState
+
+def route_pre_generation(state: VTDState) -> Literal["link_schema", "ask_clarification"]:
+    """Decide whether to proceed to schema linking or ask for clarification."""
+    if state.needs_clarification or state.intent_confidence < 0.4:
+        return "ask_clarification"
+    return "link_schema"
+
+def route_after_validation(state: VTDState) -> Literal["execute_sql", "generate_sql", "fail_gracefully"]:
+    """Decide whether to execute SQL, retry generation, or fail."""
+    if not state.validation_errors:
+        return "execute_sql"
+    
+    if state.retry_count >= state.max_retries:
+        return "fail_gracefully"
+        
+    return "generate_sql"
+
+def route_after_execution(state: VTDState) -> Literal["format_answer", "generate_sql", "fail_gracefully"]:
+    """Decide whether to format the answer or retry if execution failed."""
+    if state.execution_result is not None:
+        return "format_answer"
+        
+    if state.retry_count >= state.max_retries:
+        return "fail_gracefully"
+        
+    return "generate_sql"

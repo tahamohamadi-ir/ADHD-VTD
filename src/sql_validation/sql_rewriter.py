@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-
+import sqlglot
+from sqlglot import exp
 
 class SQLRewriter:
     """Small deterministic rewrites. Never turns unsafe SQL into safe SQL; validators run separately.
@@ -19,7 +20,7 @@ class SQLRewriter:
 
     # Common column name fixes
     COLUMN_FIXES: dict[str, str] = {
-        r"\bgpa\b": "cgpa",  # The schema uses cgpa_10 / cgpa_mid, not gpa
+        "gpa": "cgpa",  # The schema uses cgpa_10 / cgpa_mid, not gpa
     }
 
     def strip_markdown_fences(self, sql: str) -> str:
@@ -42,46 +43,66 @@ class SQLRewriter:
     def strip_trailing_semicolon(self, sql: str) -> str:
         return (sql or "").strip().rstrip(";").strip()
 
-    def fix_column_names(self, sql: str) -> str:
-        """Fix common column name typos in SQL.
+    def fix_column_names_ast(self, tree: exp.Expression) -> exp.Expression:
+        """Fix common column name typos in SQL using AST."""
+        for col in tree.find_all(exp.Column):
+            if col.name.lower() in self.COLUMN_FIXES:
+                # Replace with correct name
+                col.set("this", exp.Identifier(this=self.COLUMN_FIXES[col.name.lower()], quoted=col.this.args.get("quoted")))
+        return tree
 
-        Currently handles:
-        - gpa → cgpa (when used as a standalone column reference, not part of cgpa)
-        """
-        s = sql
-        for pattern, replacement in self.COLUMN_FIXES.items():
-            # Only replace 'gpa' when it's NOT already part of 'cgpa'
-            s = re.sub(r"(?<!c)" + pattern, replacement, s, flags=re.IGNORECASE)
-        return s
-
-    def ensure_limit_for_raw_select(self, sql: str, limit: int = 100) -> str:
-        s = self.strip_trailing_semicolon(sql)
-        lower = s.lower()
-        if " limit " in lower:
-            return s
-        if self.AGG_RE.search(s) or " group by " in lower:
-            return s
-        if lower.startswith("select") or lower.startswith("with"):
-            return f"{s} LIMIT {int(limit)}"
-        return s
-
-    def normalize(self, sql: str) -> str:
-        return re.sub(r"\s+", " ", self.strip_trailing_semicolon(sql)).strip()
+    def ensure_limit_ast(self, tree: exp.Expression, limit: int = 100) -> exp.Expression:
+        """Ensure LIMIT is present for raw SELECT queries using AST."""
+        if not isinstance(tree, exp.Select):
+            return tree
+            
+        # If there's already a limit, do nothing
+        if tree.args.get("limit"):
+            return tree
+            
+        # If there's a GROUP BY, do nothing
+        if tree.args.get("group"):
+            return tree
+            
+        # If there's an aggregate function, do nothing
+        has_agg = False
+        for node in tree.walk():
+            if isinstance(node, (exp.Count, exp.Avg, exp.Sum, exp.Min, exp.Max)):
+                has_agg = True
+                break
+                
+        if not has_agg:
+            tree = tree.limit(limit)
+            
+        return tree
 
     def rewrite(self, sql: str, *, add_limit: bool = True, limit: int = 100) -> str:
         """Apply all rewrites in sequence.
 
         Order:
-        1. Strip markdown fences
-        2. Strip trailing semicolons
-        3. Fix column name typos
-        4. Add LIMIT if needed
-        5. Normalize whitespace
+        1. Strip markdown fences and trailing semicolons (string level)
+        2. Parse with sqlglot
+        3. Fix column name typos (AST level)
+        4. Add LIMIT if needed (AST level)
+        5. Serialize back to SQL string
         """
         s = self.strip_markdown_fences(sql)
         s = self.strip_trailing_semicolon(s)
-        s = self.fix_column_names(s)
-        if add_limit:
-            s = self.ensure_limit_for_raw_select(s, limit=limit)
-        s = self.normalize(s)
-        return s
+        
+        try:
+            import sqlglot
+            from sqlglot import exp
+            
+            tree = sqlglot.parse_one(s, read="sqlite")
+            tree = self.fix_column_names_ast(tree)
+            
+            if add_limit:
+                tree = self.ensure_limit_ast(tree, limit=limit)
+                
+            return tree.sql(dialect="sqlite")
+            
+        except Exception:
+            # Fallback to string manipulation if parse fails (for partial safety)
+            # Just do basic cleanup
+            s = re.sub(r"\s+", " ", s).strip()
+            return s
