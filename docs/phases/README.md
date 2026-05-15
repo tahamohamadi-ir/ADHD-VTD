@@ -21,7 +21,7 @@
 | Phase 4 | SQL Validation Stack کامل | ⏳ | — |
 | Phase 5 | Local LLM Generation Layer | ⏳ | — |
 | Phase 6 | Milestone 1.5 Stress Test | ⏳ | — |
-| Phase 7 | Hybrid CAG/RAG Retrieval | ⏳ | — |
+| Phase 7 | Hybrid CAG/RAG Retrieval | in progress | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
 | Phase 8 | LangGraph Orchestration | ⏳ | — |
 | Phase 9 | Reflexion, SQL Surgeon, Semantic Critic | ⏳ | — |
 | Phase 10 | Benchmark Runner کامل | ⏳ | — |

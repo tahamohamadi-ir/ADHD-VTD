@@ -5,19 +5,24 @@
 ## فایل‌ها و زیرپوشه‌ها
 
 - `indexed_examples.jsonl`: نمایش retrieval-ready از مثال‌ها.
-- `bm25/`: محل index یا خروجی‌های BM25.
-- `chroma/`: محل vector store اگر Chroma فعال شود.
+- `bm25/`: محل index واژگانی. اکنون `bm25_index.json` با `scripts/build_rag_index.py --skip-vector` ساخته می‌شود.
+- `chroma/`: محل vector store سبک فعلی و مسیر آینده ChromaDB.
 
-## وضعیت توسعه
+## وضعیت فعلی
 
-طبق `task.md`، داده پایه retrieval آماده است، اما index builder و runtime retrieval هنوز در Phase 7 باید تکمیل شوند.
+BM25 index از ۵۰ مثال `indexed_examples.jsonl` ساخته شد. vector store فعلاً fallback مبتنی بر JSON دارد تا توسعه بدون dependency سنگین هم قابل تست باشد.
 
-## گام‌های بعد
+## بازتولید index
 
-1. ساخت `scripts/build_rag_index.py`.
-2. ساخت BM25 index در `data/rag/bm25`.
-3. ساخت Chroma store در `data/rag/chroma`.
-4. گزارش retrieval metrics در `results/benchmark` یا `results/data_quality`.
+```powershell
+.\.venv\Scripts\python.exe scripts\build_rag_index.py --skip-vector
+```
+
+برای ساخت vector fallback:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_rag_index.py
+```
 
 ## نکته فنی
 

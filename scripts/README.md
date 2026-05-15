@@ -17,10 +17,10 @@
 - `export_schema_markdown.py`: تولید `docs/generated/SCHEMA_REFERENCE.md`.
 - `expand_golden.py`: ساخت/گسترش golden و few-shot examples.
 - `add_views_to_schema.py`: sync کردن viewهای دیتابیس با schema snapshot.
+- `build_rag_index.py`: ساخت BM25 index و در صورت نیاز vector fallback store از `data/rag/indexed_examples.jsonl`.
 
 ## scriptهای بعدی
 
-- `build_rag_index.py`: ساخت BM25/Chroma index از `data/rag/indexed_examples.jsonl`.
 - `run_benchmark.py`: اجرای benchmark و ذخیره خروجی در `results/benchmark`.
 - `run_ablation.py`: اجرای configهای `experiments/configs`.
 - `reproduce_paper_results.py`: اجرای مسیر reproducibility برای paper/demo.
