@@ -1,27 +1,55 @@
 # پوشه `scripts`
 
-این پوشه ابزارهای command-line و glue code پروژه را نگه می‌دارد. scriptها معمولاً dataset را validate می‌کنند، schema تولید می‌کنند، index می‌سازند یا pipeline را از CLI اجرا می‌کنند.
+این پوشه ابزارهای command-line و glue code پروژه را نگه می‌دارد. اسکریپت‌ها معمولا dataset را validate می‌کنند، schema تولید می‌کنند، index می‌سازند، agent را اجرا می‌کنند یا artifactهای benchmark را در `results/` می‌نویسند.
 
 ## فایل‌های فعلی مهم
 
-- `_bootstrap_path.py`: اضافه کردن root پروژه به `sys.path`.
+- `_bootstrap_path.py`: اضافه کردن root پروژه به `sys.path` برای اجرای مستقیم scriptها.
 - `run_query.py`: اجرای یک query از NLU تا generation/validation/execution.
-- `run_agent.py`: اجرای workflow LangGraph.
+- `run_agent.py`: اجرای workflow LangGraph برای یک پرسش.
+- `run_benchmark.py`: اجرای benchmark قابل بازتولید در modeهای `retrieval` و `gold`.
 - `validate_dataset.py`: wrapper کنترل کیفیت dataset.
 - `validate_dataset_sql.py`: اجرای gold SQLها و گزارش کیفیت.
 - `compare_schema_snapshots.py`: مقایسه snapshot تولیدی و frozen schema.
-- `check_schema_column_references.py`: کشف table/column hallucination.
-- `check_duplicate_questions.py`: پیدا کردن duplicateها.
+- `check_schema_column_references.py`: کشف table/column hallucination در SQLهای gold.
+- `check_duplicate_questions.py`: پیدا کردن duplicate ID و duplicate question.
 - `convert_dataset_to_jsonl.py`: تبدیل JSON به JSONL.
 - `split_dataset.py`: ساخت train/dev/test split.
 - `export_schema_markdown.py`: تولید `docs/generated/SCHEMA_REFERENCE.md`.
-- `expand_golden.py`: ساخت/گسترش golden و few-shot examples.
+- `expand_golden.py`: ساخت یا گسترش golden و few-shot examples.
 - `add_views_to_schema.py`: sync کردن viewهای دیتابیس با schema snapshot.
 - `build_rag_index.py`: ساخت BM25 index و در صورت نیاز vector fallback store از `data/rag/indexed_examples.jsonl`.
 
+## Benchmark
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode retrieval --dataset dev --sample 20 --top-k 3
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode gold --dataset dev --sample 20
+```
+
+حالت `retrieval` فقط کیفیت evidence retrieval را می‌سنجد و benchmark کامل تولید SQL نیست. خروجی آن شامل `retrieval_hit_rate`، `Schema Recall@k`، `Intent@k` و `Skeleton@k` است.
+
+حالت `gold` یک sanity benchmark بدون LLM است: SQL طلایی را با خودش اجرا و مقایسه می‌کند تا executor، metricها و report generator بررسی شوند.
+
+## خروجی‌های benchmark
+
+هر run در مسیر زیر ذخیره می‌شود:
+
+```text
+results/benchmark/<timestamp>_<config_id>/
+```
+
+فایل‌های اصلی:
+
+- `config.json`: تنظیمات run، dataset، mode، top-k و commit.
+- `predictions.jsonl`: رکورد کامل هر case همراه خروجی همان mode.
+- `failures.jsonl`: subset خطادار یا miss شده.
+- `summary.json`: خلاصه ماشینی.
+- `summary.md`: گزارش خوانا برای انسان.
+- `retrieval_metrics.json`: فقط برای mode `retrieval`.
+
 ## scriptهای بعدی
 
-- `run_benchmark.py`: اجرای benchmark و ذخیره خروجی در `results/benchmark`.
 - `run_ablation.py`: اجرای configهای `experiments/configs`.
 - `reproduce_paper_results.py`: اجرای مسیر reproducibility برای paper/demo.
 

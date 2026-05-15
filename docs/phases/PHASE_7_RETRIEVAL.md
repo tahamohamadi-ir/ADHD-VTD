@@ -2,7 +2,7 @@
 
 **Status:** In progress  
 **Updated:** 2026-05-15  
-**Scope:** BM25 retrieval, hybrid scoring, prompt context building, graph connection, and initial retrieval tests.
+**Scope:** BM25 retrieval, hybrid scoring, prompt context building, graph connection, initial retrieval tests, and retrieval-only benchmark artifacts.
 
 ## What Was Added
 
@@ -16,6 +16,7 @@
 | `src/retrieval/context_builder.py` | Builds prompt-ready few-shot context |
 | `src/evaluation/retrieval_metrics.py` | Initial retrieval metric helpers |
 | `scripts/build_rag_index.py` | Builds local RAG indexes |
+| `scripts/run_benchmark.py` | Runs retrieval-only benchmark and writes artifacts |
 | `tests/tier1_unit/test_retrieval.py` | Unit tests for retrieval behavior |
 
 ## Current Runtime Flow
@@ -33,6 +34,7 @@ The graph currently uses lexical/schema-aware retrieval without vector loading b
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build_rag_index.py --skip-vector
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode retrieval --dataset dev --sample 20 --top-k 3
 .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_retrieval.py -q
 ```
 
@@ -41,11 +43,11 @@ The graph currently uses lexical/schema-aware retrieval without vector loading b
 ```text
 3 retrieval tests passed
 BM25 index built from 50 indexed examples
+Retrieval sample benchmark writes config, predictions, failures, summary, and retrieval_metrics artifacts
 ```
 
 ## Remaining Work
 
 - Full ChromaDB persistent collection integration.
-- Retrieval-only benchmark command.
 - Value-link-aware `Value Recall@k`.
 - Model-backed reranker.

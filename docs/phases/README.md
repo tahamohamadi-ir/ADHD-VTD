@@ -1,45 +1,37 @@
-# PARS-SQL — Phase Documentation Index
+# PARS-SQL - Phase Documentation Index
 
-> این پوشه شامل مستندات کامل هر فاز توسعه پروژه PARS-SQL / VTD-Edge است.  
-> هر فاز شامل جزئیات پیاده‌سازی، راهنمای استفاده، و task list فاز بعدی است.
+این پوشه مستندات اجرایی فازهای توسعه پروژه را نگه می‌دارد. هر فایل phase باید نشان دهد چه چیزی ساخته شده، چطور اجرا می‌شود، چه تستی دارد و چه کاری هنوز باقی مانده است.
 
----
+## فازهای مستند شده
 
-## فازهای تکمیل‌شده
-
-| فاز | عنوان | وضعیت | فایل |
+| Phase | عنوان | وضعیت | فایل |
 |---|---|---|---|
-| Phase 0 | Schema Freeze & 50Q Audit | ✅ تکمیل (قبلی) | — |
-| **Phase 1** | **Fix Foundation Gaps** | **✅ تکمیل** | [PHASE_1_FOUNDATION_GAPS.md](PHASE_1_FOUNDATION_GAPS.md) |
-| **Phase 2** | **Data & Schema Quality Hardening** | **✅ تکمیل** | [PHASE_2_DATA_QUALITY.md](PHASE_2_DATA_QUALITY.md) |
+| Phase 1 | Fix Foundation Gaps | Completed | [PHASE_1_FOUNDATION_GAPS.md](PHASE_1_FOUNDATION_GAPS.md) |
+| Phase 2 | Data & Schema Quality Hardening | Completed | [PHASE_2_DATA_QUALITY.md](PHASE_2_DATA_QUALITY.md) |
+| Phase 4 | SQL Validation Stack | Completed | [PHASE_4_SQL_VALIDATION.md](PHASE_4_SQL_VALIDATION.md) |
+| Phase 7 | Hybrid CAG/RAG Retrieval | In progress | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
+| Phase 10 | Benchmark Runner | In progress | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
 
-## فازهای در انتظار
+## فازهای نیازمند سند مستقل
 
-| فاز | عنوان | وضعیت | فایل |
-|---|---|---|---|
-| **Phase 3** | **NLU v2 (Value Linking & QIR)** | **🔜 آماده** | — |
-| Phase 4 | SQL Validation Stack کامل | ⏳ | — |
-| Phase 5 | Local LLM Generation Layer | ⏳ | — |
-| Phase 6 | Milestone 1.5 Stress Test | ⏳ | — |
-| Phase 7 | Hybrid CAG/RAG Retrieval | in progress | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
-| Phase 8 | LangGraph Orchestration | ⏳ | — |
-| Phase 9 | Reflexion, SQL Surgeon, Semantic Critic | ⏳ | — |
-| Phase 10 | Benchmark Runner کامل | ⏳ | — |
-| Phase 11 | Ablation, Error Analysis, Research Metrics | ⏳ | — |
-| Phase 12 | Output, Chart, Narrative | ⏳ | — |
-| Phase 13 | Reliability Gate, Multi-Candidate, Abstention | ⏳ | — |
-| Phase 14 | Edge Runtime (اختیاری) | ⏳ | — |
-| Phase 15 | Research Packaging | ⏳ | — |
+| Phase | عنوان | وضعیت سند |
+|---|---|---|
+| Phase 3 | NLU v2 (Value Linking & QIR) | TODO |
+| Phase 5 | Local LLM Generation Layer | TODO |
+| Phase 6 | Milestone 1.5 Stress Test | TODO |
+| Phase 8 | LangGraph Orchestration | TODO |
+| Phase 9 | Reflexion, SQL Surgeon, Semantic Critic | TODO |
+| Phase 11 | Ablation, Error Analysis, Research Metrics | TODO |
+| Phase 12 | Output, Chart, Narrative | TODO |
+| Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
+| Phase 14 | Edge Runtime | TODO |
+| Phase 15 | Research Packaging | TODO |
 
----
+## قالب پیشنهادی هر phase document
 
-## قالب هر Phase Document
-
-هر فایل Phase شامل بخش‌های زیر است:
-
-1. **هدف فاز** — چه مشکلی حل می‌شود
-2. **فایل‌های تغییریافته** — جدول کامل با وضعیت قبل/بعد
-3. **جزئیات هر کامپوننت** — API Reference, مثال‌ها, طراحی
-4. **Unit Tests** — لیست تست‌ها و نتایج
-5. **پیشنهادات بهبود** — چه چیزهایی می‌تواند بهتر شود
-6. **وابستگی‌ها** — ارتباط با فازهای دیگر
+1. هدف فاز و مسئله‌ای که حل می‌کند.
+2. فایل‌های تغییر یافته یا اضافه شده.
+3. جریان runtime یا data flow.
+4. دستورهای اجرا و تست.
+5. معیار پذیرش.
+6. محدودیت‌های فعلی و کارهای بعدی.
