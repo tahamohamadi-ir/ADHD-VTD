@@ -11,8 +11,10 @@
 5. `docs/08_PROJECT_STRUCTURE_AND_FILE_MAP.md` برای source-of-truth ساختار پوشه‌ها.
 6. `docs/09_DATASET_AND_EVALUATION_FILES_GUIDE.md` برای source-of-truth dataset و evaluation artifacts.
 7. `src/README.md` برای معماری کد و مسیر pipeline.
-8. `data/README.md` برای دیتابیس، schema، dataset، golden SQL و RAG artifacts.
-9. `tests/README.md` و `results/README.md` برای ارزیابی، regression و گزارش‌گیری.
+8. `src/retrieval/README.md` برای جزئیات Hybrid RAG و نحوه بازیابی مثال‌ها.
+9. `src/graph/README.md` برای منطق LangGraph و نودهای اجرایی.
+10. `data/README.md` برای دیتابیس، schema، dataset، golden SQL و RAG artifacts.
+11. `tests/README.md` و `results/README.md` برای ارزیابی، regression و گزارش‌گیری.
 
 ## محدوده پوشش
 

@@ -56,18 +56,19 @@ The LLM is only a **candidate SQL generator**. It is never trusted as the source
 | Value dictionary | Phase 0 | Done |
 | 50Q audit | Phase 0 | Done |
 | Semantic metadata alignment | Phase 0 | Done |
-| Persian normalization | Phase 1 | Implement now |
-| Finglish/typo mapping | Phase 1 | Implement now |
-| Safety/ambiguity router | Phase 1 | Implement now |
-| Value linking | Phase 1 | Implement now |
-| SQL safety/syntax validation | Phase 1 | Implement now |
-| Read-only executor | Phase 1 | Implement now |
-| Basic local LLM generation | Phase 2 | After validators |
-| CAG/RAG | Phase 4 | Not before baseline |
-| LangGraph full pipeline | Research Phase 8/9 | Not edge default |
-| Reflexion / SQL Surgeon | After validated baseline | Not before validators |
-| Consistency-based abstention | Paper 1 after multi-candidate | Later |
-| Edge state machine | Phase 10+ | Later |
+| Persian normalization | Phase 1 | Done |
+| Finglish/typo mapping | Phase 1 | Done |
+| Safety/ambiguity router | Phase 1 | Done |
+| Value linking | Phase 3 | Done |
+| SQL safety/syntax validation | Phase 4 | Done |
+| Read-only executor | Phase 4 | Done |
+| Basic local LLM generation | Phase 5 | Done |
+| Hybrid CAG/RAG | Phase 7 | Done |
+| LangGraph full pipeline | Phase 8 | Done |
+| Reflexion / SQL Surgeon | Phase 9 | Done |
+| Benchmark Runner | Phase 10 | In Progress |
+| Multi-candidate / Reliability | Phase 13 | In Progress |
+| Edge state machine | Phase 14 | Later |
 
 ---
 
@@ -172,23 +173,14 @@ LIMIT required for raw row retrieval
 
 ---
 
-## 9. First Implementation Milestone
-
-Do not jump to CAG or Reflexion yet. The next milestone is:
-
-```text
-M1: Rule-based NLU + schema/value linking + SQL safety/syntax validation + read-only execution.
-```
-
-The goal is to prove that the deterministic foundation can answer:
 ## 9. Next Implementation Milestone
 
 پس از تثبیت گراف و لایه تولید، تمرکز پروژه بر روی موارد زیر است:
 
 ```text
-M2: Hybrid CAG/RAG (BM25 + Vector Retrieval)
-M3: Full Benchmark Runner & Error Analysis
-M4: Output Formatting & Data Storytelling
+M2: Full Benchmark Runner & Error Analysis (Phase 10)
+M3: Ablation Studies & Research Metrics (Phase 11)
+M4: Output Formatting & Data Storytelling (Phase 12)
 ```
 
 برای اجرای سیستم در حالت فعلی:
