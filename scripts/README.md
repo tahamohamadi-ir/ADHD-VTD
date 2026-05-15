@@ -23,6 +23,8 @@
 ## Benchmark
 
 ```powershell
+.\.venv\Scripts\python.exe scripts\build_rag_index.py --skip-vector
+.\.venv\Scripts\python.exe scripts\build_rag_index.py --vector-backend chroma
 .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode retrieval --dataset dev --sample 20 --top-k 3
 .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode gold --dataset dev --sample 20
 ```

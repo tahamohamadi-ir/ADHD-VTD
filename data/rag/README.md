@@ -1,29 +1,21 @@
 # پوشه `data/rag`
 
-این پوشه artifactهای مربوط به retrieval و CAG/RAG را نگه می‌دارد.
+این پوشه داده‌ها و indexهای retrieval را نگه می‌دارد.
 
 ## فایل‌ها و زیرپوشه‌ها
 
-- `indexed_examples.jsonl`: نمایش retrieval-ready از مثال‌ها.
-- `bm25/`: محل index واژگانی. اکنون `bm25_index.json` با `scripts/build_rag_index.py --skip-vector` ساخته می‌شود.
-- `chroma/`: محل vector store سبک فعلی و مسیر آینده ChromaDB.
+- `indexed_examples.jsonl`: منبع اصلی مثال‌های قابل بازیابی.
+- `bm25/`: index واژگانی BM25.
+- `chroma/`: vector store، شامل ChromaDB persistent collection یا JSON fallback.
 
-## وضعیت فعلی
-
-BM25 index از ۵۰ مثال `indexed_examples.jsonl` ساخته شد. vector store فعلاً fallback مبتنی بر JSON دارد تا توسعه بدون dependency سنگین هم قابل تست باشد.
-
-## بازتولید index
+## بازسازی indexها
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build_rag_index.py --skip-vector
-```
-
-برای ساخت vector fallback:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\build_rag_index.py
+.\.venv\Scripts\python.exe scripts\build_rag_index.py --vector-backend json
+.\.venv\Scripts\python.exe scripts\build_rag_index.py --vector-backend chroma
 ```
 
 ## نکته فنی
 
-Retrieval باید context کم اما ارزشمند بدهد. هدف پر کردن prompt نیست؛ هدف انتخاب schema context، value links، examples و skeletonهای واقعاً مرتبط است.
+فایل‌های زیر `bm25/` و `chroma/` artifact هستند و باید از روی `indexed_examples.jsonl` قابل بازسازی باشند. برای benchmark سبک می‌توان JSON fallback را ساخت؛ برای persistent retrieval واقعی از ChromaDB استفاده می‌شود.

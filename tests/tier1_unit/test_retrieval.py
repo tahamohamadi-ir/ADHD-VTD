@@ -1,4 +1,5 @@
 from src.retrieval.bm25_index import BM25Index
+from src.retrieval.chroma_store import ChromaStore
 from src.retrieval.context_builder import ContextBuilder
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retrieval_scorer import RetrievalQuery
@@ -60,3 +61,24 @@ def test_context_builder_outputs_few_shot_examples():
     context = ContextBuilder().build(results)
     assert context.examples[0]["sql"]
     assert "SQL:" in context.prompt_context
+
+
+def test_chroma_store_json_backend_builds_and_searches(tmp_path):
+    store = ChromaStore(persist_dir=tmp_path / "vectors", backend="json")
+    path = store.build(_records())
+
+    assert path.exists()
+    results = store.search("sleep average", top_k=1)
+    assert results
+    assert results[0].record["id"] in {"a", "b"}
+
+
+def test_chroma_store_persistent_backend_builds_and_searches(tmp_path):
+    store = ChromaStore(persist_dir=tmp_path / "chroma", backend="chroma")
+    path = store.build(_records())
+
+    assert path.exists()
+    assert store.active_backend == "chroma"
+    results = store.search("sleep average", top_k=1)
+    assert results
+    assert results[0].record["id"] in {"a", "b"}

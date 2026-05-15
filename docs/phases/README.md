@@ -8,17 +8,17 @@
 |---|---|---|---|
 | Phase 1 | Fix Foundation Gaps | Completed | [PHASE_1_FOUNDATION_GAPS.md](PHASE_1_FOUNDATION_GAPS.md) |
 | Phase 2 | Data & Schema Quality Hardening | Completed | [PHASE_2_DATA_QUALITY.md](PHASE_2_DATA_QUALITY.md) |
+| Phase 3 | NLU v2 (Value Linking & QIR) | Completed | [PHASE_3_NLU_QIR.md](PHASE_3_NLU_QIR.md) |
 | Phase 4 | SQL Validation Stack | Completed | [PHASE_4_SQL_VALIDATION.md](PHASE_4_SQL_VALIDATION.md) |
-| Phase 7 | Hybrid CAG/RAG Retrieval | In progress | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
+| Phase 5 | Local LLM Generation Layer | Completed | [PHASE_5_LOCAL_LLM_GENERATION.md](PHASE_5_LOCAL_LLM_GENERATION.md) |
+| Phase 6 | Milestone 1.5 Stress Test | Completed | [PHASE_6_STRESS_TEST.md](PHASE_6_STRESS_TEST.md) |
+| Phase 7 | Hybrid CAG/RAG Retrieval | Completed | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
 | Phase 10 | Benchmark Runner | In progress | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
 
 ## فازهای نیازمند سند مستقل
 
 | Phase | عنوان | وضعیت سند |
 |---|---|---|
-| Phase 3 | NLU v2 (Value Linking & QIR) | TODO |
-| Phase 5 | Local LLM Generation Layer | TODO |
-| Phase 6 | Milestone 1.5 Stress Test | TODO |
 | Phase 8 | LangGraph Orchestration | TODO |
 | Phase 9 | Reflexion, SQL Surgeon, Semantic Critic | TODO |
 | Phase 11 | Ablation, Error Analysis, Research Metrics | TODO |

@@ -7,6 +7,11 @@ from __future__ import annotations
 import json, sys, random
 from pathlib import Path
 from collections import defaultdict
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.utils.jsonl import write_jsonl
 
@@ -19,18 +24,28 @@ def load_examples(path: Path) -> list[dict]:
     return data.get("examples", data) if isinstance(data, dict) else data
 
 def stratified_split(examples: list[dict], key: str, ratios: tuple[float,...], seed: int):
+    target_sizes = [round(len(examples) * r) for r in ratios[:-1]]
+    target_sizes.append(len(examples) - sum(target_sizes))
+    return stratified_split_exact(examples, key, target_sizes, seed)
+
+def stratified_split_exact(examples: list[dict], key: str, target_sizes: list[int], seed: int):
+    if sum(target_sizes) != len(examples):
+        raise ValueError(f"target_sizes must sum to {len(examples)}, got {sum(target_sizes)}")
     rng = random.Random(seed)
     buckets: dict[str, list[dict]] = defaultdict(list)
     for ex in examples:
         buckets[ex.get(key, "unknown")].append(ex)
-    splits: list[list[dict]] = [[] for _ in ratios]
+    splits: list[list[dict]] = [[] for _ in target_sizes]
+    remaining = list(target_sizes)
     for _, items in sorted(buckets.items()):
         rng.shuffle(items)
-        n = len(items); idx = 0
-        for i, r in enumerate(ratios):
-            cnt = max(1, round(n * r)) if i < len(ratios)-1 else n - idx
-            splits[i].extend(items[idx:idx+cnt])
-            idx += cnt
+        for item in items:
+            candidates = [i for i, slots in enumerate(remaining) if slots > 0]
+            if not candidates:
+                raise RuntimeError("No remaining split slots while assigning examples.")
+            chosen = max(candidates, key=lambda i: (remaining[i] / target_sizes[i], -i))
+            splits[chosen].append(item)
+            remaining[chosen] -= 1
     return splits
 
 def save(examples: list[dict], dir_path: Path, name: str):
@@ -45,7 +60,7 @@ def main():
     # Main 400 → 280/60/60
     examples = load_examples(MAIN_DATASET)
     print(f"Main dataset: {len(examples)} examples")
-    train, dev, test = stratified_split(examples, "difficulty", (0.70, 0.15, 0.15), SEED)
+    train, dev, test = stratified_split_exact(examples, "difficulty", [280, 60, 60], SEED)
     save(train, Path("data/questions/train"), "train")
     save(dev, Path("data/questions/dev"), "dev")
     save(test, Path("data/questions/test"), "test")
@@ -55,7 +70,7 @@ def main():
     if SPECIAL_DATASET.exists():
         special = load_examples(SPECIAL_DATASET)
         print(f"Special dataset: {len(special)} examples")
-        s_dev, s_test = stratified_split(special, "evaluation_type", (0.40, 0.60), SEED)
+        s_dev, s_test = stratified_split_exact(special, "evaluation_type", [40, 60], SEED)
         save(s_dev, Path("data/questions/special"), "behavior_dev")
         save(s_test, Path("data/questions/special"), "behavior_test")
         print(f"  Split: {len(s_dev)} dev / {len(s_test)} test")

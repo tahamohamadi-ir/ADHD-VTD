@@ -1,5 +1,15 @@
 # پوشه `src/nlu` (Persian Natural Language Understanding)
 
+## Phase 1 Completion - 2026-05-15
+
+NLU پایه برای Phase 1 بسته شد و تست مستقیم دارد:
+
+- `ambiguity_detector.py`: تشخیص درخواست‌های مبهم مثل ranking بدون metric و chart بدون measure/dimension.
+- `date_normalizer.py`: تشخیص تاریخ شمسی، عبارت‌های زمانی مبهم و نیاز به clarification.
+- `colloquial_mapper.py`: نگاشت محاوره‌ای/انگلیسی/فینگلیش به اصطلاح canonical.
+- `safety_intent_detector.py`: تشخیص intentهای خطرناک، SQL مخرب و prompt injection قبل از generation.
+- تست‌های پوششی: `test_ambiguity_detector.py`، `test_date_normalizer.py`، `test_colloquial_mapper.py` و `test_safety_detector.py`.
+
 این لایه وظیفه درک و استانداردسازی زبان طبیعی فارسی را بر عهده دارد. هدف نهایی NLU تبدیل یک سوال خام و احتمالا محاوره‌ای به یک نیت (Intent) و مجموعه‌ای از واژگان کلیدی (Terms) است که برای لایه تولید SQL قابل فهم باشد.
 
 ## فایل‌ها

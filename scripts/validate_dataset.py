@@ -3,6 +3,10 @@ from __future__ import annotations
 import subprocess, sys, time
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 PYTHON = str(Path(".venv/Scripts/python.exe").resolve())
 SCRIPTS = [
     "scripts/compare_schema_snapshots.py",

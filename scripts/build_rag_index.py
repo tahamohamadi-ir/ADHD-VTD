@@ -18,6 +18,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build local RAG indexes for PARS-SQL.")
     parser.add_argument("--input", type=Path, default=INDEXED_EXAMPLES_PATH)
     parser.add_argument("--skip-vector", action="store_true", help="Only build the BM25 index.")
+    parser.add_argument(
+        "--vector-backend",
+        choices=("auto", "chroma", "json"),
+        default="auto",
+        help="Vector store backend. auto uses ChromaDB when installed and JSON otherwise.",
+    )
     args = parser.parse_args()
 
     records = read_jsonl(args.input)
@@ -30,16 +36,20 @@ def main() -> int:
     bm25.save(bm25_path)
 
     vector_path = None
+    vector_backend = None
     if not args.skip_vector:
         from src.retrieval.chroma_store import ChromaStore
 
-        vector_path = ChromaStore().build(records)
+        store = ChromaStore(backend=args.vector_backend)
+        vector_path = store.build(records)
+        vector_backend = store.active_backend
 
     summary = {
         "input": str(args.input),
         "record_count": len(records),
         "bm25_index": str(bm25_path),
         "vector_index": str(vector_path) if vector_path else None,
+        "vector_backend": vector_backend,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0

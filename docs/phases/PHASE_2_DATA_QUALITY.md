@@ -1,5 +1,20 @@
 # Phase 2 — Data Quality Hardening
 
+## Completion Update - 2026-05-15
+
+Phase 2 دوباره روی محیط فعلی بررسی شد و validation کامل پاس شد.
+
+- همه scriptهای validation برای خروجی UTF-8 روی Windows/PowerShell پایدار شدند.
+- `scripts/split_dataset.py` اکنون splitهای exact تولید می‌کند: `280/60/60` برای SQL-positive و `40/60` برای behavioral.
+- `scripts/validate_dataset.py` با همه زیر-scriptها اجرا شد و `ALL PASSED` گرفت.
+- `validate_dataset_sql.py` هر 400 gold SQL را با pass rate برابر `100.0%` اجرا کرد.
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\validate_dataset.py
+```
+
 **Status:** Completed  
 **Goal:** Establish a pristine dataset baseline for evaluation and LLM fine-tuning/few-shot prompting by building robust validation and structuring pipelines.
 

@@ -1,5 +1,22 @@
 # Phase 1 — Fix Existing Foundation Gaps
 
+## Completion Update - 2026-05-15
+
+Phase 1 با وضعیت واقعی کد و تست‌ها reconcile شد و در `task.md` به `COMPLETED` تغییر کرد.
+
+- `src/utils/jsonl.py` و `src/utils/hashing.py` پیاده‌سازی فعال دارند.
+- `src/nlu/ambiguity_detector.py`، `date_normalizer.py`، `colloquial_mapper.py` و `safety_intent_detector.py` تست مستقیم دارند.
+- `src/schema/value_linker.py` برای gender، risk و depression flag تست مستقیم دارد.
+- `tests/tier1_unit/test_utils_jsonl_hashing.py` اضافه شد تا JSONL و hashing هم پوشش مستقیم داشته باشند.
+- اجرای هدفمند Phase 1: `65 passed`.
+- اجرای کامل Tier 1 پس از sync: `143 passed`.
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_utils_jsonl_hashing.py tests\tier1_unit\test_ambiguity_detector.py tests\tier1_unit\test_date_normalizer.py tests\tier1_unit\test_colloquial_mapper.py tests\tier1_unit\test_safety_detector.py tests\tier1_unit\test_value_linker.py -q
+```
+
 > **وضعیت:** ✅ تکمیل‌شده  
 > **تاریخ اجرا:** 2026-05-14  
 > **نتیجه تست‌ها:** 118/118 passed (0.39s)  
