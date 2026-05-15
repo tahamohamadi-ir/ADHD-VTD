@@ -2,6 +2,8 @@
 
 این پوشه مستندات اجرایی فازهای توسعه پروژه را نگه می‌دارد. هر فایل phase باید نشان دهد چه چیزی ساخته شده، چطور اجرا می‌شود، چه تستی دارد و چه کاری هنوز باقی مانده است.
 
+برای اجرای عملی تست‌ها و benchmarkها، به جای حدس از روی phase docs، از `../BENCHMARK_AND_TEST_GUIDE.md` استفاده کنید.
+
 ## فازهای مستند شده
 
 | Phase | عنوان | وضعیت | فایل |
@@ -26,6 +28,7 @@
 | Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
 | Phase 14 | Edge Runtime | TODO |
 | Phase 15 | Research Packaging | TODO |
+| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` |
 
 ## قالب پیشنهادی هر phase document
 

@@ -1347,7 +1347,7 @@ No infinite retry loop
 
 ## Goal
 
-Turn the project from an app into a measurable research system.
+Turn the project from an app into a measurable research system. The benchmark runner must be usable from the terminal, transparent while running, and rich enough to support debugging, ablation, model comparison and paper claims.
 
 ## Components
 
@@ -1374,13 +1374,21 @@ vtd_evaluation_special_100.json/jsonl
 ### 10.2 Benchmark modes
 
 ```text
-positive_sql_only
-behavioral_eval_only
-full_500
+retrieval
+gold
+agent
 sample_n
-by_difficulty
+samples_per_level
 by_category
 by_intent
+```
+
+Required terminal examples:
+
+```powershell
+python scripts/run_benchmark.py --mode agent --dataset dev --sample 20
+python scripts/run_benchmark.py --mode agent --dataset dev --samples-per-level 5
+python scripts/run_benchmark.py --mode agent --dataset test --samples-per-level 5 --config benchmark/configs/research_agent_v1.yaml
 ```
 
 ### 10.3 Metrics
@@ -1398,7 +1406,12 @@ Clarification Accuracy
 No-SQL Action Accuracy
 Retry Success Rate
 Latency median/p95
+Bootstrap 95% CI
+Unsafe Pass-through Rate
+Correct Action Rate for behavioral cases
 ```
+
+Execution correctness and semantic/business correctness must be separate fields. EX only says whether result sets match; it does not prove that the generated SQL is conceptually the right answer to the Persian question.
 
 ### 10.4 Execution comparison
 
@@ -1416,36 +1429,43 @@ handle floating tolerance
 Each run:
 
 ```text
-results/benchmark/{timestamp}_{config_id}/
-├── config.json
-├── predictions.jsonl
-├── benchmark_results.csv
-├── summary.md
-├── failures.jsonl
-├── attempts.jsonl
-├── retrieval_metrics.csv
-├── schema_linking_metrics.csv
-├── error_taxonomy.csv
-└── paper_tables.md
+results/benchmark/{timestamp}_{mode}_{dataset}_{model_slug}_{ablation_id}/
+├── {prefix}_config.json
+├── {prefix}_predictions.jsonl
+├── {prefix}_attempts.jsonl
+├── {prefix}_failures.jsonl
+├── {prefix}_summary.json
+├── {prefix}_summary.md
+├── {prefix}_benchmark_results.csv
+├── {prefix}_reliability_summary.csv
+├── {prefix}_error_taxonomy.csv
+└── {prefix}_paper_tables.md
 ```
+
+`predictions.jsonl` must store question, normalized question, QIR, linked schema/value links, retrieval diagnostics, generated SQL, gold SQL, result hashes, final action and error category.
+
+`attempts.jsonl` must store exact prompt, raw model response, parsed payload, SQL, validation errors, execution status, critic feedback and repair plan.
 
 ## Deliverables
 
 ```text
-[ ] benchmark runner
-[ ] metrics module
-[ ] reports
-[ ] failure logs
-[ ] sample benchmark run
+[ ] balanced sampling with --samples-per-level
+[ ] transparent progress logging with per-case latency and ETA
+[ ] exact prompt/response trace capture
+[ ] model/config/ablation/module metadata in all artifacts
+[ ] bootstrap CI and latency summaries
+[ ] sample and balanced agent benchmark runs
 ```
 
 ## Acceptance Criteria
 
 ```text
 Can run 20-sample benchmark
-Can run full 500 benchmark
-Every result is traceable
+Can run balanced sample-per-level benchmark
+Every result is traceable to prompt, raw response, SQL, validation and execution
 Every failure has reason
+Model and ablation are visible in folder/file names
+Execution correctness is separate from semantic/business correctness
 ```
 
 ---
@@ -2176,19 +2196,19 @@ The project can be considered SOTA-style when it satisfies all of these:
 Given the current state, do these next:
 
 ```text
-1. Create scripts/smoke_test_environment.py
-2. Create scripts/compare_schema_snapshots.py
-3. Create scripts/validate_dataset_sql.py
-4. Create tests for PersianNormalizer, NumberNormalizer, DateNormalizer
-5. Implement src/nlu/intent_classifier.py
-6. Implement src/nlu/ambiguity_detector.py
-7. Implement src/nlu/safety_intent_detector.py
-8. Implement src/sql_validation/safety_validator.py
-9. Implement src/sql_validation/syntax_validator.py
-10. Implement src/db/read_only_executor.py
+1. Implement --samples-per-level in dataset loading and run_benchmark.py.
+2. Add clear terminal progress logs with current/total, case id, latency, elapsed and ETA.
+3. Store exact prompt, raw model response and parsed payload in SQLAttempt and attempts.jsonl.
+4. Add model name/path/slug, config id, ablation id and module flags to all benchmark artifacts.
+5. Add bootstrap 95% CI for EX, Valid SQL Rate, Reliability Score and abstention/safety metrics.
+6. Add latency mean/median/p95/min/max to summary and paper tables.
+7. Separate execution_correct, action_correct and semantic_business_correct in predictions and reports.
+8. Add focused tests for sampling, CI and artifact contracts.
+9. Run sample-20 agent benchmark and balanced sample benchmark.
+10. Prepare Phase 16 LLM-as-a-Judge integration after trace artifacts are stable.
 ```
 
-Only after these should you focus heavily on the local LLM.
+Only after these should you focus on broader ablation, output UX, reliability gate or edge optimization.
 
 
 

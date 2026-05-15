@@ -449,17 +449,24 @@ Expected files:
 src/evaluation/
 |-- benchmark_runner.py
 |-- metrics.py
+|-- reliability_metrics.py
+|-- retrieval_metrics.py
 |-- ablation_runner.py
 |-- error_analyzer.py
 |-- report_generator.py
+|-- export_utils.py
+|-- llm_judge.py              # Phase 16 target
 `-- __init__.py
 ```
 
 Responsibilities:
 
 - Run benchmark datasets.
-- Compute EM, EX, valid SQL rate, schema linking accuracy, intent accuracy, safety rejection accuracy, clarification accuracy, retry success rate, latency.
+- Compute EM, EX, valid SQL rate, schema linking accuracy, intent accuracy, safety rejection accuracy, clarification accuracy, retry success rate, latency and bootstrap CI.
+- Keep execution correctness separate from semantic/business correctness.
 - Run ablation configs.
+- Store and report model/config/ablation/module metadata.
+- Integrate optional LLM-as-a-Judge after Phase 10 trace artifacts are stable.
 - Export paper-ready tables and reports.
 
 ---
@@ -518,7 +525,7 @@ These three folders have different meanings:
 
 ```text
 benchmark/          -> definitions, protocols, baseline configs
-tsrc/evaluation/    -> Python implementation of metrics and runners
+src/evaluation/     -> Python implementation of metrics and runners
 results/benchmark/  -> generated benchmark run outputs
 ```
 
@@ -531,7 +538,7 @@ benchmark/configs/full_system.yaml
 src/evaluation/benchmark_runner.py
         |
         v
-results/benchmark/run_<timestamp>_<config_id>/
+results/benchmark/<timestamp>_<mode>_<dataset>_<model_slug>_<ablation_id>/
 ```
 
 Do not store generated outputs inside `benchmark/`.

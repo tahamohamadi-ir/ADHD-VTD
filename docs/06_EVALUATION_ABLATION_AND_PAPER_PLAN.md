@@ -27,6 +27,8 @@ Required evaluation dimensions:
 6. Latency and edge feasibility
 7. Ablation contribution of each component
 8. Human agreement / annotation quality
+9. Semantic/business correctness of the generated SQL
+10. Full prompt/response traceability for every benchmark claim
 
 ---
 
@@ -117,6 +119,14 @@ Do not start CAG/RAG or Reflexion until this audit is clean enough.
 | `Latency` | end-to-end runtime |
 | `Tokens/sec` | generation speed for local models |
 
+Important separation:
+
+```text
+execution_correct != semantic_business_correct
+```
+
+`execution_correct` only means the generated SQL result matches the gold SQL result on the current database. `semantic_business_correct` means the SQL logic actually answers the Persian user question. A query may execute and match a result accidentally while still using a wrong metric, wrong filter, or wrong business interpretation. Reports must keep these fields separate.
+
 ### 4.2 Reliability Score
 
 Inspired by healthcare Text-to-SQL reliability settings, PARS-SQL uses a Reliability Score that rewards both correct SQL and correct abstention.
@@ -142,7 +152,17 @@ Report RS alongside EX. EX alone is not enough for healthcare or mental-health a
 ### 4.3 Statistical Significance (Bootstrap CI)
 To ensure research validity, all primary metrics (EX, RS) must report a 95% Confidence Interval using bootstrapping (e.g., N=1000 resamples). This prevents reporting lucky runs as significant improvements.
 
-### 4.4 Automated Research Artifacts (Benchmark Runner v2.5)
+### 4.4 Balanced Sampling
+
+For day-to-day debugging, the benchmark runner must support:
+
+```powershell
+python scripts/run_benchmark.py --mode agent --dataset dev --samples-per-level 5
+```
+
+This selects the same number of examples from each `difficulty` level and records the selection policy in `config.json`. This prevents a sample run from accidentally containing only easy or only complex examples.
+
+### 4.5 Automated Research Artifacts (Benchmark Runner v2.5)
 
 The `run_benchmark.py` runner now automatically generates:
 - **`benchmark_results.csv`**: Raw per-case execution results.
@@ -151,7 +171,17 @@ The `run_benchmark.py` runner now automatically generates:
 - **`paper_tables.md`**: Publication-ready Markdown tables for EX, RS, and Latency.
 - **`attempts.jsonl`**: Full process trace including generation, critic feedback, and repair plan for every iteration.
 
-### 4.4 Abstention Metrics
+Required trace fields for paper-grade benchmark runs:
+
+| Artifact | Must include |
+|---|---|
+| `config.json` | model name/path, model slug, config id, ablation id, module flags, dataset path, selection policy, git commit |
+| `predictions.jsonl` | question, normalized question, QIR, linked schema, retrieval context, generated SQL, gold SQL, validation/execution results, final action |
+| `attempts.jsonl` | exact prompt, raw model response, parsed payload, SQL, errors, critic feedback, repair plan |
+| `summary.md` | model/config/module summary, metric tables, CI, latency summary, failure examples |
+| `paper_tables.md` | publication-ready EX, RS, latency, ablation and CI tables |
+
+### 4.6 Abstention Metrics
 
 | Metric | Meaning |
 |---|---|
@@ -337,6 +367,8 @@ The judge provides:
 - **Correctness Score (0-5)**: Does the SQL logic correctly represent the user's intent?
 - **Business Reasoning**: Why is it correct or incorrect from a clinician/analyst perspective?
 - **Actionability**: Is the result actually useful for the intended dashboard?
+- **Explanation Consistency**: Does the generated answer/explanation match the SQL logic?
+- **Redaction Status**: Whether the result sample was redacted or aggregate-only.
 
 Even a low agreement score is better than hiding the limitation.
 
@@ -358,16 +390,24 @@ unsafe_label_correctness
 Each run should produce a timestamped directory (e.g., `results/benchmark/20260515_070000_agent_dev_qwen/`):
  
  ```text
- ├── {stamp}_{model}_config.json
- ├── {stamp}_{model}_benchmark_results.csv
- ├── {stamp}_{model}_reliability_summary.csv
- ├── {stamp}_{model}_summary.md
- ├── {stamp}_{model}_summary.json
- ├── {stamp}_{model}_failures.jsonl
- ├── {stamp}_{model}_attempts.jsonl
- ├── {stamp}_{model}_error_taxonomy.csv
- └── {stamp}_{model}_paper_tables.md
+ results/benchmark/{stamp}_{mode}_{dataset}_{model_slug}_{ablation_id}/
+ ├── {prefix}_config.json
+ ├── {prefix}_benchmark_results.csv
+ ├── {prefix}_reliability_summary.csv
+ ├── {prefix}_summary.md
+ ├── {prefix}_summary.json
+ ├── {prefix}_predictions.jsonl
+ ├── {prefix}_failures.jsonl
+ ├── {prefix}_attempts.jsonl
+ ├── {prefix}_error_taxonomy.csv
+ ├── {prefix}_paper_tables.md
+ ├── {prefix}_judgments.jsonl              # if --use-judge
+ ├── {prefix}_judge_reasoning.md           # if --use-judge
+ ├── {prefix}_judge_costs.json             # if --use-judge
+ └── {prefix}_semantic_business_summary.csv # if --use-judge
  ```
+
+The folder name and `prefix` must make model/config comparisons easy. At minimum they should encode timestamp, benchmark mode, dataset, model slug and ablation id.
 
 ---
 

@@ -187,3 +187,21 @@ M4: Output Formatting & Data Storytelling (Phase 12)
 ```powershell
 python scripts/run_agent.py "درصد دانشجویان افسرده چقدر است؟" --verbose
 ```
+
+## 10. Benchmark and Test Guide
+
+برای اجرای تست‌ها و benchmarkها، راهنمای عملی زیر منبع اصلی است:
+
+```text
+docs/BENCHMARK_AND_TEST_GUIDE.md
+```
+
+نمونه‌های سریع:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\tier1_unit -q
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode gold --dataset dev --samples-per-level 5 --ablation-id smoke
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --samples-per-level 1 --ablation-id full_trace
+```
+
+خروجی benchmark در `results/benchmark/<timestamp>_<mode>_<dataset>_<model_slug>_<ablation_id>/` ذخیره می‌شود و شامل `config`, `predictions`, `attempts`, `failures`, `summary`, CSVها و جدول‌های اولیه مقاله است.

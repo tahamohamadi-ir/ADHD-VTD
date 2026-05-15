@@ -17,20 +17,20 @@ from src.evaluation.dataset_loader import (
     load_dataset,
     load_phase0_50q_cases,
     load_positive_400,
+    select_samples_per_level,
     summarize_cases,
     write_json,
     write_jsonl,
 )
 from src.evaluation.error_analyzer import analyze_errors
-from src.evaluation.metrics import aggregate_basic_metrics
+from src.evaluation.metrics import add_bootstrap_cis, aggregate_basic_metrics, latency_summary
 from src.evaluation.reliability_metrics import reliability_score
 from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retrieval_scorer import RetrievalQuery
-from src.graph.workflow import create_workflow
-from src.graph.state import VTDState, SQLAttempt
+from src.graph.state import VTDState
 import uuid
 import yaml
 
@@ -57,6 +57,13 @@ def slug(value: str) -> str:
         else:
             keep.append("_")
     return "".join(keep).strip("_") or "benchmark"
+
+
+def format_duration(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 
 def git_commit() -> str | None:
@@ -177,11 +184,18 @@ def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[st
     }
 
 
-def agent_prediction(case: dict[str, Any], workflow: Any, executor: ReadOnlyExecutor) -> dict[str, Any]:
+def agent_prediction(
+    case: dict[str, Any],
+    workflow: Any,
+    executor: ReadOnlyExecutor,
+    *,
+    ablation_config: dict[str, bool] | None = None,
+) -> dict[str, Any]:
     question = case_question(case)
     initial_state = VTDState(
         trace_id=str(uuid.uuid4()),
-        raw_question=question
+        raw_question=question,
+        ablation_config=ablation_config or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
     )
 
     started = time.perf_counter()
@@ -236,16 +250,26 @@ def agent_prediction(case: dict[str, Any], workflow: Any, executor: ReadOnlyExec
         elif expected_action == actual_action:
             ok = True
 
+    for attempt in attempts:
+        attempt.setdefault("gold_result_hash", gold_hash)
+
     return {
         "actual_action": actual_action,
         "mode": "agent",
         "ok": ok,
+        "action_correct": ok if expected_action != "generate_sql" else None,
         "execution_correct": execution_correct,
+        "semantic_business_correct": None,
         "valid_sql": valid_sql,
+        "normalized_question": final_state_dict.get("normalized_question"),
         "generated_sql": generated_sql,
         "gold_sql": gold_sql,
         "explanation": final_state_dict.get("explanation"),
         "intent": final_state_dict.get("intent"),
+        "qir": final_state_dict.get("qir"),
+        "linked_schema": final_state_dict.get("linked_schema"),
+        "retrieved_examples": final_state_dict.get("retrieved_examples"),
+        "retrieval_diagnostics": final_state_dict.get("retrieval_diagnostics"),
         "retry_count": final_state_dict.get("retry_count"),
         "latency_ms": latency_ms,
         "result_hash": result_hash,
@@ -290,28 +314,108 @@ def get_model_slug() -> str:
     return "qwen2-5-coder-7b"
 
 
+def get_model_path() -> str | None:
+    return SETTINGS.default_model_path
+
+
+def get_model_name() -> str:
+    if SETTINGS.default_model_path:
+        return Path(SETTINGS.default_model_path).stem
+    return "qwen2.5-coder-7b-default"
+
+
+def split_module_flags(flags: dict[str, bool]) -> tuple[list[str], list[str]]:
+    enabled = sorted(k for k, v in flags.items() if bool(v))
+    disabled = sorted(k for k, v in flags.items() if not bool(v))
+    return enabled, disabled
+
+
 def run(args: argparse.Namespace) -> Path:
     started_at = utc_now()
     dataset = load_named_dataset(args.dataset, args.path)
-    cases = dataset.cases[: args.sample] if args.sample else dataset.cases
+    if args.sample and args.samples_per_level:
+        raise ValueError("Use either --sample or --samples-per-level, not both.")
+
+    if args.samples_per_level:
+        cases = select_samples_per_level(dataset.cases, args.samples_per_level)
+        selection_policy = "samples_per_level"
+    else:
+        cases = dataset.cases[: args.sample] if args.sample else dataset.cases
+        selection_policy = "first_n" if args.sample else "all"
     
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_slug = get_model_slug()
+    model_name = get_model_name()
+    model_path = get_model_path()
+    ablation_id = args.ablation_id or "full"
+    ablation_config = args.ablation_config or {
+        "nlu": True,
+        "schema_linking": True,
+        "value_linking": True,
+        "cag": True,
+        "validation": True,
+        "repair": True,
+        "abstention": True,
+        "reflexion": True,
+        "reliability_gate": False,
+        "llm_judge": False,
+    }
+    enabled_modules, disabled_modules = split_module_flags(ablation_config)
     
-    config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}"
+    config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}_{ablation_id}"
     output_dir = build_output_dir(config_id, stamp, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    records: list[dict[str, Any]] = []
+    total = len(cases)
+    run_started = time.perf_counter()
+
+    def log_progress(index: int, case: dict[str, Any], record: dict[str, Any]) -> None:
+        elapsed = time.perf_counter() - run_started
+        avg = elapsed / index if index else 0.0
+        eta = avg * max(total - index, 0)
+        status = "ok" if record.get("ok") or record.get("execution_correct") else "fail"
+        print(
+            "[{}/{}] id={} difficulty={} category={} expected={} actual={} status={} "
+            "latency={}ms elapsed={} eta={}".format(
+                index,
+                total,
+                case.get("id") or case.get("case_id") or "",
+                case.get("difficulty", "unknown"),
+                case.get("category", "unknown"),
+                case.get("expected_action", ""),
+                record.get("actual_action", ""),
+                status,
+                record.get("latency_ms", ""),
+                format_duration(elapsed),
+                format_duration(eta),
+            ),
+            flush=True,
+        )
+
     if args.mode == "retrieval":
         retriever = HybridRetriever(use_vector_store=args.use_vector)
-        records = [dict(case, **retrieval_prediction(case, retriever, top_k=args.top_k)) for case in cases]
+        for index, case in enumerate(cases, start=1):
+            record = dict(case, **retrieval_prediction(case, retriever, top_k=args.top_k))
+            records.append(record)
+            log_progress(index, case, record)
     elif args.mode == "gold":
         executor = ReadOnlyExecutor()
-        records = [dict(case, **gold_prediction(case, executor)) for case in cases]
+        for index, case in enumerate(cases, start=1):
+            started = time.perf_counter()
+            record = dict(case, **gold_prediction(case, executor))
+            record.setdefault("latency_ms", int((time.perf_counter() - started) * 1000))
+            records.append(record)
+            log_progress(index, case, record)
     elif args.mode == "agent":
+        from src.graph.workflow import create_workflow
+
         workflow = create_workflow()
         executor = ReadOnlyExecutor()
-        records = [dict(case, **agent_prediction(case, workflow, executor)) for case in cases]
+        for index, case in enumerate(cases, start=1):
+            record = dict(case, **agent_prediction(case, workflow, executor, ablation_config=ablation_config))
+            records.append(record)
+            log_progress(index, case, record)
     else:  # pragma: no cover - argparse enforces choices.
         raise ValueError(f"Unsupported mode: {args.mode}")
 
@@ -327,8 +431,17 @@ def run(args: argparse.Namespace) -> Path:
         "dataset": args.dataset,
         "dataset_path": str(dataset.path),
         "sample": args.sample or len(cases),
+        "samples_per_level": args.samples_per_level,
+        "selection_policy": selection_policy,
         "top_k": args.top_k,
         "use_vector": args.use_vector,
+        "model_name": model_name,
+        "model_path": model_path,
+        "model_slug": model_slug,
+        "ablation_id": ablation_id,
+        "enabled_modules": enabled_modules,
+        "disabled_modules": disabled_modules,
+        "module_flags": ablation_config,
         "started_at": started_at,
         "finished_at": utc_now(),
         "git_commit": git_commit(),
@@ -343,16 +456,22 @@ def run(args: argparse.Namespace) -> Path:
             **dataset_summary,
         },
         "error_analysis": analyze_errors(records).as_dict(),
+        "latency": latency_summary(records),
     }
     if args.mode == "retrieval":
         summary["metrics"] = retrieval_basic_metrics(records)
         summary["retrieval_metrics"] = summarize_retrieval(records).to_dict()
     else:
-        summary["metrics"] = aggregate_basic_metrics(records)
+        summary["metrics"] = add_bootstrap_cis(
+            aggregate_basic_metrics(records),
+            records,
+            iterations=args.bootstrap_iterations,
+            seed=args.seed,
+        )
         summary["reliability"] = reliability_score(records).as_dict()
 
     # File naming with timestamp and model
-    prefix = f"{stamp}_{model_slug}"
+    prefix = f"{stamp}_{model_slug}_{ablation_id}"
     artifact_paths = {
         "config": output_dir / f"{prefix}_config.json",
         "summary_json": output_dir / f"{prefix}_summary.json",
@@ -387,13 +506,15 @@ def run(args: argparse.Namespace) -> Path:
                     **attempt
                 })
         write_jsonl(artifact_paths["attempts"], attempts_trace)
+    else:
+        write_jsonl(artifact_paths["attempts"], [])
 
     write_json(artifact_paths["summary_json"], summary)
     if args.mode == "retrieval":
         write_json(artifact_paths["retrieval_metrics"], summary["retrieval_metrics"])
     
     # Export CSVs and Paper Tables
-    export_benchmark_csvs(records, summary, output_dir)
+    export_benchmark_csvs(records, summary, output_dir, prefix=prefix)
     generate_paper_tables(summary, artifact_paths["paper_tables_md"])
     
     write_benchmark_markdown_report(summary, artifact_paths["summary_md"])
@@ -409,12 +530,17 @@ def build_parser() -> argparse.ArgumentParser:
         default="dev",
     )
     parser.add_argument("--path", help="Custom dataset JSON path. Overrides --dataset path.")
-    parser.add_argument("--sample", type=int, default=20, help="Evaluate the first N cases. Use 0 for all.")
+    parser.add_argument("--sample", type=int, help="Evaluate the first N cases. Use 0 for all.")
+    parser.add_argument("--samples-per-level", type=int, help="Evaluate N cases from each difficulty level.")
     parser.add_argument("--top-k", type=int, default=3, help="Retrieval top-k.")
     parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
     parser.add_argument("--config-id", help="Stable identifier used in the output directory name.")
+    parser.add_argument("--ablation-id", help="Ablation identifier included in output names and summaries.")
     parser.add_argument("--output-dir", help="Explicit artifact directory.")
     parser.add_argument("--config", help="Path to a benchmark YAML config file.")
+    parser.add_argument("--seed", type=int, default=SETTINGS.random_seed, help="Random seed for deterministic metric resampling.")
+    parser.add_argument("--bootstrap-iterations", type=int, default=1000, help="Bootstrap iterations for confidence intervals.")
+    parser.set_defaults(ablation_config=None)
     return parser
 
 
@@ -442,12 +568,21 @@ def main() -> None:
                 if "sample_size" in ds: args.sample = ds["sample_size"]
         if "features" in yaml_data:
             feat = yaml_data["features"]
+            args.ablation_config = {str(k): bool(v) for k, v in feat.items() if isinstance(v, bool)}
             if "max_retries" in feat:
                 # We can't easily change SETTINGS at runtime globally for all modules
                 # but we can pass it to agent_prediction if we modify it.
                 pass
         if "config_id" in yaml_data:
             args.config_id = yaml_data["config_id"]
+        if "ablation_id" in yaml_data:
+            args.ablation_id = yaml_data["ablation_id"]
+        if "sampling" in yaml_data and isinstance(yaml_data["sampling"], dict):
+            sampling = yaml_data["sampling"]
+            if "samples_per_level" in sampling:
+                args.samples_per_level = sampling["samples_per_level"]
+            if "sample" in sampling:
+                args.sample = sampling["sample"]
 
     if args.sample == 0:
         args.sample = None

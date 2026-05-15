@@ -207,7 +207,7 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     llm = LocalLLM(model_path=_default_generation_model_path(), n_ctx=2048, n_gpu_layers=-1)
     
     response_text = llm.generate_json(state.prompt, enforce_json=True)
-    return {"generated_sql": response_text}
+    return {"generated_sql": response_text, "raw_model_response": response_text}
 
 def parse_llm_output(state: VTDState) -> Dict[str, Any]:
     """
@@ -222,6 +222,7 @@ def parse_llm_output(state: VTDState) -> Dict[str, Any]:
     
     return {
         "generated_sql": parsed.get("sql"),
+        "parsed_payload": parsed,
         "explanation": parsed.get("explanation"),
         "needs_clarification": parsed.get("needs_clarification", False)
     }
@@ -240,17 +241,23 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     registry = SchemaRegistry()
     validator = ValidationPipeline(registry=registry)
     result = validator.validate(state.generated_sql)
+    validation_errors = [{"message": str(i)} for i in result.issues] if not result.ok else []
     
     attempt = SQLAttempt(
         iteration=state.retry_count,
+        prompt=state.prompt,
+        raw_model_response=state.raw_model_response,
+        parsed_payload=state.parsed_payload,
         sql=state.generated_sql,
+        parsed=bool(state.parsed_payload),
         validation_passed=result.ok,
+        validation_errors=validation_errors,
         error_message=", ".join([str(i) for i in result.issues]) if not result.ok else None
     )
     
     updates = {
         "attempts": state.attempts + [attempt],
-        "validation_errors": [{"message": str(i)} for i in result.issues] if not result.ok else []
+        "validation_errors": validation_errors
     }
     if not result.ok:
         return _with_retry_increment(state, updates)
@@ -273,6 +280,9 @@ def execute_sql(state: VTDState) -> Dict[str, Any]:
             latest.model_copy(
                 update={
                     "execution_passed": result.ok,
+                    "execution_result_preview": result.rows[:5] if result.ok else None,
+                    "execution_result_hash": result.result_hash if result.ok else None,
+                    "latency_ms": result.latency_ms,
                     "error_message": result.error if not result.ok else latest.error_message,
                 }
             )

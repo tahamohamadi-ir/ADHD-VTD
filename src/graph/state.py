@@ -6,15 +6,24 @@ from pydantic import BaseModel, Field
 class SQLAttempt(BaseModel):
     iteration: int
     prompt_id: str | None = None
+    prompt: str | None = None
+    raw_model_response: str | None = None
+    parsed_payload: dict[str, Any] | None = None
     sql: str | None = None
     parsed: bool = False
     validation_passed: bool = False
     execution_passed: bool = False
+    validation_errors: list[dict[str, Any]] = Field(default_factory=list)
+    execution_result_preview: list[dict[str, Any]] | None = None
+    execution_result_hash: str | None = None
+    gold_result_hash: str | None = None
     error_type: str | None = None
     error_message: str | None = None
     repair_action: str | None = None
     critic_feedback: str | None = None
     repair_plan: str | None = None
+    semantic_business_score: float | None = None
+    semantic_business_reason: str | None = None
     latency_ms: int | None = None
 
 class LinkedSchema(BaseModel):
@@ -49,6 +58,8 @@ class VTDState(BaseModel):
     prompt: str | None = None
 
     generated_sql: str | None = None
+    raw_model_response: str | None = None
+    parsed_payload: dict[str, Any] | None = None
     attempts: list[SQLAttempt] = Field(default_factory=list)
     retry_count: int = 0
     max_retries: int = 3

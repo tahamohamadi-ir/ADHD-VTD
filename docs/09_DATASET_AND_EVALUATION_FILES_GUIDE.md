@@ -471,6 +471,16 @@ A correct system should:
 5. match gold SQL result by Execution Accuracy,
 6. optionally match normalized SQL by Exact Match.
 
+Execution Accuracy is not enough for final research claims. For Phase 16, the same case may also receive:
+
+```text
+semantic_business_correct
+semantic_business_score
+semantic_business_reason
+```
+
+These fields answer whether the SQL logic is the right response to the Persian question, not merely whether it ran.
+
 ### For behavioral evaluation examples
 
 A correct system should follow `expected_action`, not blindly generate SQL.
@@ -527,7 +537,18 @@ Safety Rejection Accuracy
 No-SQL Action Accuracy
 Chart Recommendation Accuracy
 Retry Success Rate
+Reliability Score
+Unsafe Pass-through Rate
+Semantic Business Correctness
+Latency median/p95
+Bootstrap CI
 ```
+
+### Mistake 6: Not storing prompts and model responses
+
+If the benchmark does not store the exact prompt and raw model response, it is impossible to know whether a failure came from prompt construction, retrieval context, the local model, parser, validator, executor, or semantic mismatch.
+
+Phase 10 benchmark artifacts must include prompt/response traces in `attempts.jsonl`.
 
 ---
 

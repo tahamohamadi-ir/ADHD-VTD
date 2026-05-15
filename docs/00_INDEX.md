@@ -1,7 +1,7 @@
 # VTD-Edge Research-Grade Documentation Suite
 
 **Status:** Finalized documentation suite aligned with PARS-SQL / VTD-Edge v2.3 Execution-Ready proposal  
-**Last Updated:** 2026-05-15 (Phase 5 & 6 Completed)
+**Last Updated:** 2026-05-15 (Phase 10 benchmark/trace and Phase 16 judge requirements updated)
 **Project:** VTD-Edge / ADHD-VTD Persian Text-to-SQL System  
 **Target:** Research-grade and edge-deployable, offline, privacy-preserving, Persian-first Text-to-SQL pipeline  
 **Primary Goal:** Build a measurable, reliable, and publishable local/edge NL2SQL system for mental-health and student-lifestyle analytics while keeping data private.  
@@ -49,7 +49,8 @@ Non-negotiable documentation principles:
 | `08_PROJECT_STRUCTURE_AND_FILE_MAP.md` | Canonical current folder structure, module responsibilities, data contracts, path conventions, repo gates |
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Dataset files, golden examples, few-shot bank, behavioral evaluation, human agreement, dataset card |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from current state to research-grade and SOTA-style local/edge Text-to-SQL |
-| `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Specification for Phase 16: Semantic Business Logic Evaluation using LLM-as-a-Judge |
+| `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Specification for Phase 16: Semantic/business correctness evaluation using LLM-as-a-Judge, separate from SQL execution correctness |
+| `BENCHMARK_AND_TEST_GUIDE.md` | Practical guide for running tests, retrieval/gold/agent benchmarks, balanced sampling, reading artifacts, and debugging failures |
 | `VTD_Edge_PARS_SQL_Proposal_FINAL_v2_3_Execution_Ready_FA.docx` | Final implementation-first mini proposal / execution guide |
 | `requirements-vtd-edge-research.txt` | Suggested additional/updated Python dependencies for the research-grade version |
 
@@ -116,6 +117,9 @@ This rule prevents the project from drifting between product engineering and res
 8. Every failed query must be categorized.
 9. Every architecture improvement must be tested through ablation.
 10. Data used with cloud/API baselines must be synthetic or de-identified.
+11. Every benchmark artifact must record model name/path, config id, ablation id, enabled modules and disabled modules.
+12. SQL execution correctness and semantic/business correctness must be reported as separate metrics.
+13. Prompt and raw model response must be stored for every agent attempt used in research claims.
 
 ---
 

@@ -103,6 +103,7 @@ def generate_benchmark_markdown_report(summary: dict[str, Any]) -> str:
     retrieval = summary.get("retrieval_metrics")
     errors = summary.get("error_analysis", {})
     artifacts = summary.get("artifacts", {})
+    latency = summary.get("latency", {})
 
     lines: list[str] = []
     lines.append("# Benchmark Summary")
@@ -111,7 +112,24 @@ def generate_benchmark_markdown_report(summary: dict[str, Any]) -> str:
     lines.append("")
     lines.append("| Field | Value |")
     lines.append("|---|---|")
-    for key in ("config_id", "mode", "dataset", "sample", "top_k", "use_vector", "started_at", "finished_at"):
+    for key in (
+        "config_id",
+        "mode",
+        "dataset",
+        "sample",
+        "samples_per_level",
+        "selection_policy",
+        "model_name",
+        "model_slug",
+        "model_path",
+        "ablation_id",
+        "enabled_modules",
+        "disabled_modules",
+        "top_k",
+        "use_vector",
+        "started_at",
+        "finished_at",
+    ):
         if key in config:
             lines.append(f"| `{key}` | {_value_cell(config.get(key))} |")
     lines.append("")
@@ -131,10 +149,23 @@ def generate_benchmark_markdown_report(summary: dict[str, Any]) -> str:
         lines.append("| Metric | Value | Numerator | Denominator |")
         lines.append("|---|---:|---:|---:|")
         for name, metric in metrics.items():
+            ci = metric.get("ci95")
+            value = _value_cell(metric.get("value"))
+            if ci:
+                value = f"{value} [{_value_cell(ci.get('lower'))}, {_value_cell(ci.get('upper'))}]"
             lines.append(
-                f"| `{name}` | {_value_cell(metric.get('value'))} | "
+                f"| `{name}` | {value} | "
                 f"{_value_cell(metric.get('numerator'))} | {_value_cell(metric.get('denominator'))} |"
             )
+        lines.append("")
+
+    if latency:
+        lines.append("## Latency")
+        lines.append("")
+        lines.append("| Field | Value |")
+        lines.append("|---|---:|")
+        for key, value in latency.items():
+            lines.append(f"| `{key}` | {_value_cell(value)} |")
         lines.append("")
 
     if reliability:

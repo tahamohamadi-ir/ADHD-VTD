@@ -172,3 +172,24 @@ def summarize_cases(cases: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "by_difficulty": dict(sorted(by_difficulty.items())),
         "by_category": dict(sorted(by_category.items())),
     }
+
+
+def select_samples_per_level(
+    cases: Iterable[dict[str, Any]],
+    samples_per_level: int,
+    *,
+    difficulty_key: str = "difficulty",
+) -> list[dict[str, Any]]:
+    """Select up to N cases from each difficulty level in deterministic order."""
+    if samples_per_level <= 0:
+        raise ValueError("samples_per_level must be a positive integer.")
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for case in cases:
+        difficulty = str(case.get(difficulty_key) or "unknown")
+        grouped.setdefault(difficulty, []).append(case)
+
+    selected: list[dict[str, Any]] = []
+    for difficulty in sorted(grouped):
+        selected.extend(grouped[difficulty][:samples_per_level])
+    return selected

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass
-from typing import Any, Iterable
+from statistics import mean, median
+from typing import Any, Callable, Iterable
 
 
 def safe_div(n: float, d: float) -> float:
@@ -119,3 +121,72 @@ def aggregate_basic_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]
     abstention = abstention_precision_recall(rows)
     metrics.extend(abstention.values())
     return {m.name: m.as_dict() for m in metrics}
+
+
+def bootstrap_ci(
+    records: Iterable[dict[str, Any]],
+    metric_fn: Callable[[list[dict[str, Any]]], float],
+    *,
+    iterations: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> dict[str, float]:
+    rows = list(records)
+    if not rows:
+        return {"lower": 0.0, "upper": 0.0, "confidence": confidence}
+
+    rng = random.Random(seed)
+    values: list[float] = []
+    n = len(rows)
+    for _ in range(iterations):
+        sample = [rows[rng.randrange(n)] for _ in range(n)]
+        values.append(float(metric_fn(sample)))
+
+    values.sort()
+    alpha = 1.0 - confidence
+    lower_idx = max(0, min(len(values) - 1, int((alpha / 2.0) * len(values))))
+    upper_idx = max(0, min(len(values) - 1, int((1.0 - alpha / 2.0) * len(values)) - 1))
+    return {
+        "lower": round(values[lower_idx], 4),
+        "upper": round(values[upper_idx], 4),
+        "confidence": confidence,
+    }
+
+
+def add_bootstrap_cis(
+    metrics: dict[str, Any],
+    records: Iterable[dict[str, Any]],
+    *,
+    iterations: int = 1000,
+    seed: int = 42,
+) -> dict[str, Any]:
+    rows = list(records)
+    metric_functions: dict[str, Callable[[list[dict[str, Any]]], float]] = {
+        "execution_accuracy": lambda sample: execution_accuracy(sample).value,
+        "valid_sql_rate": lambda sample: valid_sql_rate(sample).value,
+        "clarification_accuracy": lambda sample: clarification_accuracy(sample).value,
+        "safety_rejection_accuracy": lambda sample: safety_rejection_accuracy(sample).value,
+    }
+    updated = dict(metrics)
+    for name, fn in metric_functions.items():
+        if name in updated:
+            updated[name] = dict(updated[name])
+            updated[name]["ci95"] = bootstrap_ci(rows, fn, iterations=iterations, seed=seed)
+    return updated
+
+
+def latency_summary(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    values = [float(r.get("latency_ms")) for r in records if r.get("latency_ms") is not None]
+    if not values:
+        return {"count": 0, "mean_ms": 0.0, "median_ms": 0.0, "p95_ms": 0.0, "min_ms": 0.0, "max_ms": 0.0}
+
+    values.sort()
+    p95_idx = max(0, min(len(values) - 1, math.ceil(0.95 * len(values)) - 1))
+    return {
+        "count": len(values),
+        "mean_ms": round(mean(values), 2),
+        "median_ms": round(median(values), 2),
+        "p95_ms": round(values[p95_idx], 2),
+        "min_ms": round(values[0], 2),
+        "max_ms": round(values[-1], 2),
+    }
