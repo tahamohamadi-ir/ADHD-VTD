@@ -1,0 +1,26 @@
+# Benchmark Config — Research Agent V1 (LangGraph + Reflexion + Hybrid RAG)
+# Usage: python scripts/run_benchmark.py --config benchmark/configs/research_agent_v1.yaml
+
+config_id: "research_agent_v1"
+config_version: "1.0"
+mode: "agent"
+created_at: "2026-05-15"
+
+# ─── Dataset ──────────────────────────────────────────────────────────────────
+dataset:
+  split: "dev"
+  sample_size: 20
+  source: "data/questions/dev/dev.json"
+
+# ─── Features ─────────────────────────────────────────────────────────────────
+features:
+  enable_persian_normalization: true
+  enable_schema_linking: true
+  enable_hybrid_rag: true
+  enable_reflexion: true
+  max_retries: 3
+
+# ─── Model Info (Informational for report) ───────────────────────────────────
+model:
+  name: "Qwen2.5-Coder-7B-Instruct"
+  path: "models/generation/qwen2.5-coder-7b-instruct-q4_k_m.gguf"

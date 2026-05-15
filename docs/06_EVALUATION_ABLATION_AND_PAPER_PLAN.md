@@ -139,7 +139,16 @@ RS = (Correct_SQL + Correct_Abstention + Correct_Clarification + Correct_Safety_
 
 Report RS alongside EX. EX alone is not enough for healthcare or mental-health analytics.
 
-### 4.3 Abstention Metrics
+### 4.3 Automated Research Artifacts (Benchmark Runner v2.5)
+
+The `run_benchmark.py` runner now automatically generates:
+- **`benchmark_results.csv`**: Raw per-case execution results.
+- **`reliability_summary.csv`**: Aggregate RS, Abstention, and Error rates.
+- **`error_taxonomy.csv`**: Distribution of failures based on the structured taxonomy.
+- **`paper_tables.md`**: Publication-ready Markdown tables for EX, RS, and Latency.
+- **`attempts.jsonl`**: Full process trace including generation, critic feedback, and repair plan for every iteration.
+
+### 4.4 Abstention Metrics
 
 | Metric | Meaning |
 |---|---|
@@ -330,24 +339,19 @@ unsafe_label_correctness
 
 ## 11. Benchmark Runner Output
 
-Each run should produce:
-
-```text
-results/{timestamp}_{config_id}/
-├── config.json
-├── benchmark_results.csv
-├── reliability_summary.csv
-├── summary.md
-├── failures.jsonl
-├── attempts.jsonl
-├── retrieval_metrics.csv
-├── schema_linking_metrics.csv
-├── value_linking_metrics.csv
-├── error_taxonomy.csv
-├── ablation_summary.csv
-├── robustness_summary.csv
-└── paper_tables.md
-```
+Each run should produce a timestamped directory (e.g., `results/benchmark/20260515_070000_agent_dev_qwen/`):
+ 
+ ```text
+ ├── {stamp}_{model}_config.json
+ ├── {stamp}_{model}_benchmark_results.csv
+ ├── {stamp}_{model}_reliability_summary.csv
+ ├── {stamp}_{model}_summary.md
+ ├── {stamp}_{model}_summary.json
+ ├── {stamp}_{model}_failures.jsonl
+ ├── {stamp}_{model}_attempts.jsonl
+ ├── {stamp}_{model}_error_taxonomy.csv
+ └── {stamp}_{model}_paper_tables.md
+ ```
 
 ---
 

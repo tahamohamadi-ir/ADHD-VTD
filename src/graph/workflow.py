@@ -14,6 +14,7 @@ from src.graph.nodes.base_nodes import (
     validate_sql,
     execute_sql,
     format_answer,
+    reflect_on_error,
     fail_gracefully,
     ask_clarification
 )
@@ -40,6 +41,7 @@ def create_workflow():
     workflow.add_node("validate_sql", validate_sql)
     workflow.add_node("execute_sql", execute_sql)
     workflow.add_node("format_answer", format_answer)
+    workflow.add_node("reflect_on_error", reflect_on_error)
     workflow.add_node("fail_gracefully", fail_gracefully)
     workflow.add_node("ask_clarification", ask_clarification)
 
@@ -73,7 +75,7 @@ def create_workflow():
         route_after_validation,
         {
             "execute_sql": "execute_sql",
-            "generate_sql": "generate_sql",
+            "reflect_on_error": "reflect_on_error",
             "fail_gracefully": "fail_gracefully"
         }
     )
@@ -84,10 +86,13 @@ def create_workflow():
         route_after_execution,
         {
             "format_answer": "format_answer",
-            "generate_sql": "generate_sql",
+            "reflect_on_error": "reflect_on_error",
             "fail_gracefully": "fail_gracefully"
         }
     )
+
+    # From reflection back to generation
+    workflow.add_edge("reflect_on_error", "generate_sql")
 
     # Endings
     workflow.add_edge("format_answer", END)

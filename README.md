@@ -64,9 +64,9 @@ The LLM is only a **candidate SQL generator**. It is never trusted as the source
 | Read-only executor | Phase 4 | Done |
 | Basic local LLM generation | Phase 5 | Done |
 | Hybrid CAG/RAG | Phase 7 | Done |
-| LangGraph full pipeline | Phase 8 | Done |
-| Reflexion / SQL Surgeon | Phase 9 | Done |
-| Benchmark Runner | Phase 10 | In Progress |
+| Reflexion / Self-Correction | Phase 9 | ✅ COMPLETED (Advanced Critic/Planner) |
+| Benchmark Runner | Phase 10 | ⚡ 90% (Full Agent Mode) |
+| Ablation & Error Analysis | Phase 11 | ⚡ 20% (Ablation Control) |
 | Multi-candidate / Reliability | Phase 13 | In Progress |
 | Edge state machine | Phase 14 | Later |
 

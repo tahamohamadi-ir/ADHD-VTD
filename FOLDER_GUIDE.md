@@ -22,6 +22,30 @@
 
 پوشه‌های cache و محیط مثل `.git`، `.venv`، `.idea`، `.pytest_cache`، `.ruff_cache`، `__pycache__` و `.cache/huggingface` عمداً README آموزشی مستقل نگرفته‌اند؛ این‌ها منطق پروژه نیستند و با ابزارها بازتولید می‌شوند.
 
+ساختار کلیدی پروژه:
+
+```text
+├── data/
+│   ├── db/                 # Read-only SQLite database (patient data)
+│   ├── schema/             # Semantic metadata and DDL specs
+│   ├── questions/          # Train/Dev/Test splits (Persian questions + Gold SQL)
+│   ├── golden_sql/         # Reference SQL for evaluation
+│   └── audit/              # Phase 0 validation artifacts
+├── results/
+│   ├── benchmark/          # Timestamped research artifacts (Agent/Retrieval runs)
+│   └── error_analysis/     # Detailed error taxonomy and failure traces
+├── src/
+│   ├── config/             # Path registry and global SETTINGS
+│   ├── graph/              # LangGraph orchestration (Nodes, Routes, State)
+│   ├── nlu/                # Persian normalization and intent routing
+│   ├── reflexion/          # Advanced SQL Critic, Planner, and Error Taxonomy
+│   ├── sql_validation/     # Syntax and safety validators
+│   ├── generation/         # Local LLM (LlamaCpp) and prompt templates
+│   ├── retrieval/          # Hybrid CAG/RAG (BM25 + ChromaDB)
+│   └── evaluation/         # Metrics, Scorer, and Benchmark Runner
+└── scripts/                # High-level entry points (run_agent, run_benchmark)
+```
+
 ## اصل طراحی آموزشی
 
 این پروژه را مثل یک pipeline شبیه compiler بخوانید:

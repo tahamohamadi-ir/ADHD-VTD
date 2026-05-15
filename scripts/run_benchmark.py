@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from _bootstrap_path import PROJECT_ROOT
+from _bootstrap_path import PROJECT_ROOT  # type: ignore
 
 from src.config.paths import QUESTIONS_DIR, RESULTS_DIR
+from src.config.settings import SETTINGS
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.evaluation.dataset_loader import (
     LoadedDataset,
@@ -25,8 +26,13 @@ from src.evaluation.metrics import aggregate_basic_metrics
 from src.evaluation.reliability_metrics import reliability_score
 from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
+from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retrieval_scorer import RetrievalQuery
+from src.graph.workflow import create_workflow
+from src.graph.state import VTDState, SQLAttempt
+import uuid
+import yaml
 
 
 DATASET_ALIASES = {
@@ -171,6 +177,84 @@ def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[st
     }
 
 
+def agent_prediction(case: dict[str, Any], workflow: Any, executor: ReadOnlyExecutor) -> dict[str, Any]:
+    question = case_question(case)
+    initial_state = VTDState(
+        trace_id=str(uuid.uuid4()),
+        raw_question=question
+    )
+
+    started = time.perf_counter()
+    # LangGraph invoke typically takes a dict
+    final_state_dict = workflow.invoke(initial_state.model_dump())
+    latency_ms = int((time.perf_counter() - started) * 1000)
+
+    # Extract attempts for trace
+    attempts = [a.model_dump() if hasattr(a, 'model_dump') else a for a in final_state_dict.get("attempts", [])]
+    
+    # Basic prediction info
+    generated_sql = final_state_dict.get("generated_sql")
+    gold_sql = case.get("gold_sql") or case.get("sql")
+    expected_action = case.get("expected_action") or "generate_sql"
+    actual_action = "generate_sql"
+    
+    # Determine actual_action from state
+    if final_state_dict.get("final_answer"):
+        answer = final_state_dict["final_answer"]
+        if "ابهام" in answer or "شفاف" in answer:
+            actual_action = "ask_clarification"
+        elif "تلاش" in answer or "قادر" in answer:
+            actual_action = "fail_gracefully"
+        elif "تحلیل" in answer:
+            actual_action = "format_answer"
+
+    # Evaluation
+    ok = False
+    execution_correct = False
+    valid_sql = not bool(final_state_dict.get("validation_errors"))
+    result_hash = None
+    gold_hash = None
+    
+    if expected_action == "generate_sql":
+        if generated_sql and gold_sql:
+            comparison = executor.compare_results(generated_sql, gold_sql)
+            execution_correct = bool(comparison.get("match"))
+            result_hash = comparison.get("generated_hash")
+            gold_hash = comparison.get("gold_hash")
+            ok = execution_correct
+        else:
+            ok = False
+    else:
+        # Behavioral evaluation
+        # For now, simple action matching. 
+        # expected_action can be safety_refusal, ambiguity_clarification, etc.
+        # Mapping to actual_action
+        if expected_action == "safety_refusal" and actual_action == "ask_clarification":
+            ok = True # Clarification node often handles both in current base_nodes
+        elif expected_action == "ambiguity_clarification" and actual_action == "ask_clarification":
+            ok = True
+        elif expected_action == actual_action:
+            ok = True
+
+    return {
+        "actual_action": actual_action,
+        "mode": "agent",
+        "ok": ok,
+        "execution_correct": execution_correct,
+        "valid_sql": valid_sql,
+        "generated_sql": generated_sql,
+        "gold_sql": gold_sql,
+        "explanation": final_state_dict.get("explanation"),
+        "intent": final_state_dict.get("intent"),
+        "retry_count": final_state_dict.get("retry_count"),
+        "latency_ms": latency_ms,
+        "result_hash": result_hash,
+        "gold_result_hash": gold_hash,
+        "attempts": attempts,
+        "error": final_state_dict.get("execution_error") or (None if ok else "BEHAVIOR_MISMATCH"),
+    }
+
+
 def retrieval_basic_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     total = len(records)
     hits = sum(1 for record in records if record.get("retrieval_hit"))
@@ -194,19 +278,28 @@ def retrieval_basic_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_output_dir(config_id: str, output_dir: str | None = None) -> Path:
+def build_output_dir(config_id: str, stamp: str, output_dir: str | None = None) -> Path:
     if output_dir:
         return Path(output_dir)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return RESULTS_DIR / "benchmark" / f"{stamp}_{slug(config_id)}"
+
+
+def get_model_slug() -> str:
+    if SETTINGS.default_model_path:
+        return slug(Path(SETTINGS.default_model_path).stem)
+    return "qwen2-5-coder-7b"
 
 
 def run(args: argparse.Namespace) -> Path:
     started_at = utc_now()
     dataset = load_named_dataset(args.dataset, args.path)
     cases = dataset.cases[: args.sample] if args.sample else dataset.cases
-    config_id = args.config_id or f"{args.mode}_{args.dataset}"
-    output_dir = build_output_dir(config_id, args.output_dir)
+    
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_slug = get_model_slug()
+    
+    config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}"
+    output_dir = build_output_dir(config_id, stamp, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.mode == "retrieval":
@@ -215,6 +308,10 @@ def run(args: argparse.Namespace) -> Path:
     elif args.mode == "gold":
         executor = ReadOnlyExecutor()
         records = [dict(case, **gold_prediction(case, executor)) for case in cases]
+    elif args.mode == "agent":
+        workflow = create_workflow()
+        executor = ReadOnlyExecutor()
+        records = [dict(case, **agent_prediction(case, workflow, executor)) for case in cases]
     else:  # pragma: no cover - argparse enforces choices.
         raise ValueError(f"Unsupported mode: {args.mode}")
 
@@ -254,31 +351,58 @@ def run(args: argparse.Namespace) -> Path:
         summary["metrics"] = aggregate_basic_metrics(records)
         summary["reliability"] = reliability_score(records).as_dict()
 
+    # File naming with timestamp and model
+    prefix = f"{stamp}_{model_slug}"
     artifact_paths = {
-        "config": output_dir / "config.json",
-        "summary_json": output_dir / "summary.json",
-        "summary_md": output_dir / "summary.md",
-        "predictions": output_dir / "predictions.jsonl",
-        "failures": output_dir / "failures.jsonl",
+        "config": output_dir / f"{prefix}_config.json",
+        "summary_json": output_dir / f"{prefix}_summary.json",
+        "summary_md": output_dir / f"{prefix}_summary.md",
+        "predictions": output_dir / f"{prefix}_predictions.jsonl",
+        "failures": output_dir / f"{prefix}_failures.jsonl",
+        "attempts": output_dir / f"{prefix}_attempts.jsonl",
+        "benchmark_results_csv": output_dir / f"{prefix}_benchmark_results.csv",
+        "reliability_summary_csv": output_dir / f"{prefix}_reliability_summary.csv",
+        "error_taxonomy_csv": output_dir / f"{prefix}_error_taxonomy.csv",
+        "paper_tables_md": output_dir / f"{prefix}_paper_tables.md",
     }
     if args.mode == "retrieval":
-        artifact_paths["retrieval_metrics"] = output_dir / "retrieval_metrics.json"
+        artifact_paths["retrieval_metrics"] = output_dir / f"{prefix}_retrieval_metrics.json"
 
     summary["artifacts"] = {key: str(path) for key, path in artifact_paths.items()}
 
     write_json(artifact_paths["config"], config)
     write_jsonl(artifact_paths["predictions"], records)
     write_jsonl(artifact_paths["failures"], failures)
+    
+    # Write attempts trace for agent mode
+    if args.mode == "agent":
+        attempts_trace = []
+        for record in records:
+            case_id = record.get("id") or record.get("case_id")
+            for i, attempt in enumerate(record.get("attempts", [])):
+                # attempt is already a dict here because of the fix in agent_prediction
+                attempts_trace.append({
+                    "case_id": case_id,
+                    "attempt_index": i,
+                    **attempt
+                })
+        write_jsonl(artifact_paths["attempts"], attempts_trace)
+
     write_json(artifact_paths["summary_json"], summary)
     if args.mode == "retrieval":
         write_json(artifact_paths["retrieval_metrics"], summary["retrieval_metrics"])
+    
+    # Export CSVs and Paper Tables
+    export_benchmark_csvs(records, summary, output_dir)
+    generate_paper_tables(summary, artifact_paths["paper_tables_md"])
+    
     write_benchmark_markdown_report(summary, artifact_paths["summary_md"])
     return output_dir
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run reproducible project benchmarks.")
-    parser.add_argument("--mode", choices=("retrieval", "gold"), default="retrieval")
+    parser.add_argument("--mode", choices=("retrieval", "gold", "agent"), default="retrieval")
     parser.add_argument(
         "--dataset",
         choices=("dev", "test", "positive400", "behavior_dev", "behavior_test", "phase0"),
@@ -290,12 +414,41 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
     parser.add_argument("--config-id", help="Stable identifier used in the output directory name.")
     parser.add_argument("--output-dir", help="Explicit artifact directory.")
+    parser.add_argument("--config", help="Path to a benchmark YAML config file.")
     return parser
+
+
+def load_config_yaml(path: str) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    if args.config:
+        yaml_data = load_config_yaml(args.config)
+        # Override args with yaml data where applicable
+        # This is a basic mapping, can be expanded
+        if "mode" in yaml_data:
+            args.mode = yaml_data["mode"]
+        if "dataset" in yaml_data:
+            # handle dataset object or string
+            ds = yaml_data["dataset"]
+            if isinstance(ds, dict):
+                if "split" in ds: args.dataset = ds["split"]
+                if "source" in ds: args.path = ds["source"]
+                if "sample_size" in ds: args.sample = ds["sample_size"]
+        if "features" in yaml_data:
+            feat = yaml_data["features"]
+            if "max_retries" in feat:
+                # We can't easily change SETTINGS at runtime globally for all modules
+                # but we can pass it to agent_prediction if we modify it.
+                pass
+        if "config_id" in yaml_data:
+            args.config_id = yaml_data["config_id"]
+
     if args.sample == 0:
         args.sample = None
     output_dir = run(args)

@@ -13,6 +13,8 @@ class SQLAttempt(BaseModel):
     error_type: str | None = None
     error_message: str | None = None
     repair_action: str | None = None
+    critic_feedback: str | None = None
+    repair_plan: str | None = None
     latency_ms: int | None = None
 
 class LinkedSchema(BaseModel):
@@ -59,3 +61,10 @@ class VTDState(BaseModel):
     final_answer: str | None = None
     explanation: str | None = None
     benchmark_record: dict[str, Any] | None = None
+    
+    # Ablation configuration for research studies
+    ablation_config: dict[str, bool] = Field(default_factory=lambda: {
+        "reflexion": True,
+        "cag": True,
+        "nlu": True
+    })

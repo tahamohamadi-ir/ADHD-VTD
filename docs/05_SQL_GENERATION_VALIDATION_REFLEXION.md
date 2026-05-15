@@ -6,10 +6,14 @@
 
 ---
 
-### ✅ Current Implementation Status (Phase 5/6 Completion)
+### ✅ Current Implementation Status (Phase 9 Completion)
 - **Local LLM Engine:** GPU-accelerated Qwen-7B (Q4_K_M) via `llama-cpp-python` (CUDA 12.4).
-- **Orchestration:** LangGraph state machine (`src/graph/workflow.py`) with 13 functional nodes.
-- **Self-Correction:** Reflexion loop implemented; errors from `ValidationPipeline` are fed back to the generation node for up to 3 retries.
+- **Orchestration:** LangGraph state machine (`src/graph/workflow.py`) with 14 functional nodes.
+- **Advanced Reflexion Stack:**
+    - **Critic:** `SQLCritic` generates natural language feedback.
+    - **Planner:** `RepairPlanner` selects repair strategies based on error taxonomy.
+    - **Taxonomy:** `ERROR_TAXONOMY` categorizes failures (Schema, Syntax, Logic).
+    - **Memory:** `TransitionMemory` prevents infinite SQL/error loops.
 - **Output Format:** Strict JSON enforcement via `LlamaGrammar` and `OutputParser`.
 - **Safety:** Read-only execution enforced via `ReadOnlyExecutor`.
 

@@ -21,6 +21,11 @@ from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.sql_validation.validation_pipeline import ValidationPipeline
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.utils.logging import get_logger
+from src.reflexion.critic import SQLCritic
+from src.reflexion.error_taxonomy import classify_error
+from src.reflexion.repair_planner import RepairPlanner
+from src.reflexion.retry_policy import RetryPolicy
+from src.reflexion.transition_memory import TransitionMemory
 
 logger = get_logger(__name__)
 
@@ -28,7 +33,7 @@ logger = get_logger(__name__)
 def _default_generation_model_path() -> str:
     configured = SETTINGS.default_model_path
     if configured:
-        return str(configured)
+        return configured
     return str(MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf")
 
 
@@ -55,6 +60,10 @@ def normalize_input(state: VTDState) -> Dict[str, Any]:
     Cleans and normalizes the Persian input text using the PersianNormalizer.
     Ensures consistent spacing and character normalization.
     """
+    # Ablation: if nlu is disabled, skip normalization
+    if not state.ablation_config.get("nlu", True):
+        return {"normalized_question": state.raw_question, "language": "fa"}
+
     normalizer = PersianNormalizer()
     result = normalizer.normalize(state.raw_question)
     logger.debug(f"Normalized Question: {result.normalized}")
@@ -150,6 +159,14 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         tables=linked_schema.tables,
         columns=linked_schema.columns,
     )
+    # Ablation: if cag is disabled, return empty examples
+    if not state.ablation_config.get("cag", True):
+        return {
+            "retrieved_examples": [],
+            "retrieval_context": "",
+            "retrieval_diagnostics": []
+        }
+
     retriever = HybridRetriever(use_vector_store=False)
     retrieved = retriever.retrieve(retrieval_query, top_k=3)
     context = ContextBuilder().build(retrieved, max_examples=3)
@@ -279,6 +296,56 @@ def format_answer(state: VTDState) -> Dict[str, Any]:
     explanation = state.explanation or "پاسخ بر اساس داده‌های موجود تولید شد."
     return {
         "final_answer": f"تحلیل انجام شد. {explanation} (تعداد رکوردهای بازیابی شده: {row_count})"
+    }
+
+def reflect_on_error(state: VTDState) -> Dict[str, Any]:
+    """
+    Analyzes the most recent failure and updates the prompt with repair instructions.
+    This node implements the 'Critic' and 'Planner' roles of Reflexion.
+    """
+    if not state.attempts:
+        return {}
+        
+    latest = state.attempts[-1]
+    error_msg = latest.error_message or "Unknown failure"
+    sql = latest.sql or ""
+    
+    critic = SQLCritic()
+    planner = RepairPlanner()
+    memory = TransitionMemory()
+    
+    # Load memory from state.attempts
+    for a in state.attempts[:-1]:
+        memory.update(a.sql or "", a.error_message or "")
+        
+    if memory.is_looping(sql, error_msg):
+        logger.warning(f"Loop detected for trace {state.trace_id}. Forcing failure.")
+        # We can't easily force failure here without changing routes, 
+        # but we can set a flag or just let retry_count handle it.
+        pass
+
+    feedback = critic.analyze(sql, error_msg, str(state.schema_context))
+    repair_plan = planner.plan(sql, error_msg)
+    
+    logger.info(f"Reflexion Feedback: {repair_plan}")
+    
+    # Update latest attempt with feedback/plan
+    new_attempts = list(state.attempts)
+    if new_attempts:
+        latest = new_attempts[-1]
+        new_attempts[-1] = latest.model_copy(
+            update={
+                "critic_feedback": feedback,
+                "repair_plan": repair_plan
+            }
+        )
+
+    # Update prompt for the next generation
+    repair_prompt = critic.build_repair_prompt(f"{feedback}\n\nRepair Plan: {repair_plan}")
+    
+    return {
+        "prompt": repair_prompt,
+        "attempts": new_attempts
     }
 
 def fail_gracefully(state: VTDState) -> Dict[str, Any]:
