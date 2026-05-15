@@ -92,8 +92,9 @@ Phase 10  Benchmark runner and evaluation framework
 Phase 11  Ablation, error analysis, and research metrics
 Phase 12  Output, chart recommendation, and data storytelling
 Phase 13  Optimization, robustness, and edge-readiness
-Phase 14  State-of-the-art upgrades
+Phase 14  State-of-the-art upgrades (Bootstrap CI, Multi-candidate)
 Phase 15  Research packaging, paper, GitHub, and PhD portfolio
+Phase 16  Semantic Business Logic (LLM-as-a-Judge)
 ```
 
 Recommended implementation principle:

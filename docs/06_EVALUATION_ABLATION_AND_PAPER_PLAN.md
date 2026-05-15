@@ -139,7 +139,10 @@ RS = (Correct_SQL + Correct_Abstention + Correct_Clarification + Correct_Safety_
 
 Report RS alongside EX. EX alone is not enough for healthcare or mental-health analytics.
 
-### 4.3 Automated Research Artifacts (Benchmark Runner v2.5)
+### 4.3 Statistical Significance (Bootstrap CI)
+To ensure research validity, all primary metrics (EX, RS) must report a 95% Confidence Interval using bootstrapping (e.g., N=1000 resamples). This prevents reporting lucky runs as significant improvements.
+
+### 4.4 Automated Research Artifacts (Benchmark Runner v2.5)
 
 The `run_benchmark.py` runner now automatically generates:
 - **`benchmark_results.csv`**: Raw per-case execution results.
@@ -318,9 +321,22 @@ Minimum requirement:
 
 ```text
 At least 50 benchmark items should be reviewed by a second human reviewer
-or by an independent LLM-as-judge model with a fixed rubric.
+or by an independent **LLM-as-judge** model (e.g., GPT-4o, o1) with a fixed rubric.
 Report Cohen's Kappa or agreement percentage.
 ```
+
+### 10.1 LLM-as-a-Judge Protocol (SOTA)
+For SOTA evaluation, use a powerful cloud model to evaluate the "Semantic Business Logic" of the generated SQL. The judge receives:
+1. User Question (Persian)
+2. Linked Schema Context
+3. Generated SQL
+4. Gold SQL (for reference)
+5. Sample Results (top 5 rows)
+
+The judge provides:
+- **Correctness Score (0-5)**: Does the SQL logic correctly represent the user's intent?
+- **Business Reasoning**: Why is it correct or incorrect from a clinician/analyst perspective?
+- **Actionability**: Is the result actually useful for the intended dashboard?
 
 Even a low agreement score is better than hiding the limitation.
 

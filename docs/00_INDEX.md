@@ -49,6 +49,7 @@ Non-negotiable documentation principles:
 | `08_PROJECT_STRUCTURE_AND_FILE_MAP.md` | Canonical current folder structure, module responsibilities, data contracts, path conventions, repo gates |
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Dataset files, golden examples, few-shot bank, behavioral evaluation, human agreement, dataset card |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from current state to research-grade and SOTA-style local/edge Text-to-SQL |
+| `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Specification for Phase 16: Semantic Business Logic Evaluation using LLM-as-a-Judge |
 | `VTD_Edge_PARS_SQL_Proposal_FINAL_v2_3_Execution_Ready_FA.docx` | Final implementation-first mini proposal / execution guide |
 | `requirements-vtd-edge-research.txt` | Suggested additional/updated Python dependencies for the research-grade version |
 
