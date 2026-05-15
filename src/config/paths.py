@@ -50,6 +50,9 @@ GOLDEN_EXAMPLES_PATH: Path = GOLDEN_SQL_DIR / "golden_examples.jsonl"
 FEW_SHOT_BANK_PATH: Path = GOLDEN_SQL_DIR / "few_shot_bank.jsonl"
 INDEXED_EXAMPLES_PATH: Path = RAG_DIR / "indexed_examples.jsonl"
 
+DEFAULT_GENERATION_MODEL_PATH: Path = MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+DEFAULT_EMBEDDING_MODEL_PATH: Path = MODELS_DIR / "embedding" / "multilingual-e5-small"
+
 
 def ensure_runtime_dirs() -> None:
     for path in [

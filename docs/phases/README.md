@@ -13,6 +13,7 @@
 | Phase 5 | Local LLM Generation Layer | Completed | [PHASE_5_LOCAL_LLM_GENERATION.md](PHASE_5_LOCAL_LLM_GENERATION.md) |
 | Phase 6 | Milestone 1.5 Stress Test | Completed | [PHASE_6_STRESS_TEST.md](PHASE_6_STRESS_TEST.md) |
 | Phase 7 | Hybrid CAG/RAG Retrieval | Completed | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
+| Phase 9 | Graph-Level Reflexion and SQL Repair | Basic completed | [PHASE_9_REFLEXION.md](PHASE_9_REFLEXION.md) |
 | Phase 10 | Benchmark Runner | In progress | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
 
 ## فازهای نیازمند سند مستقل
@@ -20,7 +21,6 @@
 | Phase | عنوان | وضعیت سند |
 |---|---|---|
 | Phase 8 | LangGraph Orchestration | TODO |
-| Phase 9 | Reflexion, SQL Surgeon, Semantic Critic | TODO |
 | Phase 11 | Ablation, Error Analysis, Research Metrics | TODO |
 | Phase 12 | Output, Chart, Narrative | TODO |
 | Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
