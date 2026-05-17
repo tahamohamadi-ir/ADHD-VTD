@@ -1,0 +1,22 @@
+config_id: A4_cag_examples
+ablation_id: A4_cag_examples
+config_version: "phase11_v1"
+mode: agent
+description: "Adds CAG examples with self-overlap exclusion."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  reflexion: false
+  validation: true
+  safety: true
+reporting:
+  result_status: config_only_not_a_result
+  anti_leakage: "Keep exclude_self=true for dev/test."

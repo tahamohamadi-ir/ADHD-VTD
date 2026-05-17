@@ -1,0 +1,23 @@
+config_id: A7_full_phase10_system
+ablation_id: A7_full_phase10_system
+config_version: "phase11_v1"
+mode: agent
+description: "Current full Phase-10 infrastructure: NLU, CAG, validation, shape contracts, repair/reflexion path as wired."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+reporting:
+  result_status: config_only_not_a_result
+  closest_existing_artifact: "results/benchmark/20260517_031221_agent_dev_qwen2-5-coder-7b_manual_agent_shape_contract_spl2_after_fixes"

@@ -1,0 +1,21 @@
+config_id: A2_schema_linking
+ablation_id: A2_schema_linking
+config_version: "phase11_v1"
+mode: agent
+description: "Schema-linking ablation template. Current runtime has partial flag support; reports must distinguish declared and implemented flags."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  cag: false
+  reflexion: false
+  validation: true
+  safety: true
+reporting:
+  result_status: config_only_not_a_result
+  implementation_note: "schema_linking flag is recorded for reporting; verify runtime support before paper claims."

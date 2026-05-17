@@ -1,0 +1,22 @@
+config_id: A3_value_linking
+ablation_id: A3_value_linking
+config_version: "phase11_v1"
+mode: agent
+description: "Value-linking ablation template. Requires value-link labels before strong claims."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: false
+  reflexion: false
+  validation: true
+  safety: true
+reporting:
+  result_status: config_only_not_a_result
+  limitation: "Value Recall@k needs reviewed labels; do not infer it from EX."

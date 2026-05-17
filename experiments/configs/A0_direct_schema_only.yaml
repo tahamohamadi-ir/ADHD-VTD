@@ -1,0 +1,20 @@
+config_id: A0_direct_schema_only
+ablation_id: A0_direct_schema_only
+config_version: "phase11_v1"
+mode: agent
+description: "Minimal direct local-LLM baseline with CAG disabled. Results are valid only after run_benchmark writes artifacts."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: false
+  cag: false
+  reflexion: false
+  validation: true
+  safety: true
+reporting:
+  result_status: config_only_not_a_result
+  anti_overfit: "Do not tune prompts or validators to individual dev IDs before running this config."
