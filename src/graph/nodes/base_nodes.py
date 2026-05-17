@@ -10,6 +10,7 @@ from src.nlu.persian_normalizer import PersianNormalizer
 from src.nlu.intent_classifier import IntentClassifier
 from src.nlu.term_extractor import TermExtractor
 from src.schema.schema_linker import SchemaLinker
+from src.schema.value_linker import ValueLinker
 from src.schema.query_planner import QueryPlanner
 from src.schema.schema_registry import SchemaRegistry
 from src.generation.local_llm import LocalLLM
@@ -132,12 +133,25 @@ def link_schema(state: VTDState) -> Dict[str, Any]:
     """
     if not state.normalized_question:
         return {"linked_schema": LinkedSchema()}
-        
-    linker = SchemaLinker()
-    result = linker.link(state.normalized_question)
-    
+
     registry = SchemaRegistry()
     schema_context = {}
+
+    if not state.ablation_config.get("schema_linking", True):
+        schema_context = dict(registry.tables)
+        return {
+            "linked_schema": LinkedSchema(
+                tables=list(schema_context),
+                columns=[],
+                confidence=0.0,
+                unresolved_terms=["schema_linking_disabled"],
+            ),
+            "schema_context": schema_context,
+        }
+
+    linker = SchemaLinker()
+    result = linker.link(state.normalized_question)
+
     active_tables = set(result.tables)
     
     # Fallback to a default table if no mapping was found
@@ -209,16 +223,30 @@ def build_prompt(state: VTDState) -> Dict[str, Any]:
     """
     if not state.qir:
         return {"prompt": ""}
+
+    value_links: dict[str, Any] = {}
+    if state.ablation_config.get("value_linking", True):
+        candidate_columns: list[str] = []
+        for table_name, table_info in state.schema_context.items():
+            for column in getattr(table_info, "columns", []):
+                name = getattr(column, "name", None)
+                if name:
+                    candidate_columns.append(f"{table_name}.{name}")
+        links = ValueLinker().resolve(state.normalized_question or state.raw_question, candidate_columns)
+        value_links = {
+            f"{link.user_value} [{link.column}]": link.resolved_value
+            for link in links
+        }
         
     builder = PromptBuilder()
     prompt = builder.build_sql_generation_prompt(
         question=state.raw_question,
         qir=state.qir,
         schema=state.schema_context,
-        value_links={},
+        value_links=value_links,
         few_shot=state.retrieved_examples,
     )
-    return {"prompt": prompt}
+    return {"prompt": prompt, "value_links": value_links}
 
 def generate_sql(state: VTDState) -> Dict[str, Any]:
     """

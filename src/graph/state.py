@@ -52,6 +52,7 @@ class VTDState(BaseModel):
     qir: QueryIR | None = None
     linked_schema: LinkedSchema | None = None
     schema_context: dict[str, Any] = Field(default_factory=dict)
+    value_links: dict[str, Any] = Field(default_factory=dict)
 
     retrieved_examples: list[dict[str, Any]] = Field(default_factory=list)
     retrieval_context: str | None = None

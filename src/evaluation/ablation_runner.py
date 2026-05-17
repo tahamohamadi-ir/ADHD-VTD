@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from src.config.paths import PROJECT_ROOT, RESULTS_DIR
+from src.evaluation.ablation_flags import ablation_runtime_contract
 from src.evaluation.dataset_loader import write_json
 
 
@@ -22,6 +23,7 @@ class AblationJob:
     dataset: dict[str, Any]
     sampling: dict[str, Any]
     reporting: dict[str, Any]
+    runtime_contract: dict[str, Any]
     result_status: str = "not_run"
     artifact_dir: str | None = None
     returncode: int | None = None
@@ -36,6 +38,7 @@ class AblationJob:
             "dataset": self.dataset,
             "sampling": self.sampling,
             "reporting": self.reporting,
+            "runtime_contract": self.runtime_contract,
             "result_status": self.result_status,
             "artifact_dir": self.artifact_dir,
             "returncode": self.returncode,
@@ -71,6 +74,7 @@ def build_ablation_job(path: str | Path, *, python_executable: str = "python") -
         dataset=dict(data.get("dataset") or {}),
         sampling=dict(data.get("sampling") or {}),
         reporting=dict(data.get("reporting") or {}),
+        runtime_contract=ablation_runtime_contract(dict(data.get("features") or {})),
     )
 
 
@@ -125,6 +129,7 @@ def run_ablation_jobs(
                 dataset=job.dataset,
                 sampling=job.sampling,
                 reporting=job.reporting,
+                runtime_contract=job.runtime_contract,
                 result_status="completed" if proc.returncode == 0 and artifact_dir else "failed",
                 artifact_dir=artifact_dir,
                 returncode=proc.returncode,

@@ -48,3 +48,24 @@
 ## تست قرارداد agent benchmark
 
 `tests/tier2_integration/test_agent_benchmark_trace.py` مسیر `run_benchmark.py --mode agent` را با workflow mock شده اجرا می‌کند. هدف این تست این است که بدون نیاز به GPU/LLM مطمئن شویم artifactهای پژوهشی agent ساخته می‌شوند و prompt/raw response در `attempts.jsonl` باقی می‌ماند.
+## Phase 11 additions
+
+- `statistical_tests.py`: bootstrap CI and paired McNemar helpers.
+- `artifact_analysis.py`: reads real `results/benchmark/...` artifacts and writes artifact-backed error-analysis reports without running a model or inventing missing labels.
+- `ablation_flags.py`: classifies ablation flags as runtime-enforced, runtime-locked or metadata-only.
+- `ablation_runner.py`: builds dry-run ablation manifests and optionally executes benchmark commands only when requested explicitly.
+- `scripts/analyze_benchmark_artifact.py`: CLI for generating `results/error_analysis/...` reports from existing benchmark artifacts.
+- `scripts/run_ablation.py`: CLI for creating ablation manifests. Default mode is dry-run and every job remains `result_status=not_run`.
+
+Current runtime-enforced ablation flags: `nlu`, `schema_linking`, `value_linking`, `cag`, `reflexion`, `repair`.
+Runtime-locked flags: `safety`, `validation`.
+Metadata-only flags: none.
+
+Verified Phase 11 first-slice artifacts:
+
+```text
+results/error_analysis/20260517_phase11_spl2_after_fixes/error_report.md
+results/ablation/20260517_phase11_dry_run_manifest/ablation_manifest.json
+```
+
+These are analysis/planning artifacts, not new model-quality claims.

@@ -34,6 +34,24 @@ python scripts\analyze_benchmark_artifact.py results\benchmark\<artifact-folder>
 - Do not compare configs unless the evaluated case IDs match or the report clearly says the comparison is descriptive only.
 - Keep model path, dataset hash, selected-case hash and module flags in every report.
 
+## Runtime Flag Contract
+
+The current Phase 11 runtime contract is explicit:
+
+- Runtime-enforced: `nlu`, `schema_linking`, `value_linking`, `cag`, `reflexion`, `repair`.
+- Runtime-locked: `safety`, `validation`.
+- Metadata-only: none.
+
+`safety` and `validation` remain locked because disabling them would violate the project safety contract. Generated manifests must still record requested values and the runtime contract so reports cannot confuse config intent with actual runtime behavior.
+
+Create a dry-run manifest without running benchmarks:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_ablation.py --output-dir results\ablation\20260517_phase11_dry_run_manifest
+```
+
+The manifest is not a result. Real metrics require `results/benchmark/...` artifacts from actual benchmark runs.
+
 ## Existing Legacy Experiment Configs
 
 The `exp_*.yaml` files are earlier experiment sketches. They can be kept for history, but Phase 11 paper claims should use the `A*.yaml` configs or a documented successor matrix.

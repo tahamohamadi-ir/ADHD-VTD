@@ -25,6 +25,7 @@ from src.evaluation.dataset_loader import (
     write_json,
     write_jsonl,
 )
+from src.evaluation.ablation_flags import ablation_runtime_contract, normalize_feature_flags
 from src.evaluation.error_analyzer import analyze_errors
 from src.evaluation.metrics import add_bootstrap_cis, aggregate_basic_metrics, latency_summary
 from src.evaluation.reliability_metrics import reliability_score
@@ -395,6 +396,7 @@ def agent_prediction(
         "intent": final_state_dict.get("intent"),
         "qir": final_state_dict.get("qir"),
         "linked_schema": final_state_dict.get("linked_schema"),
+        "value_links": final_state_dict.get("value_links", {}),
         "retrieved_examples": final_state_dict.get("retrieved_examples"),
         "retrieval_diagnostics": final_state_dict.get("retrieval_diagnostics"),
         "exclude_self_retrieval": exclude_self_retrieval,
@@ -580,6 +582,7 @@ def run(args: argparse.Namespace) -> Path:
         "reliability_gate": False,
         "llm_judge": False,
     }
+    ablation_contract = ablation_runtime_contract(ablation_config)
     enabled_modules, disabled_modules = split_module_flags(ablation_config)
     
     config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}_{ablation_id}"
@@ -711,6 +714,7 @@ def run(args: argparse.Namespace) -> Path:
         "enabled_modules": enabled_modules,
         "disabled_modules": disabled_modules,
         "module_flags": ablation_config,
+        "ablation_runtime_contract": ablation_contract,
         "started_at": started_at,
         "finished_at": utc_now(),
         "git_commit": git_commit(),
@@ -852,7 +856,7 @@ def main() -> None:
                 if "sample_size" in ds: args.sample = ds["sample_size"]
         if "features" in yaml_data:
             feat = yaml_data["features"]
-            args.ablation_config = {str(k): bool(v) for k, v in feat.items() if isinstance(v, bool)}
+            args.ablation_config = normalize_feature_flags(feat)
             if "max_retries" in feat:
                 # We can't easily change SETTINGS at runtime globally for all modules
                 # but we can pass it to agent_prediction if we modify it.

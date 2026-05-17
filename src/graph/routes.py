@@ -14,8 +14,8 @@ def route_after_validation(state: VTDState) -> Literal["execute_sql", "reflect_o
     if not state.validation_errors:
         return "execute_sql"
     
-    # Ablation: if reflexion is disabled, fail immediately on error
-    if not state.ablation_config.get("reflexion", True):
+    # Ablation: if reflexion or repair is disabled, fail immediately on error
+    if not state.ablation_config.get("reflexion", True) or not state.ablation_config.get("repair", True):
         return "fail_gracefully"
 
     if state.retry_count >= state.max_retries:
@@ -28,8 +28,8 @@ def route_after_execution(state: VTDState) -> Literal["format_answer", "reflect_
     if state.execution_result is not None:
         return "format_answer"
         
-    # Ablation: if reflexion is disabled, fail immediately on error
-    if not state.ablation_config.get("reflexion", True):
+    # Ablation: if reflexion or repair is disabled, fail immediately on error
+    if not state.ablation_config.get("reflexion", True) or not state.ablation_config.get("repair", True):
         return "fail_gracefully"
 
     if state.retry_count >= state.max_retries:
