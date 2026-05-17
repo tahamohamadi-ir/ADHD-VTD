@@ -19,7 +19,43 @@ $env:PYTHONIOENCODING = "utf-8"
 $env:VTD_DEFAULT_MODEL_PATH = "D:\Project\ADHD-VTD\models\generation\<model-file>.gguf"
 ```
 
+برای promptهای طولانی‌تر، context window را هم تنظیم کنید:
+
+```powershell
+$env:VTD_LLM_N_CTX = "4096"
+```
+
 بدون این env، runner از نام پیش‌فرض مدل در گزارش استفاده می‌کند؛ ولی اجرای `agent` به مدل واقعی نیاز دارد.
+
+### Local Model Smoke Validation
+
+Before any Phase 10 agent benchmark, validate that the local GGUF model can be loaded and that the LangGraph generation path reaches parsing and validation.
+
+Recommended first smoke model:
+
+```powershell
+$env:VTD_DEFAULT_MODEL_PATH = "D:\Project\ADHD-VTD\models\generation\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+```
+
+This 3B model is used for the first smoke because it is faster to load than the 7B model. After the smoke passes, repeat the same benchmark protocol with the target paper model, for example:
+
+```powershell
+$env:VTD_DEFAULT_MODEL_PATH = "D:\Project\ADHD-VTD\models\generation\qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+```
+
+Run the smoke:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_agent.py "درصد دانشجویان افسرده چقدر است؟" --verbose
+```
+
+Acceptance criteria:
+
+- the model file exists and loads without a setup error;
+- the run prints a final answer or a controlled failure path;
+- verbose output shows generated SQL, raw model response, parsed payload, validation errors and attempt count;
+- if JSON parsing fails, the raw model response must still be visible in the later benchmark trace;
+- the result must be recorded in `task.md` before starting the next Phase 10 gate.
 
 ## اجرای سریع تست‌ها
 
@@ -71,6 +107,12 @@ $env:VTD_DEFAULT_MODEL_PATH = "D:\Project\ADHD-VTD\models\generation\<model-file
 .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode retrieval --dataset dev --sample 20 --top-k 3
 ```
 
+برای dev/test و هر run قابل استفاده در paper، self-overlap exclusion را فعال کنید:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode retrieval --dataset dev --sample 5 --top-k 3 --exclude-self --ablation-id manual_exclude_self_smoke
+```
+
 با vector backend:
 
 ```powershell
@@ -99,11 +141,81 @@ $env:VTD_DEFAULT_MODEL_PATH = "D:\Project\ADHD-VTD\models\generation\<model-file
 .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --sample 20 --ablation-id full_trace
 ```
 
+نسخه توصیه‌شده بعد از balanced smoke و اصلاح taxonomy:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --sample 20 --bootstrap-iterations 300 --ablation-id full_trace_sample20
+```
+
 اجرای agent با تعداد مساوی از هر سطح difficulty:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --samples-per-level 5 --ablation-id full_trace
 ```
+
+نسخه توصیه‌شده برای runهای dev/test بعد از leakage audit:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --samples-per-level 5 --exclude-self --trace-level full --ablation-id full_trace_exclude_self
+```
+
+اولین اجرای واقعی پس از smoke مدل باید کوچک‌تر باشد:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --samples-per-level 1 --bootstrap-iterations 100 --ablation-id full_trace
+```
+
+این run برای بستن contract خروجی است، نه ادعای کیفیت نهایی. بعد از آن `attempts.jsonl` و `failures.jsonl` را inspect کنید و نتیجه را در `task.md` ثبت کنید.
+
+### Phase 10 Closeout Smoke
+
+پس از shape-contract validator و گزارش خطای `results/error_analysis/20260517_phase10_shape_contract/error_report.md`، گیت باقی‌مانده Phase 10 یک smoke کمی بزرگ‌تر است. این run هنوز metric نهایی paper نیست؛ هدفش این است که artifact contract، retry/validation trace، self-overlap metadata و failure taxonomy روی نمونه متوازن بزرگ‌تر هم سالم بمانند.
+
+```powershell
+Start-Transcript -Path .\results\benchmark\manual_agent_shape_contract_spl2.log -Append
+
+python scripts\run_benchmark.py `
+  --mode agent `
+  --dataset dev `
+  --samples-per-level 2 `
+  --bootstrap-iterations 200 `
+  --exclude-self `
+  --trace-level full `
+  --ablation-id manual_agent_shape_contract_spl2
+
+Stop-Transcript
+```
+
+بعد از اجرا، آخرین artifact را این‌طور پیدا و خلاصه کنید:
+
+```powershell
+$ART = Get-ChildItem .\results\benchmark -Directory |
+  Where-Object { $_.Name -like "*manual_agent_shape_contract_spl2" } |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+$ART.FullName
+
+$summaryPath = Get-ChildItem $ART.FullName -Filter "*_summary.json" | Select-Object -First 1
+$summary = Get-Content $summaryPath.FullName -Raw | ConvertFrom-Json
+$summary.dataset
+$summary.metrics
+$summary.reliability
+$summary.latency
+$summary.retrieval_self_overlap
+
+$failuresPath = Get-ChildItem $ART.FullName -Filter "*_failures.jsonl" | Select-Object -First 1
+Get-Content $failuresPath.FullName | ForEach-Object { $_ | ConvertFrom-Json } |
+  Select-Object id, difficulty, category, intent, expected_action, actual_action, error, valid_sql, execution_correct, latency_ms
+
+$attemptsPath = Get-ChildItem $ART.FullName -Filter "*_attempts.jsonl" | Select-Object -First 1
+Get-Content $attemptsPath.FullName | ForEach-Object { $_ | ConvertFrom-Json } |
+  Where-Object { $_.validation_passed -eq $false -or $_.error_message } |
+  Select-Object case_id, attempt_index, validation_passed, sql, error_message |
+  Format-List
+```
+
+قبولی این گیت یعنی run کامل شود، artifactهای نهایی بدون `partial_` ساخته شوند، prompt/raw response در attempts باشد، `unsafe_sql=0` بماند، self-overlap metadata ثبت شود و failureها taxonomy/validation message داشته باشند. پایین بودن EX به‌تنهایی Phase 10 را fail نمی‌کند؛ Phase 10 زیرساخت سنجش است. بهبود کیفیت مدل، ablation و semantic judge در فازهای بعدی ادامه پیدا می‌کند.
 
 اجرای agent با config:
 
@@ -153,6 +265,31 @@ runner برای هر case یک خط شفاف چاپ می‌کند:
 ```
 
 این log برای فهمیدن سرعت، مقدار باقی‌مانده و case خطادار کافی است. خروجی کامل در artifactها ذخیره می‌شود.
+
+در پایان run هم runner باید یک خلاصه کوتاه چاپ کند:
+
+```text
+=== Benchmark Summary ===
+evaluated=20 failures=...
+execution_accuracy=...
+valid_sql_rate=...
+reliability_score=...
+unsafe_sql=...
+latency_ms mean=... median=... p95=...
+artifacts=results/benchmark/...
+```
+
+اگر terminal summary و artifact summary تفاوت داشتند، `summary.json` منبع نهایی است و باید bug در چاپ terminal ثبت شود.
+
+برای runهای طولانی agent، runner باید فایل‌های partial را بعد از هر case به‌روزرسانی کند:
+
+```text
+<prefix>_partial_predictions.jsonl
+<prefix>_partial_failures.jsonl
+<prefix>_partial_attempts.jsonl
+```
+
+اگر process قطع شد یا timeout خورد، این فایل‌ها منبع بررسی آخرین caseهای انجام‌شده هستند. فایل‌های نهایی بدون `partial_` فقط وقتی معتبرند که run کامل شده باشد.
 
 ## خروجی‌ها
 
@@ -247,10 +384,45 @@ Phase 16 برای business correctness است و هنوز لایه اصلی اج
 7. اگر SQL اجرا نمی‌شود، مسیر validator/executor را اصلاح کنید.
 8. اگر SQL اجرا می‌شود ولی منطق پاسخ غلط است، آن را برای semantic judge/error taxonomy علامت بزنید.
 
+## Leakage and Overfit Audit
+
+قبل از claimهای paper یا اجرای test نهایی، audit زیر را اجرا کنید:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_benchmark_leakage.py
+```
+
+خروجی‌ها:
+
+```text
+results/data_quality/benchmark_leakage_report.md
+results/data_quality/benchmark_leakage_cases.jsonl
+```
+
+این audit وجود overlapهای قابل تشخیص را گزارش می‌کند، اما نبود overfit مدل یا prompt را اثبات نمی‌کند. اگر overlap جدی بین dev/test و RAG/few-shot دیده شد، قبل از benchmark نهایی باید retrieval self-match یا split leakage حذف یا محدود شود.
+
+برای benchmarkهای agent/retrieval روی dev/test، self-overlap exclusion باید فعال باشد:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset dev --samples-per-level 5 --exclude-self
+```
+
+این policy مثال‌هایی را که `id/base_id` یا متن سؤال normalized مشابه case فعلی دارند از context حذف می‌کند و تعداد حذف‌شده‌ها را در artifactها ذخیره می‌کند.
+
+بعد از اجرای command، این فیلدها را بررسی کنید:
+
+```text
+*_config.json: retrieval_self_overlap_policy.enabled, removed_total
+*_predictions.jsonl: exclude_self_retrieval, self_overlap_removed, self_overlap_removed_ids
+*_summary.json: retrieval_self_overlap
+```
+
 ## خطاهای رایج
 
 - مدل تنظیم نشده: `VTD_DEFAULT_MODEL_PATH` را ست کنید.
+- `ModuleNotFoundError: No module named 'src'` when running a script directly: the script must import `scripts/_bootstrap_path.py` before importing from `src`. `run_benchmark.py` already follows this pattern; `run_agent.py` must keep the same contract.
+- `TypeError: Object of type LinkedSchema is not JSON serializable`: artifact writers must convert Pydantic/dataclass objects to plain JSON before writing `predictions.jsonl`, `attempts.jsonl` or `summary.json`.
 - encoding فارسی خراب است: `PYTHONIOENCODING` و `Console.OutputEncoding` را تنظیم کنید.
 - `--sample` و `--samples-per-level` همزمان داده شده‌اند: فقط یکی را استفاده کنید.
-- artifact زیاد بزرگ شده: فعلاً Phase 10 عمداً trace کامل ذخیره می‌کند؛ بعداً `--trace-level` اضافه می‌شود.
+- artifact زیاد بزرگ شده: `--trace-level compact` prompt و raw response را از artifact نهایی حذف می‌کند؛ برای debug و paper evidence مقدار پیش‌فرض `--trace-level full` را نگه دارید.
 - EX پایین است ولی Valid SQL بالاست: احتمالاً semantic/business mismatch، schema linking یا prompt context مشکل دارد.

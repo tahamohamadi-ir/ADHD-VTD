@@ -15,6 +15,15 @@ def pct(value: float) -> float:
     return round(100.0 * value, 2)
 
 
+def is_sql_positive(record: dict[str, Any]) -> bool:
+    expected_action = str(record.get("expected_action") or "")
+    if record.get("should_generate_sql") is False:
+        return False
+    if expected_action and expected_action not in {"generate_sql", "generate_sql_with_caveat"}:
+        return False
+    return True
+
+
 @dataclass(slots=True)
 class MetricResult:
     name: str
@@ -34,17 +43,17 @@ class MetricResult:
 
 
 def execution_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
-    rows = list(records)
+    rows = [r for r in records if is_sql_positive(r)]
     total = len(rows)
-    correct = sum(1 for r in rows if bool(r.get("execution_correct") or r.get("result_match") or r.get("ok")))
-    return MetricResult("execution_accuracy", safe_div(correct, total), correct, total, "Correct execution result / total cases")
+    correct = sum(1 for r in rows if bool(r.get("execution_correct") or r.get("result_match")))
+    return MetricResult("execution_accuracy", safe_div(correct, total), correct, total, "Correct execution result / SQL-positive cases")
 
 
 def valid_sql_rate(records: Iterable[dict[str, Any]]) -> MetricResult:
-    rows = list(records)
+    rows = [r for r in records if is_sql_positive(r)]
     total = len(rows)
-    valid = sum(1 for r in rows if bool(r.get("valid_sql") or r.get("schema_valid") or r.get("ok")))
-    return MetricResult("valid_sql_rate", safe_div(valid, total), valid, total, "Valid SQL / total generated SQL cases")
+    valid = sum(1 for r in rows if bool(r.get("valid_sql") or r.get("schema_valid")))
+    return MetricResult("valid_sql_rate", safe_div(valid, total), valid, total, "Valid SQL / SQL-positive cases")
 
 
 def schema_linking_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:

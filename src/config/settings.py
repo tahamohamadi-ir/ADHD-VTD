@@ -19,6 +19,7 @@ class AppSettings:
     raw_retrieval_limit: int = int(os.getenv("VTD_RAW_RETRIEVAL_LIMIT", "100"))
     max_retries: int = int(os.getenv("VTD_MAX_RETRIES", "3"))
     random_seed: int = int(os.getenv("VTD_RANDOM_SEED", "42"))
+    llm_context_window: int = int(os.getenv("VTD_LLM_N_CTX", "4096"))
 
     # Milestone gates
     milestone_1_min_ex_at_1: float = float(os.getenv("VTD_M1_MIN_EX_AT_1", "0.40"))

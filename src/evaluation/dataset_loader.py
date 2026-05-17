@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
@@ -56,11 +56,28 @@ def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
     return rows
 
 
+def to_jsonable(value: Any) -> Any:
+    """Convert project runtime objects into plain JSON-compatible values."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): to_jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [to_jsonable(item) for item in value]
+    if hasattr(value, "model_dump"):
+        return to_jsonable(value.model_dump())
+    if is_dataclass(value) and not isinstance(value, type):
+        return to_jsonable(asdict(value))
+    return str(value)
+
+
 def write_json(path: str | Path, data: Any, *, indent: int = 2) -> Path:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=indent)
+        json.dump(to_jsonable(data), f, ensure_ascii=False, indent=indent)
     return p
 
 
@@ -69,7 +86,7 @@ def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("w", encoding="utf-8") as f:
         for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+            f.write(json.dumps(to_jsonable(row), ensure_ascii=False, sort_keys=True) + "\n")
     return p
 
 

@@ -3,6 +3,9 @@ import json
 import sys
 import uuid
 import io
+
+from _bootstrap_path import PROJECT_ROOT  # type: ignore
+
 from src.graph.workflow import create_workflow
 from src.graph.state import VTDState
 from src.utils.logging import get_logger
@@ -39,10 +42,19 @@ def main():
     print(f"FINAL ANSWER: {final_state_dict.get('final_answer')}")
     
     if args.verbose:
+        attempts = final_state_dict.get("attempts") or []
+        latest_attempt = attempts[-1] if attempts else {}
+        if hasattr(latest_attempt, "model_dump"):
+            latest_attempt = latest_attempt.model_dump()
+
         print("\n--- TRACE DETAILS ---")
         print(f"Intent: {final_state_dict.get('intent')}")
         print(f"Generated SQL: {final_state_dict.get('generated_sql')}")
         print(f"Retry Count: {final_state_dict.get('retry_count')}")
+        print(f"Attempt Count: {len(attempts)}")
+        print(f"Raw Model Response: {final_state_dict.get('raw_model_response') or latest_attempt.get('raw_model_response')}")
+        print(f"Parsed Payload: {json.dumps(final_state_dict.get('parsed_payload') or latest_attempt.get('parsed_payload'), ensure_ascii=False, default=str)}")
+        print(f"Validation Errors: {json.dumps(final_state_dict.get('validation_errors') or latest_attempt.get('validation_errors') or [], ensure_ascii=False, default=str)}")
         
     print("="*60 + "\n")
 

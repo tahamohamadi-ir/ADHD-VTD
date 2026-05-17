@@ -32,6 +32,8 @@ class AmbiguityDetector:
     REQUIRED_METRIC_HINTS = [
         "افسردگی", "اضطراب", "خواب", "cgpa", "معدل", "نمره", "درمان", "ریسک", "استرس", "شیوع", "حضور", "exam",
         "phq9", "gad7", "bdi", "sleep", "score", "gpa", "depression", "anxiety",
+        "eating_disorder", "schizophrenia", "bipolar", "prevalence", "country", "countries",
+        "change", "quartile", "percentile",
     ]
 
     # Ranking terms that need a metric to be actionable
@@ -60,15 +62,15 @@ class AmbiguityDetector:
         norm = self.normalizer.normalize_text(text).lower()
         reasons: list[str] = []
         score = 0.0
+        has_metric = any(h in norm for h in self.REQUIRED_METRIC_HINTS)
 
         # 1. Generic request without clear metric/dataset
-        if any(p in norm for p in self.GENERIC_PATTERNS):
+        if any(p in norm for p in self.GENERIC_PATTERNS) and not has_metric:
             reasons.append("Generic request without clear metric/dataset.")
             score += 0.6
 
         # 2. Ranking without specific metric ("بهترین" without knowing "best at what?")
         has_ranking = any(p in norm for p in self.RANKING_PATTERNS)
-        has_metric = any(h in norm for h in self.REQUIRED_METRIC_HINTS)
         if has_ranking and not has_metric:
             reasons.append("Ranking request (best/worst) without specifying the ranking metric.")
             score += 0.5

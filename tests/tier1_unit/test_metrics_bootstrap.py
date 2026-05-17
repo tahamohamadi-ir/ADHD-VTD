@@ -31,6 +31,32 @@ def test_add_bootstrap_cis_adds_ci_to_core_metrics():
     assert "ci95" in metrics["valid_sql_rate"]
 
 
+def test_sql_metrics_exclude_behavior_only_records():
+    records = [
+        {
+            "expected_action": "ask_clarification",
+            "should_generate_sql": False,
+            "ok": True,
+            "execution_correct": False,
+            "valid_sql": True,
+        },
+        {
+            "expected_action": "generate_sql",
+            "should_generate_sql": True,
+            "ok": False,
+            "execution_correct": True,
+            "valid_sql": True,
+        },
+    ]
+
+    metrics = aggregate_basic_metrics(records)
+
+    assert metrics["execution_accuracy"]["numerator"] == 1
+    assert metrics["execution_accuracy"]["denominator"] == 1
+    assert metrics["valid_sql_rate"]["numerator"] == 1
+    assert metrics["valid_sql_rate"]["denominator"] == 1
+
+
 def test_latency_summary_reports_distribution():
     summary = latency_summary([
         {"latency_ms": 10},

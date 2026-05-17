@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -9,7 +11,7 @@ from typing import Any
 
 from _bootstrap_path import PROJECT_ROOT  # type: ignore
 
-from src.config.paths import QUESTIONS_DIR, RESULTS_DIR
+from src.config.paths import MODELS_DIR, QUESTIONS_DIR, RESULTS_DIR
 from src.config.settings import SETTINGS
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.evaluation.dataset_loader import (
@@ -19,6 +21,7 @@ from src.evaluation.dataset_loader import (
     load_positive_400,
     select_samples_per_level,
     summarize_cases,
+    to_jsonable,
     write_json,
     write_jsonl,
 )
@@ -30,10 +33,13 @@ from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retrieval_scorer import RetrievalQuery
+from src.retrieval.self_overlap import filter_self_overlaps
 from src.graph.state import VTDState
 import uuid
 import yaml
 
+
+SQL_POSITIVE_ACTIONS = {"generate_sql", "generate_sql_with_caveat"}
 
 DATASET_ALIASES = {
     "dev": QUESTIONS_DIR / "dev" / "dev.json",
@@ -82,6 +88,21 @@ def git_commit() -> str | None:
     return proc.stdout.strip() or None
 
 
+def sha256_file(path: Path) -> str | None:
+    if not path.exists() or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sha256_jsonable(value: Any) -> str:
+    payload = json.dumps(to_jsonable(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def load_named_dataset(name: str, path: str | None = None) -> LoadedDataset:
     if path:
         return load_dataset(path, kind=name)
@@ -113,7 +134,13 @@ def case_question(case: dict[str, Any]) -> str:
     return str(case.get("question") or case.get("question_fa") or case.get("user_utterance_fa") or "")
 
 
-def retrieval_prediction(case: dict[str, Any], retriever: HybridRetriever, *, top_k: int) -> dict[str, Any]:
+def retrieval_prediction(
+    case: dict[str, Any],
+    retriever: HybridRetriever,
+    *,
+    top_k: int,
+    exclude_self: bool = False,
+) -> dict[str, Any]:
     expected_tables, expected_columns = infer_sql_references(case.get("gold_sql") or case.get("sql"))
     expected_intent = case.get("intent") or case.get("expected_intent")
     expected_skeleton = case.get("skeleton") or case.get("expected_skeleton")
@@ -125,7 +152,16 @@ def retrieval_prediction(case: dict[str, Any], retriever: HybridRetriever, *, to
         skeleton=expected_skeleton,
     )
     started = time.perf_counter()
-    retrieved = retriever.retrieve(query, top_k=top_k)
+    retrieval_top_k = max(top_k * 5, top_k) if exclude_self else top_k
+    retrieved = retriever.retrieve(query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2))
+    removed_ids: list[str] = []
+    if exclude_self:
+        retrieved, removed_ids = filter_self_overlaps(
+            retrieved,
+            case_id=case.get("id") or case.get("case_id"),
+            question=case_question(case),
+        )
+        retrieved = retrieved[:top_k]
     latency_ms = int((time.perf_counter() - started) * 1000)
     retrieved_dicts = [item.to_dict() for item in retrieved]
 
@@ -153,6 +189,9 @@ def retrieval_prediction(case: dict[str, Any], retriever: HybridRetriever, *, to
         "expected_skeleton": expected_skeleton,
         "latency_ms": latency_ms,
         "error": None if ok else "RETRIEVAL_MISS",
+        "exclude_self_retrieval": exclude_self,
+        "self_overlap_removed": len(removed_ids),
+        "self_overlap_removed_ids": removed_ids,
     }
 
 
@@ -184,17 +223,95 @@ def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[st
     }
 
 
+def classify_agent_error(
+    *,
+    expected_action: str,
+    actual_action: str,
+    generated_sql: str | None,
+    gold_sql: str | None,
+    valid_sql: bool,
+    execution_correct: bool,
+    final_state: dict[str, Any],
+) -> str | None:
+    if expected_action in SQL_POSITIVE_ACTIONS:
+        if not generated_sql:
+            return "MISSING_GENERATED_SQL"
+        if not valid_sql:
+            return "INVALID_SQL"
+        if gold_sql and not execution_correct:
+            return "RESULT_MISMATCH"
+        execution_error = final_state.get("execution_error")
+        if execution_error:
+            return "EXECUTION_ERROR"
+        return None
+
+    if expected_action != actual_action:
+        return "ACTION_MISMATCH"
+    return None
+
+
+def classify_agent_exception(exc: Exception) -> str:
+    message = str(exc)
+    if "exceed context window" in message or "Requested tokens" in message:
+        return "MODEL_CONTEXT_OVERFLOW"
+    return "AGENT_EXCEPTION"
+
+
+def exception_prediction(
+    case: dict[str, Any],
+    exc: Exception,
+    *,
+    latency_ms: int,
+    exclude_self_retrieval: bool = False,
+) -> dict[str, Any]:
+    gold_sql = case.get("gold_sql") or case.get("sql")
+    return {
+        "actual_action": "fail_gracefully",
+        "mode": "agent",
+        "ok": False,
+        "action_correct": None if (case.get("expected_action") or "generate_sql") in SQL_POSITIVE_ACTIONS else False,
+        "execution_correct": False,
+        "semantic_business_correct": None,
+        "valid_sql": False,
+        "normalized_question": None,
+        "generated_sql": None,
+        "gold_sql": gold_sql,
+        "explanation": None,
+        "intent": None,
+        "qir": None,
+        "linked_schema": None,
+        "retrieved_examples": [],
+        "retrieval_diagnostics": [],
+        "exclude_self_retrieval": exclude_self_retrieval,
+        "self_overlap_removed": 0,
+        "self_overlap_removed_ids": [],
+        "retry_count": None,
+        "validation_issues": [],
+        "execution_error": None,
+        "latency_ms": latency_ms,
+        "result_hash": None,
+        "gold_result_hash": None,
+        "attempts": [],
+        "error": classify_agent_exception(exc),
+        "exception_type": type(exc).__name__,
+        "exception_message": str(exc),
+    }
+
+
 def agent_prediction(
     case: dict[str, Any],
     workflow: Any,
     executor: ReadOnlyExecutor,
     *,
     ablation_config: dict[str, bool] | None = None,
+    exclude_self_retrieval: bool = False,
 ) -> dict[str, Any]:
     question = case_question(case)
     initial_state = VTDState(
         trace_id=str(uuid.uuid4()),
         raw_question=question,
+        benchmark_case_id=str(case.get("id") or case.get("case_id") or ""),
+        exclude_self_retrieval=exclude_self_retrieval,
         ablation_config=ablation_config or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
     )
 
@@ -225,11 +342,11 @@ def agent_prediction(
     # Evaluation
     ok = False
     execution_correct = False
-    valid_sql = not bool(final_state_dict.get("validation_errors"))
+    valid_sql = bool(generated_sql) and not bool(final_state_dict.get("validation_errors"))
     result_hash = None
     gold_hash = None
     
-    if expected_action == "generate_sql":
+    if expected_action in SQL_POSITIVE_ACTIONS:
         if generated_sql and gold_sql:
             comparison = executor.compare_results(generated_sql, gold_sql)
             execution_correct = bool(comparison.get("match"))
@@ -253,11 +370,21 @@ def agent_prediction(
     for attempt in attempts:
         attempt.setdefault("gold_result_hash", gold_hash)
 
+    error = None if ok else classify_agent_error(
+        expected_action=expected_action,
+        actual_action=actual_action,
+        generated_sql=generated_sql,
+        gold_sql=gold_sql,
+        valid_sql=valid_sql,
+        execution_correct=execution_correct,
+        final_state=final_state_dict,
+    )
+
     return {
         "actual_action": actual_action,
         "mode": "agent",
         "ok": ok,
-        "action_correct": ok if expected_action != "generate_sql" else None,
+        "action_correct": ok if expected_action not in SQL_POSITIVE_ACTIONS else None,
         "execution_correct": execution_correct,
         "semantic_business_correct": None,
         "valid_sql": valid_sql,
@@ -270,12 +397,17 @@ def agent_prediction(
         "linked_schema": final_state_dict.get("linked_schema"),
         "retrieved_examples": final_state_dict.get("retrieved_examples"),
         "retrieval_diagnostics": final_state_dict.get("retrieval_diagnostics"),
+        "exclude_self_retrieval": exclude_self_retrieval,
+        "self_overlap_removed": final_state_dict.get("self_overlap_removed", 0),
+        "self_overlap_removed_ids": final_state_dict.get("self_overlap_removed_ids", []),
         "retry_count": final_state_dict.get("retry_count"),
+        "validation_issues": final_state_dict.get("validation_errors", []),
+        "execution_error": final_state_dict.get("execution_error"),
         "latency_ms": latency_ms,
         "result_hash": result_hash,
         "gold_result_hash": gold_hash,
         "attempts": attempts,
-        "error": final_state_dict.get("execution_error") or (None if ok else "BEHAVIOR_MISMATCH"),
+        "error": error,
     }
 
 
@@ -302,6 +434,92 @@ def retrieval_basic_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _metric_value(summary: dict[str, Any], key: str) -> Any:
+    metric = summary.get("metrics", {}).get(key, {})
+    if isinstance(metric, dict):
+        return metric.get("value")
+    return None
+
+
+def print_terminal_summary(summary: dict[str, Any], output_dir: Path, failures: list[dict[str, Any]]) -> None:
+    latency = summary.get("latency", {})
+    reliability = summary.get("reliability", {})
+    unsafe_sql = reliability.get("unsafe_sql") if isinstance(reliability, dict) else None
+    reliability_score = reliability.get("score") if isinstance(reliability, dict) else None
+    print("\n=== Benchmark Summary ===", flush=True)
+    print(
+        "evaluated={} failures={}".format(
+            summary.get("dataset", {}).get("total_evaluated", 0),
+            len(failures),
+        ),
+        flush=True,
+    )
+    print(
+        "execution_accuracy={} valid_sql_rate={} reliability_score={} unsafe_sql={}".format(
+            _metric_value(summary, "execution_accuracy"),
+            _metric_value(summary, "valid_sql_rate"),
+            reliability_score,
+            unsafe_sql,
+        ),
+        flush=True,
+    )
+    print(
+        "latency_ms mean={} median={} p95={}".format(
+            latency.get("mean_ms"),
+            latency.get("median_ms"),
+            latency.get("p95_ms"),
+        ),
+        flush=True,
+    )
+    print(f"artifacts={output_dir}", flush=True)
+
+
+def flatten_attempts(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    attempts_trace = []
+    for record in records:
+        case_id = record.get("id") or record.get("case_id")
+        for i, attempt in enumerate(record.get("attempts", [])):
+            attempts_trace.append({
+                "case_id": case_id,
+                "attempt_index": i,
+                **attempt,
+            })
+    return attempts_trace
+
+
+def compact_trace_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    compacted: list[dict[str, Any]] = []
+    for record in records:
+        item = dict(record)
+        attempts = []
+        for attempt in item.get("attempts", []):
+            compact_attempt = dict(attempt)
+            compact_attempt.pop("prompt", None)
+            compact_attempt.pop("raw_model_response", None)
+            attempts.append(compact_attempt)
+        item["attempts"] = attempts
+        compacted.append(item)
+    return compacted
+
+
+def records_for_trace_level(records: list[dict[str, Any]], trace_level: str) -> list[dict[str, Any]]:
+    if trace_level == "compact":
+        return compact_trace_records(records)
+    return records
+
+
+def write_partial_artifacts(output_dir: Path, prefix: str, records: list[dict[str, Any]], *, trace_level: str = "full") -> None:
+    output_records = records_for_trace_level(records, trace_level)
+    failures = [
+        record
+        for record in output_records
+        if not (record.get("ok") or record.get("execution_correct") or record.get("result_match"))
+    ]
+    write_jsonl(output_dir / f"{prefix}_partial_predictions.jsonl", output_records)
+    write_jsonl(output_dir / f"{prefix}_partial_failures.jsonl", failures)
+    write_jsonl(output_dir / f"{prefix}_partial_attempts.jsonl", flatten_attempts(output_records))
+
+
 def build_output_dir(config_id: str, stamp: str, output_dir: str | None = None) -> Path:
     if output_dir:
         return Path(output_dir)
@@ -315,13 +533,13 @@ def get_model_slug() -> str:
 
 
 def get_model_path() -> str | None:
-    return SETTINGS.default_model_path
+    if SETTINGS.default_model_path:
+        return SETTINGS.default_model_path
+    return str(MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf")
 
 
 def get_model_name() -> str:
-    if SETTINGS.default_model_path:
-        return Path(SETTINGS.default_model_path).stem
-    return "qwen2.5-coder-7b-default"
+    return Path(get_model_path() or "qwen2.5-coder-7b-default").stem
 
 
 def split_module_flags(flags: dict[str, bool]) -> tuple[list[str], list[str]]:
@@ -333,6 +551,8 @@ def split_module_flags(flags: dict[str, bool]) -> tuple[list[str], list[str]]:
 def run(args: argparse.Namespace) -> Path:
     started_at = utc_now()
     dataset = load_named_dataset(args.dataset, args.path)
+    trace_level = getattr(args, "trace_level", "full")
+    exclude_self = bool(getattr(args, "exclude_self", False))
     if args.sample and args.samples_per_level:
         raise ValueError("Use either --sample or --samples-per-level, not both.")
 
@@ -365,6 +585,7 @@ def run(args: argparse.Namespace) -> Path:
     config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}_{ablation_id}"
     output_dir = build_output_dir(config_id, stamp, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"{stamp}_{model_slug}_{ablation_id}"
 
     records: list[dict[str, Any]] = []
     total = len(cases)
@@ -396,9 +617,18 @@ def run(args: argparse.Namespace) -> Path:
     if args.mode == "retrieval":
         retriever = HybridRetriever(use_vector_store=args.use_vector)
         for index, case in enumerate(cases, start=1):
-            record = dict(case, **retrieval_prediction(case, retriever, top_k=args.top_k))
+            record = dict(
+                case,
+                **retrieval_prediction(
+                    case,
+                    retriever,
+                    top_k=args.top_k,
+                    exclude_self=exclude_self,
+                ),
+            )
             records.append(record)
             log_progress(index, case, record)
+            write_partial_artifacts(output_dir, prefix, records, trace_level=trace_level)
     elif args.mode == "gold":
         executor = ReadOnlyExecutor()
         for index, case in enumerate(cases, start=1):
@@ -407,15 +637,33 @@ def run(args: argparse.Namespace) -> Path:
             record.setdefault("latency_ms", int((time.perf_counter() - started) * 1000))
             records.append(record)
             log_progress(index, case, record)
+            write_partial_artifacts(output_dir, prefix, records, trace_level=trace_level)
     elif args.mode == "agent":
         from src.graph.workflow import create_workflow
 
         workflow = create_workflow()
         executor = ReadOnlyExecutor()
         for index, case in enumerate(cases, start=1):
-            record = dict(case, **agent_prediction(case, workflow, executor, ablation_config=ablation_config))
+            case_started = time.perf_counter()
+            try:
+                prediction = agent_prediction(
+                    case,
+                    workflow,
+                    executor,
+                    ablation_config=ablation_config,
+                    exclude_self_retrieval=exclude_self,
+                )
+            except Exception as exc:
+                prediction = exception_prediction(
+                    case,
+                    exc,
+                    latency_ms=int((time.perf_counter() - case_started) * 1000),
+                    exclude_self_retrieval=exclude_self,
+                )
+            record = dict(case, **prediction)
             records.append(record)
             log_progress(index, case, record)
+            write_partial_artifacts(output_dir, prefix, records, trace_level=trace_level)
     else:  # pragma: no cover - argparse enforces choices.
         raise ValueError(f"Unsupported mode: {args.mode}")
 
@@ -425,6 +673,9 @@ def run(args: argparse.Namespace) -> Path:
         if not (record.get("ok") or record.get("execution_correct") or record.get("result_match"))
     ]
     dataset_summary = summarize_cases(cases)
+    difficulty_counts = dataset_summary.get("by_difficulty", {})
+    self_overlap_removed_total = sum(int(record.get("self_overlap_removed") or 0) for record in records)
+    retrieval_backend = "hybrid_json_vector" if args.use_vector else "bm25"
     config = {
         "config_id": config_id,
         "mode": args.mode,
@@ -433,8 +684,26 @@ def run(args: argparse.Namespace) -> Path:
         "sample": args.sample or len(cases),
         "samples_per_level": args.samples_per_level,
         "selection_policy": selection_policy,
+        "difficulty_counts": difficulty_counts,
+        "dataset_hash": sha256_file(Path(dataset.path)),
+        "selected_cases_hash": sha256_jsonable(cases),
         "top_k": args.top_k,
         "use_vector": args.use_vector,
+        "retrieval_backend": retrieval_backend,
+        "max_retries": SETTINGS.max_retries,
+        "llm_context_window": SETTINGS.llm_context_window,
+        "prompt_template": {
+            "generation": "src/generation/prompts/sql_generation.j2",
+            "repair": "src/generation/prompts/sql_repair.j2",
+        },
+        "trace_level": trace_level,
+        "exclude_self": exclude_self,
+        "retrieval_self_overlap_policy": {
+            "enabled": exclude_self,
+            "match_on": ["base_id", "normalized_question"],
+            "ignored_id_prefixes": ["fs_", "idx_"],
+            "removed_total": self_overlap_removed_total,
+        },
         "model_name": model_name,
         "model_path": model_path,
         "model_slug": model_slug,
@@ -461,6 +730,10 @@ def run(args: argparse.Namespace) -> Path:
     if args.mode == "retrieval":
         summary["metrics"] = retrieval_basic_metrics(records)
         summary["retrieval_metrics"] = summarize_retrieval(records).to_dict()
+        summary["retrieval_self_overlap"] = {
+            "enabled": exclude_self,
+            "removed_total": self_overlap_removed_total,
+        }
     else:
         summary["metrics"] = add_bootstrap_cis(
             aggregate_basic_metrics(records),
@@ -469,9 +742,11 @@ def run(args: argparse.Namespace) -> Path:
             seed=args.seed,
         )
         summary["reliability"] = reliability_score(records).as_dict()
+        summary["retrieval_self_overlap"] = {
+            "enabled": exclude_self,
+            "removed_total": self_overlap_removed_total,
+        }
 
-    # File naming with timestamp and model
-    prefix = f"{stamp}_{model_slug}_{ablation_id}"
     artifact_paths = {
         "config": output_dir / f"{prefix}_config.json",
         "summary_json": output_dir / f"{prefix}_summary.json",
@@ -489,23 +764,20 @@ def run(args: argparse.Namespace) -> Path:
 
     summary["artifacts"] = {key: str(path) for key, path in artifact_paths.items()}
 
+    output_records = records_for_trace_level(records, trace_level)
+    output_failures = [
+        record
+        for record in output_records
+        if not (record.get("ok") or record.get("execution_correct") or record.get("result_match"))
+    ]
+
     write_json(artifact_paths["config"], config)
-    write_jsonl(artifact_paths["predictions"], records)
-    write_jsonl(artifact_paths["failures"], failures)
+    write_jsonl(artifact_paths["predictions"], output_records)
+    write_jsonl(artifact_paths["failures"], output_failures)
     
     # Write attempts trace for agent mode
     if args.mode == "agent":
-        attempts_trace = []
-        for record in records:
-            case_id = record.get("id") or record.get("case_id")
-            for i, attempt in enumerate(record.get("attempts", [])):
-                # attempt is already a dict here because of the fix in agent_prediction
-                attempts_trace.append({
-                    "case_id": case_id,
-                    "attempt_index": i,
-                    **attempt
-                })
-        write_jsonl(artifact_paths["attempts"], attempts_trace)
+        write_jsonl(artifact_paths["attempts"], flatten_attempts(output_records))
     else:
         write_jsonl(artifact_paths["attempts"], [])
 
@@ -518,6 +790,7 @@ def run(args: argparse.Namespace) -> Path:
     generate_paper_tables(summary, artifact_paths["paper_tables_md"])
     
     write_benchmark_markdown_report(summary, artifact_paths["summary_md"])
+    print_terminal_summary(summary, output_dir, failures)
     return output_dir
 
 
@@ -534,6 +807,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--samples-per-level", type=int, help="Evaluate N cases from each difficulty level.")
     parser.add_argument("--top-k", type=int, default=3, help="Retrieval top-k.")
     parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
+    parser.add_argument(
+        "--exclude-self",
+        action="store_true",
+        help="Remove retrieved examples that match the evaluated case by base id or normalized question.",
+    )
+    parser.add_argument(
+        "--trace-level",
+        choices=("full", "compact"),
+        default="full",
+        help="Use full prompt/raw-response trace or compact artifacts without large prompt/raw fields.",
+    )
     parser.add_argument("--config-id", help="Stable identifier used in the output directory name.")
     parser.add_argument("--ablation-id", help="Ablation identifier included in output names and summaries.")
     parser.add_argument("--output-dir", help="Explicit artifact directory.")
@@ -583,6 +867,10 @@ def main() -> None:
                 args.samples_per_level = sampling["samples_per_level"]
             if "sample" in sampling:
                 args.sample = sampling["sample"]
+        if "trace_level" in yaml_data:
+            args.trace_level = yaml_data["trace_level"]
+        if "exclude_self" in yaml_data:
+            args.exclude_self = bool(yaml_data["exclude_self"])
 
     if args.sample == 0:
         args.sample = None

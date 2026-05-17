@@ -40,6 +40,14 @@ The following terms in the user's question map to specific database values:
 7. For queries returning individual rows (raw retrieval), you MUST end with `LIMIT 100` (unless otherwise requested).
 8. If the question is unanswerable with the given schema, output a JSON with `"needs_clarification": true`.
 
+{% if analysis_hints %}
+### Analysis Shape Guidance
+Use these runtime-derived hints to match the analytical shape requested by the user. They are not gold SQL; they describe the expected result structure.
+{% for hint in analysis_hints %}
+- {{ hint }}
+{% endfor %}
+
+{% endif %}
 ### Examples
 **User**: درصد دانشجویانی که افسردگی دارند چقدر است؟
 **SQL**:

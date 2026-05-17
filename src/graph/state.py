@@ -43,6 +43,7 @@ class VTDState(BaseModel):
 
     intent: str | None = None
     intent_confidence: float = 0.0
+    should_generate_sql: bool = True
     safety_label: str = "safe"
     ambiguity_score: float = 0.0
     needs_clarification: bool = False
@@ -55,6 +56,10 @@ class VTDState(BaseModel):
     retrieved_examples: list[dict[str, Any]] = Field(default_factory=list)
     retrieval_context: str | None = None
     retrieval_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    benchmark_case_id: str | None = None
+    exclude_self_retrieval: bool = False
+    self_overlap_removed: int = 0
+    self_overlap_removed_ids: list[str] = Field(default_factory=list)
     prompt: str | None = None
 
     generated_sql: str | None = None

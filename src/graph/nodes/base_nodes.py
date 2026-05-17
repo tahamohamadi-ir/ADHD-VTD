@@ -18,7 +18,10 @@ from src.generation.output_parser import OutputParser
 from src.retrieval.context_builder import ContextBuilder
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retrieval_scorer import RetrievalQuery
+from src.retrieval.self_overlap import filter_self_overlaps
 from src.sql_validation.validation_pipeline import ValidationPipeline
+from src.sql_validation.shape_validator import SQLShapeValidator
+from src.sql_validation.validation_result import ValidationResult
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.utils.logging import get_logger
 from src.reflexion.critic import SQLCritic
@@ -28,6 +31,7 @@ from src.reflexion.retry_policy import RetryPolicy
 from src.reflexion.transition_memory import TransitionMemory
 
 logger = get_logger(__name__)
+_LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
 
 
 def _default_generation_model_path() -> str:
@@ -35,6 +39,15 @@ def _default_generation_model_path() -> str:
     if configured:
         return configured
     return str(MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf")
+
+
+def _get_local_llm() -> LocalLLM:
+    model_path = _default_generation_model_path()
+    n_ctx = SETTINGS.llm_context_window
+    cache_key = (model_path, n_ctx)
+    if cache_key not in _LLM_CACHE:
+        _LLM_CACHE[cache_key] = LocalLLM(model_path=model_path, n_ctx=n_ctx, n_gpu_layers=-1)
+    return _LLM_CACHE[cache_key]
 
 
 def _with_retry_increment(state: VTDState, updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -168,7 +181,16 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         }
 
     retriever = HybridRetriever(use_vector_store=False)
-    retrieved = retriever.retrieve(retrieval_query, top_k=3)
+    retrieval_top_k = 15 if state.exclude_self_retrieval else 3
+    retrieved = retriever.retrieve(retrieval_query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2))
+    removed_ids: list[str] = []
+    if state.exclude_self_retrieval:
+        retrieved, removed_ids = filter_self_overlaps(
+            retrieved,
+            case_id=state.benchmark_case_id,
+            question=query_text,
+        )
+        retrieved = retrieved[:3]
     context = ContextBuilder().build(retrieved, max_examples=3)
 
     logger.info(f"Retrieved {len(context.examples)} CAG examples")
@@ -176,6 +198,8 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         "retrieved_examples": context.examples,
         "retrieval_context": context.prompt_context,
         "retrieval_diagnostics": context.diagnostics,
+        "self_overlap_removed": len(removed_ids),
+        "self_overlap_removed_ids": removed_ids,
     }
 
 def build_prompt(state: VTDState) -> Dict[str, Any]:
@@ -204,7 +228,7 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     if not state.prompt:
         return {"generated_sql": ""}
         
-    llm = LocalLLM(model_path=_default_generation_model_path(), n_ctx=2048, n_gpu_layers=-1)
+    llm = _get_local_llm()
     
     response_text = llm.generate_json(state.prompt, enforce_json=True)
     return {"generated_sql": response_text, "raw_model_response": response_text}
@@ -241,6 +265,19 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     registry = SchemaRegistry()
     validator = ValidationPipeline(registry=registry)
     result = validator.validate(state.generated_sql)
+    if result.ok:
+        shape_result = SQLShapeValidator().validate(
+            state.generated_sql,
+            question=state.raw_question,
+            qir=state.qir,
+            schema=state.schema_context,
+        )
+        if not shape_result.ok:
+            result = ValidationResult(
+                ok=False,
+                issues=[*result.issues, *shape_result.issues],
+                normalized_sql=result.normalized_sql,
+            )
     validation_errors = [{"message": str(i)} for i in result.issues] if not result.ok else []
     
     attempt = SQLAttempt(

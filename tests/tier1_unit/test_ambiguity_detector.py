@@ -87,6 +87,18 @@ class TestClearRequests:
         assert not result.is_ambiguous
 
 
+    def test_dashboard_with_domain_metric_is_not_ambiguous(self, detector):
+        question = (
+            "\u062f\u0627\u0634\u0628\u0648\u0631\u062f "
+            "\u062a\u063a\u06cc\u06cc\u0631 \u062c\u0647\u0627\u0646\u06cc eating_disorder: "
+            "\u0645\u06cc\u0627\u0646\u06af\u06cc\u0646\u060c \u0635\u062f\u06a9\u200c\u0647\u0627 "
+            "\u0648 \u0628\u06cc\u0634\u062a\u0631\u06cc\u0646 \u062a\u063a\u06cc\u06cc\u0631 "
+            "\u06a9\u0634\u0648\u0631\u0647\u0627 \u0631\u0627 \u0628\u062f\u0647."
+        )
+        result = detector.detect(question)
+        assert not result.is_ambiguous
+
+
 class TestClarificationQuestion:
     """Test that clarification questions are generated."""
 

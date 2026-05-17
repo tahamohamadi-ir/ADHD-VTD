@@ -3,6 +3,8 @@ from src.graph.state import VTDState
 
 def route_pre_generation(state: VTDState) -> Literal["link_schema", "ask_clarification"]:
     """Decide whether to proceed to schema linking or ask for clarification."""
+    if not state.should_generate_sql:
+        return "ask_clarification"
     if state.needs_clarification or state.intent_confidence < 0.4:
         return "ask_clarification"
     return "link_schema"

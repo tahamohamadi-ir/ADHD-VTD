@@ -1,59 +1,133 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from src.evaluation.benchmark_runner import BenchmarkRun, PredictionFn, run_benchmark
+import yaml
+
+from src.config.paths import PROJECT_ROOT, RESULTS_DIR
 from src.evaluation.dataset_loader import write_json
 
 
-@dataclass(slots=True)
-class AblationConfig:
-    name: str
-    description: str
-    paper_scope: str = "paper_1"
-    enabled_features: dict[str, bool] | None = None
-
-
-@dataclass(slots=True)
-class AblationResult:
-    config: AblationConfig
-    benchmark: BenchmarkRun
+@dataclass(frozen=True, slots=True)
+class AblationJob:
+    config_path: Path
+    config_id: str
+    ablation_id: str
+    command: list[str]
+    declared_features: dict[str, Any]
+    dataset: dict[str, Any]
+    sampling: dict[str, Any]
+    reporting: dict[str, Any]
+    result_status: str = "not_run"
+    artifact_dir: str | None = None
+    returncode: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "config": {
-                "name": self.config.name,
-                "description": self.config.description,
-                "paper_scope": self.config.paper_scope,
-                "enabled_features": self.config.enabled_features or {},
-            },
-            "benchmark": self.benchmark.as_dict(),
+            "config_path": str(self.config_path),
+            "config_id": self.config_id,
+            "ablation_id": self.ablation_id,
+            "command": self.command,
+            "declared_features": self.declared_features,
+            "dataset": self.dataset,
+            "sampling": self.sampling,
+            "reporting": self.reporting,
+            "result_status": self.result_status,
+            "artifact_dir": self.artifact_dir,
+            "returncode": self.returncode,
         }
 
 
-DEFAULT_PAPER1_ABLATIONS = [
-    AblationConfig("A0_direct_schema_only", "Direct prompt / schema-only baseline", "paper_1", {"cag": False, "reflexion": False}),
-    AblationConfig("A1_plus_persian_nlu", "+ Persian normalization and routing", "paper_1", {"nlu": True}),
-    AblationConfig("A2_plus_schema_linking", "+ schema linking", "paper_1", {"schema_linking": True}),
-    AblationConfig("A3_plus_value_linking", "+ value linking", "paper_1", {"value_linking": True}),
-    AblationConfig("A4_plus_validation", "+ safety/syntax/schema validation", "paper_1", {"validation": True}),
-    AblationConfig("A5_plus_basic_repair", "+ deterministic SQL rewriter", "paper_1", {"repair": True}),
-    AblationConfig("A6_plus_abstention", "+ clarification / abstention router", "paper_1", {"abstention": True}),
-    AblationConfig("A7_plus_light_cag", "+ light CAG examples/skeletons", "paper_1", {"cag": True}),
-]
+def load_ablation_config(path: str | Path) -> dict[str, Any]:
+    p = Path(path)
+    with p.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Ablation config must be a YAML object: {p}")
+    return data
 
 
-def run_ablations(cases: list[dict[str, Any]], predictors: dict[str, PredictionFn], configs: list[AblationConfig] | None = None) -> list[AblationResult]:
-    selected = configs or DEFAULT_PAPER1_ABLATIONS
-    results: list[AblationResult] = []
-    for cfg in selected:
-        if cfg.name not in predictors:
-            continue
-        results.append(AblationResult(cfg, run_benchmark(cases, predictors[cfg.name], name=cfg.name)))
-    return results
+def build_ablation_job(path: str | Path, *, python_executable: str = "python") -> AblationJob:
+    p = Path(path)
+    data = load_ablation_config(p)
+    config_id = str(data.get("config_id") or p.stem)
+    ablation_id = str(data.get("ablation_id") or config_id)
+    command = [
+        python_executable,
+        "scripts\\run_benchmark.py",
+        "--config",
+        str(p),
+    ]
+    return AblationJob(
+        config_path=p,
+        config_id=config_id,
+        ablation_id=ablation_id,
+        command=command,
+        declared_features=dict(data.get("features") or {}),
+        dataset=dict(data.get("dataset") or {}),
+        sampling=dict(data.get("sampling") or {}),
+        reporting=dict(data.get("reporting") or {}),
+    )
 
 
-def write_ablation_results(results: list[AblationResult], path: str | Path) -> Path:
-    return write_json(path, [r.as_dict() for r in results])
+def write_ablation_manifest(jobs: list[AblationJob], output_dir: str | Path | None = None) -> Path:
+    if output_dir is None:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        root = RESULTS_DIR / "ablation" / f"{stamp}_phase11_manifest"
+    else:
+        root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    return write_json(
+        root / "ablation_manifest.json",
+        {
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "result_policy": "Commands are planned runs only unless result_status is completed and artifact_dir points to a real benchmark artifact.",
+            "anti_fake_policy": "not_run jobs are config manifests only; they must not be cited as benchmark metrics.",
+            "jobs": [job.as_dict() for job in jobs],
+        },
+    )
+
+
+def run_ablation_jobs(
+    jobs: list[AblationJob],
+    *,
+    output_dir: str | Path | None = None,
+    execute: bool = False,
+) -> Path:
+    if not execute:
+        return write_ablation_manifest(jobs, output_dir)
+
+    completed: list[AblationJob] = []
+    for job in jobs:
+        proc = subprocess.run(
+            job.command,
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        artifact_dir = None
+        for line in proc.stdout.splitlines():
+            marker = "Benchmark artifacts written to:"
+            if marker in line:
+                artifact_dir = line.split(marker, 1)[1].strip()
+        completed.append(
+            AblationJob(
+                config_path=job.config_path,
+                config_id=job.config_id,
+                ablation_id=job.ablation_id,
+                command=job.command,
+                declared_features=job.declared_features,
+                dataset=job.dataset,
+                sampling=job.sampling,
+                reporting=job.reporting,
+                result_status="completed" if proc.returncode == 0 and artifact_dir else "failed",
+                artifact_dir=artifact_dir,
+                returncode=proc.returncode,
+            )
+        )
+    return write_ablation_manifest(completed, output_dir)

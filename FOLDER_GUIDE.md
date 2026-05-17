@@ -58,6 +58,7 @@
 - `benchmark/configs/`: configهای قابل بازتولید برای مدل‌ها، prompt policy، retrieval policy و ablation id.
 - `experiments/configs/`: configهای ablation مثل A0 تا A7/A10 که باید فقط یک متغیر را تغییر دهند.
 - `src/evaluation/`: sampling، metric، bootstrap CI، reliability، error taxonomy، judge و report generator.
+- `src/retrieval/self_overlap.py`: helper مشترک برای حذف self-overlap در benchmark بر اساس base id و normalized question.
 - `src/graph/`: state و nodeهایی که prompt، response، SQL attempt، validation و execution trace را تولید می‌کنند.
 - `results/benchmark/`: خروجی timestamped هر run. اسم فولدر باید شامل mode، dataset، model slug و config/ablation id باشد.
 - `results/error_analysis/`: گزارش‌های failure، taxonomy و representative examples.

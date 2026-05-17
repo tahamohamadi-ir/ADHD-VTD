@@ -93,8 +93,8 @@ class IntentClassifier:
         # 7. Dashboard/storytelling
         if any(x in norm for x in ["داشبورد", "داستان", "روایت", "story"]):
             return IntentDecision(
-                IntentLabel.NON_SQL_REQUEST, 0.75, True, ExpectedAction.GENERATE_SQL,
-                ["Dashboard/storytelling cue."],
+                IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
+                ["Dashboard/storytelling cue mapped to analytical SQL grouping."],
             )
 
         # 8. Time series / trend
@@ -129,4 +129,3 @@ class IntentClassifier:
             IntentLabel.UNKNOWN, 0.55, True, ExpectedAction.GENERATE_SQL,
             reasons or ["Default safe SQL-capable request."],
         )
-
