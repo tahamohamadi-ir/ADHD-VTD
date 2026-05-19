@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import re
 
 from src.core.query_ir import QueryIR
 from src.sql_validation.validation_result import ValidationIssue, ValidationResult
@@ -17,6 +18,9 @@ _BY_GROUP_TERMS = (" by ", "based on", "\u0628\u0631 \u0627\u0633\u0627\u0633")
 _RATE_TERMS = ("rate", "percent", "percentage", "\u0646\u0631\u062e", "\u062f\u0631\u0635\u062f")
 _DEPRESSION_TERMS = ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc")
 _DISORDER_TERMS = ("eating_disorder", "depression", "anxiety", "bipolar", "schizophrenia")
+_MATRIX_TERMS = ("matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633")
+_DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
+_CGPA_TERMS = ("cgpa", "gpa")
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -25,6 +29,16 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 def _compact(sql: str) -> str:
     return " ".join((sql or "").lower().replace("\n", " ").split())
+
+
+def _has_not_null_filter(sql: str, column: str) -> bool:
+    compact = re.sub(r"\s+", "", sql.lower())
+    col = re.escape(column.lower())
+    return bool(
+        re.search(col + r"isnotnull", compact)
+        or re.search(r"not" + col + r"isnull", compact)
+        or re.search(r"not\(" + col + r"isnull\)", compact)
+    )
 
 
 def _table_columns(schema: dict[str, Any] | None, table_name: str) -> set[str]:
@@ -78,6 +92,7 @@ class SQLShapeValidator:
         self._validate_global_change_shape(lower_sql, lower_question, task_type, schema, issues)
         self._validate_risk_summary_shape(lower_sql, lower_question, schema, issues)
         self._validate_grouped_rate_shape(lower_sql, lower_question, task_type, schema, issues)
+        self._validate_student_sleep_diet_matrix_shape(lower_sql, lower_question, task_type, schema, issues)
 
         return ValidationResult(not issues, issues, sql)
 
@@ -207,17 +222,17 @@ class SQLShapeValidator:
                 "ANALYTICAL_SHAPE_MISSING_GROUP_ALIAS",
                 "Grouped sleep-rate SQL must expose sleep_duration_category AS group_value for stable benchmark/report columns.",
             )
-        if "sleep_duration_category is not null" not in sql:
+        if not _has_not_null_filter(sql, "sleep_duration_category"):
             _add(
                 issues,
                 "ANALYTICAL_SHAPE_MISSING_NULL_FILTER",
                 "Grouped sleep-rate SQL must filter WHERE sleep_duration_category IS NOT NULL to avoid a null bucket.",
             )
-        if "sum(depression_flag)" not in sql or "positives" not in sql:
+        if "sum(depression_flag)" not in sql and "avg(depression_flag)" not in sql:
             _add(
                 issues,
-                "ANALYTICAL_SHAPE_MISSING_POSITIVES",
-                "Grouped depression-rate SQL must include SUM(depression_flag) AS positives.",
+                "ANALYTICAL_SHAPE_MISSING_RATE_NUMERATOR",
+                "Grouped depression-rate SQL must compute the rate from depression_flag.",
             )
         if "rate_pct" not in sql:
             _add(
@@ -225,3 +240,77 @@ class SQLShapeValidator:
                 "ANALYTICAL_SHAPE_MISSING_RATE_ALIAS",
                 "Grouped rate SQL must include a rate_pct output column.",
             )
+
+    def _validate_student_sleep_diet_matrix_shape(
+        self,
+        sql: str,
+        question: str,
+        task_type: str,
+        schema: dict[str, Any] | None,
+        issues: list[ValidationIssue],
+    ) -> None:
+        student_cols = _table_columns(schema, "student_depression")
+        required_cols = {"sleep_duration_category", "dietary_habits", "depression_flag", "cgpa_10"}
+        if not required_cols.issubset(student_cols):
+            return
+        asks_matrix = (
+            (task_type == "grouping_query" or _has_any(question, _MATRIX_TERMS))
+            and _has_any(question, _SLEEP_TERMS)
+            and _has_any(question, _DIET_TERMS)
+            and _has_any(question, _DEPRESSION_TERMS)
+            and _has_any(question, _CGPA_TERMS)
+        )
+        if not asks_matrix:
+            return
+
+        if "from student_depression" not in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_STUDENT_DEPRESSION_TABLE",
+                "Sleep/diet depression-CGPA matrix questions should use student_depression.",
+            )
+        if "sleep_duration_category" not in sql or "dietary_habits" not in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_SLEEP_DIET_KEYS",
+                "Sleep/diet matrix SQL must group by sleep_duration_category and dietary_habits, not columns from another table.",
+            )
+        if "sleep_hours" in sql or "diet_quality" in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_WRONG_TABLE_SLEEP_DIET_COLUMNS",
+                "Do not use sleep_hours or diet_quality with student_depression; use sleep_duration_category and dietary_habits.",
+            )
+        if "depression_flag" not in sql or "depression_rate" not in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_DEPRESSION_RATE",
+                "Sleep/diet matrix SQL must include a depression rate computed from depression_flag.",
+            )
+        if "cgpa_10" not in sql or "avg" not in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_AVG_CGPA",
+                "Sleep/diet matrix SQL must include AVG(cgpa_10).",
+            )
+        if not _has_min_support_threshold(sql, minimum=50):
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_MATRIX_SUPPORT_THRESHOLD",
+                "Sleep/diet matrix SQL must include HAVING COUNT(*) >= 50 to suppress unstable sparse cells.",
+            )
+        if "order by depression_rate_pct desc" not in sql:
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_PRIMARY_METRIC_SORT",
+                "Sleep/diet matrix SQL must sort by the primary requested metric: ORDER BY depression_rate_pct DESC.",
+            )
+
+
+def _has_min_support_threshold(sql: str, *, minimum: int) -> bool:
+    compact = sql.replace(" ", "")
+    if re.search(r"havingcount\(\*\)>=" + str(minimum), compact):
+        return True
+    if re.search(r"havingcount\(\*\)>" + str(minimum - 1), compact):
+        return True
+    return False

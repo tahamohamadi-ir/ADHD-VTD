@@ -27,6 +27,20 @@ After each run, analyze the generated artifact:
 python scripts\analyze_benchmark_artifact.py results\benchmark\<artifact-folder>
 ```
 
+After `scripts\run_ablation.py --execute` completes, generate the cross-config comparison from the completed manifest:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\analyze_ablation_manifest.py results\ablation\20260517_phase11_a0_a7_execute\ablation_manifest.json
+```
+
+Current real smoke comparison:
+
+```text
+results/ablation/20260517_phase11_a0_a7_execute/ablation_comparison.md
+```
+
+This comparison is smoke-scale only. It must not be used as a final paper or SOTA claim.
+
 ## Anti-Overfit Rules
 
 - Keep `exclude_self: true` for dev/test.
@@ -50,7 +64,7 @@ Create a dry-run manifest without running benchmarks:
 .\.venv\Scripts\python.exe scripts\run_ablation.py --output-dir results\ablation\20260517_phase11_dry_run_manifest
 ```
 
-The manifest is not a result. Real metrics require `results/benchmark/...` artifacts from actual benchmark runs.
+The dry-run manifest is not a result. Real metrics require `results/benchmark/...` artifacts from actual benchmark runs.
 
 ## Existing Legacy Experiment Configs
 

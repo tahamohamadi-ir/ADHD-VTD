@@ -90,6 +90,12 @@ class IntentClassifier:
                 ["Chart/visualization request detected."],
             )
 
+        if any(x in norm for x in ["matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633", "Ù…Ø§ØªØ±ÛŒØ³"]):
+            return IntentDecision(
+                IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
+                ["Matrix cue mapped to analytical SQL grouping."],
+            )
+
         # 7. Dashboard/storytelling
         if any(x in norm for x in ["داشبورد", "داستان", "روایت", "story"]):
             return IntentDecision(

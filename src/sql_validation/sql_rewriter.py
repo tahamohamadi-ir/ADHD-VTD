@@ -22,6 +22,9 @@ class SQLRewriter:
     COLUMN_FIXES: dict[str, str] = {
         "gpa": "cgpa",  # The schema uses cgpa_10 / cgpa_mid, not gpa
     }
+    TABLE_SCOPED_COLUMN_FIXES: dict[tuple[str, str], str] = {
+        ("student_depression", "family_history"): "family_history_mental_illness",
+    }
 
     def strip_markdown_fences(self, sql: str) -> str:
         """Remove markdown code fences wrapping SQL.
@@ -45,10 +48,33 @@ class SQLRewriter:
 
     def fix_column_names_ast(self, tree: exp.Expression) -> exp.Expression:
         """Fix common column name typos in SQL using AST."""
+        tables: dict[str, str] = {}
+        for table in tree.find_all(exp.Table):
+            table_name = table.name
+            tables[table.alias_or_name] = table_name
+            tables[table_name] = table_name
+        used_tables = set(tables.values())
+
         for col in tree.find_all(exp.Column):
-            if col.name.lower() in self.COLUMN_FIXES:
+            col_name = col.name.lower()
+            table_ref = col.table
+            real_table = tables.get(table_ref, table_ref) if table_ref else None
+            if real_table and (real_table, col_name) in self.TABLE_SCOPED_COLUMN_FIXES:
+                replacement = self.TABLE_SCOPED_COLUMN_FIXES[(real_table, col_name)]
+                col.set("this", exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")))
+                continue
+            if (
+                not table_ref
+                and len(used_tables) == 1
+                and ("student_depression", col_name) in self.TABLE_SCOPED_COLUMN_FIXES
+                and "student_depression" in used_tables
+            ):
+                replacement = self.TABLE_SCOPED_COLUMN_FIXES[("student_depression", col_name)]
+                col.set("this", exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")))
+                continue
+            if col_name in self.COLUMN_FIXES:
                 # Replace with correct name
-                col.set("this", exp.Identifier(this=self.COLUMN_FIXES[col.name.lower()], quoted=col.this.args.get("quoted")))
+                col.set("this", exp.Identifier(this=self.COLUMN_FIXES[col_name], quoted=col.this.args.get("quoted")))
         return tree
 
     def ensure_limit_ast(self, tree: exp.Expression, limit: int = 100) -> exp.Expression:

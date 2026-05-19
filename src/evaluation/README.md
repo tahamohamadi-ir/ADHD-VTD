@@ -54,7 +54,9 @@
 - `artifact_analysis.py`: reads real `results/benchmark/...` artifacts and writes artifact-backed error-analysis reports without running a model or inventing missing labels.
 - `ablation_flags.py`: classifies ablation flags as runtime-enforced, runtime-locked or metadata-only.
 - `ablation_runner.py`: builds dry-run ablation manifests and optionally executes benchmark commands only when requested explicitly.
+- `ablation_report.py`: reads completed ablation manifests and real benchmark summaries to generate cross-config comparison reports.
 - `scripts/analyze_benchmark_artifact.py`: CLI for generating `results/error_analysis/...` reports from existing benchmark artifacts.
+- `scripts/analyze_ablation_manifest.py`: CLI for generating `ablation_comparison.md/json` from a completed ablation manifest.
 - `scripts/run_ablation.py`: CLI for creating ablation manifests. Default mode is dry-run and every job remains `result_status=not_run`.
 
 Current runtime-enforced ablation flags: `nlu`, `schema_linking`, `value_linking`, `cag`, `reflexion`, `repair`.
@@ -66,6 +68,7 @@ Verified Phase 11 first-slice artifacts:
 ```text
 results/error_analysis/20260517_phase11_spl2_after_fixes/error_report.md
 results/ablation/20260517_phase11_dry_run_manifest/ablation_manifest.json
+results/ablation/20260517_phase11_a0_a7_execute/ablation_comparison.md
 ```
 
-These are analysis/planning artifacts, not new model-quality claims.
+The A0-A7 comparison is a real artifact-backed smoke comparison, but it is not a final model-quality or SOTA claim.

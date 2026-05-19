@@ -1,3 +1,5 @@
+import os
+import time
 import uuid
 from typing import Any, Dict
 
@@ -33,6 +35,7 @@ from src.reflexion.transition_memory import TransitionMemory
 
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
+_DEFAULT_SQL_GENERATION_MAX_TOKENS = 512
 
 
 def _default_generation_model_path() -> str:
@@ -49,6 +52,17 @@ def _get_local_llm() -> LocalLLM:
     if cache_key not in _LLM_CACHE:
         _LLM_CACHE[cache_key] = LocalLLM(model_path=model_path, n_ctx=n_ctx, n_gpu_layers=-1)
     return _LLM_CACHE[cache_key]
+
+
+def _sql_generation_max_tokens() -> int:
+    raw = os.environ.get("VTD_SQL_GENERATION_MAX_TOKENS")
+    if not raw:
+        return _DEFAULT_SQL_GENERATION_MAX_TOKENS
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_SQL_GENERATION_MAX_TOKENS
+    return value if value > 0 else _DEFAULT_SQL_GENERATION_MAX_TOKENS
 
 
 def _with_retry_increment(state: VTDState, updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -226,12 +240,7 @@ def build_prompt(state: VTDState) -> Dict[str, Any]:
 
     value_links: dict[str, Any] = {}
     if state.ablation_config.get("value_linking", True):
-        candidate_columns: list[str] = []
-        for table_name, table_info in state.schema_context.items():
-            for column in getattr(table_info, "columns", []):
-                name = getattr(column, "name", None)
-                if name:
-                    candidate_columns.append(f"{table_name}.{name}")
+        candidate_columns = _schema_candidate_columns(state.schema_context)
         links = ValueLinker().resolve(state.normalized_question or state.raw_question, candidate_columns)
         value_links = {
             f"{link.user_value} [{link.column}]": link.resolved_value
@@ -248,6 +257,25 @@ def build_prompt(state: VTDState) -> Dict[str, Any]:
     )
     return {"prompt": prompt, "value_links": value_links}
 
+
+def _schema_candidate_columns(schema_context: dict[str, Any]) -> list[str]:
+    candidate_columns: list[str] = []
+    for table_name, table_info in schema_context.items():
+        columns = getattr(table_info, "columns", None)
+        if columns is None and isinstance(table_info, dict):
+            columns = table_info.get("columns", [])
+        iterable_columns = columns.values() if isinstance(columns, dict) else (columns or [])
+        for column in iterable_columns:
+            if isinstance(column, str):
+                name = column
+            elif isinstance(column, dict):
+                name = column.get("name") or column.get("column_name")
+            else:
+                name = getattr(column, "name", None)
+            if name:
+                candidate_columns.append(f"{table_name}.{name}")
+    return candidate_columns
+
 def generate_sql(state: VTDState) -> Dict[str, Any]:
     """
     Invokes the Local LLM (GPU-accelerated) to generate a SQL candidate.
@@ -258,8 +286,18 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
         
     llm = _get_local_llm()
     
-    response_text = llm.generate_json(state.prompt, enforce_json=True)
-    return {"generated_sql": response_text, "raw_model_response": response_text}
+    started = time.perf_counter()
+    response_text = llm.generate_json(
+        state.prompt,
+        enforce_json=True,
+        max_tokens=_sql_generation_max_tokens(),
+    )
+    generation_latency_ms = int((time.perf_counter() - started) * 1000)
+    return {
+        "generated_sql": response_text,
+        "raw_model_response": response_text,
+        "generation_latency_ms": generation_latency_ms,
+    }
 
 def parse_llm_output(state: VTDState) -> Dict[str, Any]:
     """
@@ -293,9 +331,10 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     registry = SchemaRegistry()
     validator = ValidationPipeline(registry=registry)
     result = validator.validate(state.generated_sql)
+    validated_sql = result.normalized_sql or state.generated_sql
     if result.ok:
         shape_result = SQLShapeValidator().validate(
-            state.generated_sql,
+            validated_sql,
             question=state.raw_question,
             qir=state.qir,
             schema=state.schema_context,
@@ -312,8 +351,9 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
         iteration=state.retry_count,
         prompt=state.prompt,
         raw_model_response=state.raw_model_response,
+        generation_latency_ms=state.generation_latency_ms,
         parsed_payload=state.parsed_payload,
-        sql=state.generated_sql,
+        sql=validated_sql,
         parsed=bool(state.parsed_payload),
         validation_passed=result.ok,
         validation_errors=validation_errors,
@@ -322,10 +362,11 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     
     updates = {
         "attempts": state.attempts + [attempt],
-        "validation_errors": validation_errors
+        "validation_errors": validation_errors,
     }
     if not result.ok:
         return _with_retry_increment(state, updates)
+    updates["generated_sql"] = validated_sql
     return updates
 
 def execute_sql(state: VTDState) -> Dict[str, Any]:

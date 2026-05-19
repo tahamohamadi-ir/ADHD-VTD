@@ -24,6 +24,7 @@ class SQLAttempt(BaseModel):
     repair_plan: str | None = None
     semantic_business_score: float | None = None
     semantic_business_reason: str | None = None
+    generation_latency_ms: int | None = None
     latency_ms: int | None = None
 
 class LinkedSchema(BaseModel):
@@ -65,6 +66,7 @@ class VTDState(BaseModel):
 
     generated_sql: str | None = None
     raw_model_response: str | None = None
+    generation_latency_ms: int | None = None
     parsed_payload: dict[str, Any] | None = None
     attempts: list[SQLAttempt] = Field(default_factory=list)
     retry_count: int = 0

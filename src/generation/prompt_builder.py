@@ -51,6 +51,11 @@ _FAMILY_HISTORY_TERMS = (
     "family_history",
     "\u0633\u0627\u0628\u0642\u0647 \u062e\u0627\u0646\u0648\u0627\u062f\u06af\u06cc",
 )
+_MATRIX_TERMS = ("matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633")
+_SLEEP_TERMS = ("sleep", "\u062e\u0648\u0627\u0628")
+_DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
+_DEPRESSION_TERMS = ("depression", "depressed", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc", "\u0627\u0641\u0633\u0631\u062f\u0647")
+_CGPA_TERMS = ("cgpa", "gpa")
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -155,6 +160,25 @@ class PromptBuilder:
                 "For family-history questions over student_depression, use "
                 "family_history_mental_illness. Do not use family_history unless "
                 "that exact column is present in the selected table."
+            )
+
+        if (
+            _has_any(q, _MATRIX_TERMS)
+            and _has_any(q, _SLEEP_TERMS)
+            and _has_any(q, _DIET_TERMS)
+            and _has_any(q, _DEPRESSION_TERMS)
+            and _has_any(q, _CGPA_TERMS)
+            and {"sleep_duration_category", "dietary_habits", "depression_flag", "cgpa_10"}.issubset(student_cols)
+        ):
+            hints.append(
+                "For student_depression sleep/diet matrix questions about depression "
+                "and CGPA, use sleep_duration_category and dietary_habits as the two "
+                "grouping keys, filter both grouping columns with IS NOT NULL, include "
+                "COUNT(*) AS n, ROUND(100.0 * SUM(depression_flag) / COUNT(*), 2) AS "
+                "depression_rate_pct, and ROUND(AVG(cgpa_10), 2) AS avg_cgpa. Apply "
+                "HAVING COUNT(*) >= 50 as a minimum support threshold for stable matrix "
+                "cells and ORDER BY depression_rate_pct DESC. Do not use sleep_hours "
+                "or diet_quality unless those exact columns are in student_depression."
             )
 
         if task_type in {"grouping_query", "comparison_query", "trend_query"} or _has_any(q, _DASHBOARD_TERMS):

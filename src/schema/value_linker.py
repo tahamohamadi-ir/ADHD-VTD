@@ -101,6 +101,8 @@ class ValueLinker:
 
     def _column_matches_alias(self, column: str, columns_like: list[str]) -> bool:
         col = column.split(".")[-1].lower()
+        if "disorder" in {part.lower() for part in columns_like}:
+            return col == "disorder"
         return any(part.lower() in col for part in columns_like)
 
     def _value_exists(self, column: str, value: object) -> bool:

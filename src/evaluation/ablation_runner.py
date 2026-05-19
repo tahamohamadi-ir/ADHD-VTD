@@ -101,24 +101,48 @@ def run_ablation_jobs(
     *,
     output_dir: str | Path | None = None,
     execute: bool = False,
+    stream_output: bool = True,
 ) -> Path:
     if not execute:
         return write_ablation_manifest(jobs, output_dir)
 
     completed: list[AblationJob] = []
-    for job in jobs:
-        proc = subprocess.run(
-            job.command,
-            cwd=PROJECT_ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+    total = len(jobs)
+    for index, job in enumerate(jobs, start=1):
+        print(f"\n=== Ablation Job {index}/{total}: {job.config_id} ===", flush=True)
+        print("command=" + " ".join(job.command), flush=True)
         artifact_dir = None
-        for line in proc.stdout.splitlines():
-            marker = "Benchmark artifacts written to:"
-            if marker in line:
-                artifact_dir = line.split(marker, 1)[1].strip()
+        if stream_output:
+            proc = subprocess.Popen(
+                job.command,
+                cwd=PROJECT_ROOT,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                print(line, end="", flush=True)
+                marker = "Benchmark artifacts written to:"
+                if marker in line:
+                    artifact_dir = line.split(marker, 1)[1].strip()
+            returncode = proc.wait()
+        else:
+            proc = subprocess.run(
+                job.command,
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            for line in proc.stdout.splitlines():
+                marker = "Benchmark artifacts written to:"
+                if marker in line:
+                    artifact_dir = line.split(marker, 1)[1].strip()
+            returncode = proc.returncode
+        status = "completed" if returncode == 0 and artifact_dir else "failed"
+        print(f"=== Ablation Job {job.config_id}: {status} ===", flush=True)
         completed.append(
             AblationJob(
                 config_path=job.config_path,
@@ -130,9 +154,9 @@ def run_ablation_jobs(
                 sampling=job.sampling,
                 reporting=job.reporting,
                 runtime_contract=job.runtime_contract,
-                result_status="completed" if proc.returncode == 0 and artifact_dir else "failed",
+                result_status=status,
                 artifact_dir=artifact_dir,
-                returncode=proc.returncode,
+                returncode=returncode,
             )
         )
     return write_ablation_manifest(completed, output_dir)

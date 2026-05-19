@@ -45,6 +45,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Actually run benchmark commands. Without this flag, only a not_run manifest is written.",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="When executing, capture benchmark output instead of streaming it live.",
+    )
     return parser.parse_args()
 
 
@@ -58,7 +63,12 @@ def main() -> int:
         build_ablation_job(path, python_executable=args.python_executable)
         for path in config_paths
     ]
-    manifest_path = run_ablation_jobs(jobs, output_dir=args.output_dir, execute=args.execute)
+    manifest_path = run_ablation_jobs(
+        jobs,
+        output_dir=args.output_dir,
+        execute=args.execute,
+        stream_output=not args.quiet,
+    )
     mode = "execute" if args.execute else "dry-run"
     print(f"mode={mode}")
     print(f"jobs={len(jobs)}")
