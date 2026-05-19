@@ -816,6 +816,8 @@ def run(args: argparse.Namespace) -> Path:
             output_dir,
             output_dir=output_dir,
             provider_name=getattr(args, "judge_provider", "mock"),
+            judge_model=getattr(args, "judge_model", None),
+            reasoning_enabled=getattr(args, "judge_reasoning", None),
             failures_only=bool(getattr(args, "judge_failures_only", True)),
             sample_size=getattr(args, "judge_sample_size", None),
         )
@@ -832,6 +834,8 @@ def run(args: argparse.Namespace) -> Path:
         summary["judge"] = {
             "enabled": True,
             "provider": getattr(args, "judge_provider", "mock"),
+            "model": getattr(args, "judge_model", None),
+            "reasoning_enabled": getattr(args, "judge_reasoning", None),
             "sample_size": getattr(args, "judge_sample_size", None),
             "failures_only": bool(getattr(args, "judge_failures_only", True)),
             "artifacts": {key: str(path) for key, path in judge_paths.items()},
@@ -887,11 +891,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--use-judge", action="store_true", help="Generate judgment artifacts after the benchmark run.")
     parser.add_argument(
         "--judge-provider",
-        choices=("mock",),
+        choices=("mock", "openrouter"),
         default="mock",
-        help="Judge provider. Current integrated runner supports offline deterministic mock only.",
+        help="Judge provider. openrouter requires OPENROUTER_API_KEY.",
     )
     parser.add_argument("--judge-sample-size", type=int, help="Limit selected predictions sent to the judge.")
+    parser.add_argument(
+        "--judge-model",
+        help="Judge model id. For OpenRouter, use ids such as qwen/qwen3.6-plus.",
+    )
+    parser.add_argument(
+        "--judge-reasoning",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable provider reasoning mode when supported. Use --no-judge-reasoning to force it off.",
+    )
     parser.add_argument(
         "--judge-failures-only",
         action=argparse.BooleanOptionalAction,

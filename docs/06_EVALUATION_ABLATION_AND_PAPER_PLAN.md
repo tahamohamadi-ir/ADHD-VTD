@@ -351,7 +351,10 @@ Minimum requirement:
 
 ```text
 At least 50 benchmark items should be reviewed by a second human reviewer
-or by an independent **LLM-as-judge** model (e.g., GPT-4o, o1) with a fixed rubric.
+or by an independent **LLM-as-judge** model with a fixed rubric. Current
+Phase 16 pilots use OpenRouter-hosted Qwen/DeepSeek as the first open-model
+judge pair; expensive closed models should be reserved for small adjudication
+subsets.
 Report Cohen's Kappa or agreement percentage.
 ```
 
@@ -367,6 +370,11 @@ The judge provides:
 - **Correctness Score (0-5)**: Does the SQL logic correctly represent the user's intent?
 - **Business Reasoning**: Why is it correct or incorrect from a clinician/analyst perspective?
 - **Actionability**: Is the result actually useful for the intended dashboard?
+
+Current implementation note: the Phase 16 judge layer stores provider/model,
+prompt version, token usage fields, canonical verdicts and an agreement report
+from existing judgment artifacts. Partial/ambiguous rows are kept as review
+required; they are not converted into semantic-correct paper claims.
 - **Explanation Consistency**: Does the generated answer/explanation match the SQL logic?
 - **Redaction Status**: Whether the result sample was redacted or aggregate-only.
 

@@ -570,6 +570,52 @@ Remaining A4 blockers:
 - `VTD-078` still needs `mental_health_risk` as the grouping key.
 - `VTD-141` and `VTD-300` are valid SQL mismatches and should be handled by semantic/business review or a broader general policy, not by case-specific tuning.
 
+## Phase 16 Judge Pilot Evidence
+
+Small live OpenRouter judge pilots have been run on `manual_a4_after_generation_token_cap` to validate the semantic-review path without changing benchmark outcomes:
+
+```text
+qwen_pilot: results/judgments/20260519_phase16_openrouter_qwen_a4_sample2_retry2
+deepseek_pilot: results/judgments/20260519_phase16_openrouter_deepseek_free_a4_sample2_no_reasoning
+source_artifact: results/benchmark/manual_a4_after_generation_token_cap
+sample_size: 2
+failures_only: true
+qwen: authoritative=true, semantic_business_counts=incorrect=2
+deepseek: authoritative=true, semantic_business_counts=incorrect=2
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py -vv --tb=short -> 10 passed
+```
+
+Interpretation limits: this only proves the live judge pipeline and agreement on two sampled failures. It does not close Phase 11 paper-grade semantic analysis, does not replace human spot checks, and does not judge all pending valid-SQL mismatches such as `VTD-141` and `VTD-300`.
+
+All-failure pilot before canonical verdict hardening:
+
+```text
+qwen_all_failures: results/judgments/20260519_phase16_openrouter_qwen_a4_failures_all
+deepseek_all_failures: results/judgments/20260519_phase16_openrouter_deepseek_free_a4_failures_all
+source_artifact: results/benchmark/manual_a4_after_generation_token_cap
+total_judged_each: 5
+qwen_raw_semantic_business_counts: incorrect=4, correct=1
+deepseek_raw_semantic_business_counts: incorrect=4, unjudged=1
+disputed_case: VTD-300
+post_run_hardening: provider verdicts are canonicalized before summary metrics; partial/ambiguous labels require adjudication instead of becoming final semantic-correct claims.
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py -vv --tb=short -> 12 passed
+```
+
+Interpretation limits: the all-failure pilot is strong evidence that most remaining A4 failures are business-incorrect, but `VTD-300` demonstrates why multi-judge disagreement handling is required. The next artifact should be regenerated with canonical verdict reporting before any table treats semantic correctness as a metric.
+
+Canonical rerun and agreement report:
+
+```text
+qwen_canonical: results/judgments/20260519_phase16_openrouter_qwen_a4_failures_all_canonical
+deepseek_canonical: results/judgments/20260519_phase16_openrouter_deepseek_free_a4_failures_all_canonical
+agreement_report: results/judgments/20260519_phase16_qwen_deepseek_a4_failure_agreement/judge_agreement.md
+agreement_summary: common_cases=5, semantic_agreement_count=5, semantic_disagreement_count=0, verdict_agreement_count=2, verdict_disagreement_count=3
+final_counts: agreed_incorrect=4, adjudication_required=1
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_judge_agreement.py tests\tier1_unit\test_llm_judge.py -vv --tb=short -> 14 passed
+```
+
+Interpretation limits: this agreement report compares existing judgment artifacts only. It does not call a model and does not convert partial/unjudged rows into correctness claims. Because the current comparison is failures-only, the next Phase 16 slice needs successful prediction coverage before reporting broader semantic accuracy.
+
 ## Runtime Flag Contract
 
 Current Phase 11 ablation flags are interpreted as follows:

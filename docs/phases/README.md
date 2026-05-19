@@ -30,7 +30,7 @@
 | Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
 | Phase 14 | Edge Runtime | TODO |
 | Phase 15 | Research Packaging | TODO |
-| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`; mock/offline scaffold implemented |
+| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`; mock/OpenRouter providers, canonical all-failure live pilots and Qwen/DeepSeek agreement report implemented; success-sample coverage still open |
 
 ## قالب پیشنهادی هر phase document
 

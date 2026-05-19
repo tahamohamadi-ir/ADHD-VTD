@@ -1,6 +1,6 @@
 # 11 - Semantic Business Logic Evaluation (LLM-as-a-Judge)
 
-**Status:** Phase 16 scaffold in progress - deterministic mock provider, standalone artifact judge, and `run_benchmark.py --use-judge --judge-provider mock` integration are implemented; online/local providers remain open  
+**Status:** Phase 16 in progress - deterministic mock provider, OpenRouter provider, standalone artifact judge, `run_benchmark.py --use-judge` integration, live Qwen/DeepSeek pilots, canonical all-failure reruns, and judge-agreement reporting are implemented; success-sample coverage, local judge, redaction policy, and larger review remain open  
 **Dependency:** Phase 10 must first store complete prompt/response/SQL/result traces.
 
 ## 1. Rationale
@@ -23,7 +23,7 @@ Both must be reported. Neither replaces the other.
 
 ## 2. Methodology
 
-The judge is a high-reasoning model (e.g., GPT-4o, o1-mini, or Claude 3.5 Sonnet) that acts as a "Senior Clinical Data Analyst".
+The judge is an independent high-reasoning model that acts as a senior clinical/data analyst. The current preferred path uses OpenRouter-hosted open-model-ecosystem judges first (`qwen/qwen3.6-plus`, `deepseek/deepseek-v4-flash`) and reserves more expensive closed models for small disagreement/adjudication subsets only.
 
 ### Input to the Judge
 - **Original Persian Question**: Raw user intent.
@@ -67,17 +67,21 @@ needs_human_review
   - valid SQL `RESULT_MISMATCH` -> `requires_semantic_review`, no invented semantic label.
 - [x] Standalone artifact judgment entry point exists:
   `scripts/judge_benchmark_artifact.py`.
-- [ ] Uses `src.config.settings` and environment variables for API keys when online providers are added.
-- [ ] Must never hardcode API keys or online model names in code.
-- [ ] Add `OpenAIJudgeProvider`.
+- [x] Uses environment variables for API keys when online providers are used.
+- [x] Uses environment variables for OpenRouter API keys and model selection.
+- [x] Must never hardcode API keys in code.
+- [x] Add `OpenRouterJudgeProvider`.
+- [ ] Add direct `OpenAIJudgeProvider`.
 - [ ] Add `LocalJudgeProvider`.
 - [ ] Implements batching where provider allows it.
-- [ ] Supports provider reasoning summaries beyond deterministic scaffold reasons.
-- [ ] Stores token/cost estimates when an online provider is used.
+- [x] Supports provider reasoning metadata beyond deterministic scaffold reasons; raw private reasoning is not stored as a correctness claim.
+- [x] Stores token usage fields when provider usage is returned; dollar cost is not inferred unless billing data is added.
 
 ### Integration: `run_benchmark.py --use-judge`
 - [x] Direct `run_benchmark.py --use-judge --judge-provider mock` integration exists for offline mock mode.
-- [ ] Direct `run_benchmark.py --use-judge` integration for online/local providers is still pending.
+- [x] Direct `run_benchmark.py --use-judge --judge-provider openrouter` integration exists.
+- [x] Live OpenRouter judgment pilots have run with user-supplied API key.
+- [ ] Direct `run_benchmark.py --use-judge` integration for local providers is still pending.
 - [x] Offline/standalone judgment from an existing benchmark artifact is available:
 
 ```powershell
@@ -95,6 +99,51 @@ Current standalone scaffold generates:
 - `judge_costs.json`
 - `semantic_business_summary.csv`
 - direct benchmark-run integration.
+
+OpenRouter configuration:
+
+```powershell
+$env:OPENROUTER_API_KEY = "<your key>"
+$env:VTD_OPENROUTER_JUDGE_MODEL = "qwen/qwen3.6-plus"
+$env:OPENROUTER_HTTP_REFERER = "https://github.com/local/ADHD-VTD"
+$env:OPENROUTER_APP_TITLE = "ADHD-VTD Phase16 Judge"
+```
+
+Live OpenRouter pilot command pattern:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\judge_benchmark_artifact.py `
+  results\benchmark\manual_a4_after_generation_token_cap `
+  --output-dir results\judgments\<run_name> `
+  --judge-provider openrouter `
+  --judge-model qwen/qwen3.6-plus `
+  --judge-reasoning `
+  --judge-sample-size 2
+```
+
+Reasoning mode:
+
+- `--judge-reasoning` sends `reasoning: {"enabled": true}` to OpenRouter when supported by the model.
+- The project stores `reasoning_tokens` and whether `reasoning_details` were present.
+- It does not store or display the full reasoning trace as a correctness claim.
+
+Implementation notes from official OpenRouter docs:
+
+- Chat completions endpoint: `https://openrouter.ai/api/v1/chat/completions`
+- Authentication: `Authorization: Bearer <OPENROUTER_API_KEY>`
+- Optional app headers: `HTTP-Referer`, `X-Title` / `X-OpenRouter-Title`
+- Request/response format is OpenAI-compatible chat completions.
+
+Model policy for first live experiments, based on the user-provided pricing and the preference for open-model ecosystems:
+
+| Role | Preferred model | Reason |
+|---|---|---|
+| Primary judge | `qwen/qwen3.6-plus` | Good cost/quality balance; large context; closer to open-model ecosystem than closed GPT/Gemini. |
+| Cheap broad baseline judge | `deepseek/deepseek-v4-flash` | Very low cost; useful for judging larger batches and disagreement discovery. |
+| High-confidence adjudicator subset | `openai/gpt-5.1` | More expensive; reserve for a small disputed sample if needed. |
+| Alternative closed-model adjudicator | `google/gemini-3-flash-preview` | Use only for cross-provider disagreement checks, not as the primary open-model baseline. |
+
+No live result should be reported until the generated `judgments.jsonl` and `judge_costs.json` come from a real API run.
 
 Required CLI flags:
 
@@ -184,6 +233,7 @@ Phase 16 is done when:
 - Reports show execution correctness and semantic/business correctness separately.
 - Cases where EX passes but business correctness fails are explicitly listed.
 - Privacy redaction status is recorded for every judged case.
+- Multi-judge agreement is reported on both failure and success samples before any paper-level semantic accuracy claim.
 
 ## 9. Current Verified Scaffold
 
@@ -198,6 +248,9 @@ Verification:
 ```text
 .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py tests\tier1_unit\test_artifact_analysis.py -vv --tb=short
 7 passed
+
+.\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py -vv --tb=short
+10 passed
 
 .\.venv\Scripts\python.exe -m py_compile src\evaluation\llm_judge.py scripts\judge_benchmark_artifact.py
 passed
@@ -238,3 +291,112 @@ judge_files: judgments.jsonl, judge_summary.json, judge_reasoning.md, judge_cost
 judge_result: total_judged=1, exact_sql_match=1, semantic_correct=1, authoritative=false
 artifact_locator_fix: final *_predictions.jsonl is preferred over *_partial_predictions.jsonl when both exist.
 ```
+
+A0-A7 mock-judge sweep:
+
+```text
+source_manifest: results\ablation\20260517_phase11_a0_a7_execute\ablation_manifest.json
+output_root: results\judgments\20260519_phase16_mock_a0_a7
+jobs: 6
+provider: mock
+authoritative: false
+summary:
+  A0_direct_schema_only: judged=8, invalid_sql=5, requires_semantic_review=3
+  A1_persian_nlu: judged=8, invalid_sql=5, requires_semantic_review=3
+  A2_schema_linking: judged=8, invalid_sql=5, requires_semantic_review=3
+  A3_value_linking: judged=8, invalid_sql=4, requires_semantic_review=4
+  A4_cag_examples: judged=6, invalid_sql=4, requires_semantic_review=2
+  A7_full_phase10_system: judged=6, invalid_sql=1, requires_semantic_review=5
+```
+
+OpenRouter no-key safety smoke:
+
+```text
+command: OPENROUTER_API_KEY unset; scripts\judge_benchmark_artifact.py results\benchmark\manual_a4_after_generation_token_cap --output-dir results\judgments\20260519_phase16_openrouter_no_key_a4_token_cap --judge-provider openrouter --judge-sample-size 2
+result: provider=openrouter, model=qwen/qwen3.6-plus, total_judged=2, provider_not_configured=2, semantic_unjudged=2, authoritative=false
+interpretation: OpenRouter provider wiring is present, but no network/live judgment is performed without an API key.
+```
+
+OpenRouter live pilot - Qwen:
+
+```text
+source_artifact: results\benchmark\manual_a4_after_generation_token_cap
+output_dir: results\judgments\20260519_phase16_openrouter_qwen_a4_sample2_retry2
+provider: openrouter
+model: qwen/qwen3.6-plus
+sample_size: 2
+failures_only: true
+authoritative: true
+total_predictions: 8
+total_judged: 2
+verdict_counts: fail=1, incorrect=1
+semantic_business_counts: incorrect=2
+interpretation: both judged sampled failures are semantically/business incorrect. This is a small pilot, not a paper-grade semantic score.
+```
+
+OpenRouter live pilot - DeepSeek free:
+
+```text
+source_artifact: results\benchmark\manual_a4_after_generation_token_cap
+output_dir: results\judgments\20260519_phase16_openrouter_deepseek_free_a4_sample2_no_reasoning
+provider: openrouter
+model: deepseek/deepseek-v4-flash:free
+sample_size: 2
+failures_only: true
+judge_reasoning: false
+authoritative: true
+total_predictions: 8
+total_judged: 2
+verdict_counts: fail=2
+semantic_business_counts: incorrect=2
+reasoning_tokens: 0
+reasoning_details_present: 0
+interpretation: DeepSeek agreed with Qwen on the two sampled failures. Agreement on two cases is useful smoke evidence only.
+```
+
+OpenRouter live pilot - all A4 failures:
+
+```text
+source_artifact: results\benchmark\manual_a4_after_generation_token_cap
+qwen_output_dir: results\judgments\20260519_phase16_openrouter_qwen_a4_failures_all
+deepseek_output_dir: results\judgments\20260519_phase16_openrouter_deepseek_free_a4_failures_all
+failures_only: true
+total_predictions: 8
+total_judged_each: 5
+qwen_raw_verdict_counts: fail=3, incorrect=1, partial_match=1
+qwen_raw_semantic_business_counts: incorrect=4, correct=1
+deepseek_raw_verdict_counts: incorrect=2, invalid=1, disapproved=1, fail=1
+deepseek_raw_semantic_business_counts: incorrect=4, unjudged=1
+```
+
+Interpretation:
+
+- Both live judges agree that four sampled failures are semantically/business incorrect.
+- `VTD-300` is not settled: Qwen marked it as partial/core-correct while DeepSeek marked it ambiguous. It must stay adjudication-required before any paper metric uses it as semantic-correct.
+- These all-failure pilot artifacts were generated before canonical verdict hardening. Their raw rows are evidence, but canonical summaries should be regenerated before paper tables.
+
+Provider robustness notes:
+
+- Chunked HTTP failures such as `http.client.IncompleteRead` are retried and then recorded as `provider_error` if they persist.
+- Empty or `None` provider content is recorded as `provider_parse_error` instead of crashing the run.
+- `--judge-reasoning` sends OpenRouter `reasoning: {"enabled": true}` when requested, but artifacts store only token/presence metadata, not raw private reasoning.
+- Free-form provider verdicts are canonicalized before summary metrics. `partial_match` becomes `partial_business_match` with `semantic_business_correct=null` and human review required; provider `invalid` labels are only reported as `invalid_sql` when the benchmark artifact itself says the SQL is invalid.
+
+Canonical all-failure reruns and judge agreement:
+
+```text
+qwen_canonical: results\judgments\20260519_phase16_openrouter_qwen_a4_failures_all_canonical
+qwen_counts: business_incorrect=4, partial_business_match=1; semantic incorrect=4, unjudged=1
+deepseek_canonical: results\judgments\20260519_phase16_openrouter_deepseek_free_a4_failures_all_canonical
+deepseek_counts: invalid_sql=3, business_incorrect=1, partial_business_match=1; semantic incorrect=4, unjudged=1
+agreement_report: results\judgments\20260519_phase16_qwen_deepseek_a4_failure_agreement\judge_agreement.md
+agreement_summary: common_cases=5, semantic_agreement=5, semantic_disagreement=0, verdict_agreement=2, verdict_disagreement=3
+final_counts: agreed_incorrect=4, adjudication_required=1
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_judge_agreement.py tests\tier1_unit\test_llm_judge.py -vv --tb=short -> 14 passed
+```
+
+Interpretation:
+
+- Failure-only agreement is useful for error analysis, not for overall semantic accuracy.
+- `VTD-300` remains `adjudication_required` because both judges now mark it as partial/unjudged after canonicalization.
+- The next live review should include successful predictions as well; otherwise the judge layer can only characterize failures, not false-positive or over-rejection behavior.

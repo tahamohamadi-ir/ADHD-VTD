@@ -16,8 +16,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--judge-provider",
         default="mock",
-        choices=["mock"],
-        help="Judge provider. The current offline scaffold supports only deterministic mock.",
+        choices=["mock", "openrouter"],
+        help="Judge provider. openrouter requires OPENROUTER_API_KEY.",
+    )
+    parser.add_argument(
+        "--judge-model",
+        help="Provider model id, for example qwen/qwen3.6-plus or deepseek/deepseek-v4-flash.",
+    )
+    parser.add_argument(
+        "--judge-reasoning",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable provider reasoning mode when supported. Use --no-judge-reasoning to force it off.",
     )
     parser.add_argument(
         "--judge-sample-size",
@@ -38,6 +48,8 @@ def main() -> None:
         args.artifact_dir,
         output_dir=args.output_dir,
         provider_name=args.judge_provider,
+        judge_model=args.judge_model,
+        reasoning_enabled=args.judge_reasoning,
         failures_only=not args.all_predictions,
         sample_size=args.judge_sample_size,
     )

@@ -15,7 +15,7 @@
 - `08_PROJECT_STRUCTURE_AND_FILE_MAP.md`: ساختار canonical پوشه‌ها.
 - `09_DATASET_AND_EVALUATION_FILES_GUIDE.md`: dataset، golden examples، behavioral eval و dataset governance.
 - `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md`: roadmap کامل از MVP تا SOTA-style.
-- `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`: ارزیابی مفهومی/بیزینسی SQL و LLM-as-a-Judge.
+- `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`: ارزیابی مفهومی/بیزینسی SQL، mock/OpenRouter judge، live pilot artifacts و judge-agreement reports.
 - `BENCHMARK_AND_TEST_GUIDE.md`: راهنمای عملی اجرای تست‌ها، benchmarkها، sampling، artifactها و debugging.
 - `THREAT_MODEL.md`: تهدیدها، privacy، safety و clinical disclaimer.
 
@@ -39,7 +39,7 @@
 - Phase 10 باید benchmark را از ترمینال قابل اجرا کند و برای هر run، prompt، raw model response، SQL، validation، execution و final action را ذخیره کند.
 - نام مدل، مسیر مدل، `config_id`، `ablation_id` و وضعیت ماژول‌های روشن/خاموش باید در summary و artifactها ثبت شود.
 - `--samples-per-level` باید امکان انتخاب تعداد مساوی نمونه از هر difficulty را بدهد.
-- EX و Valid SQL Rate فقط درستی execution را می‌سنجند؛ درستی مفهومی/بیزینسی SQL باید جداگانه در Phase 16 سنجیده شود.
+- EX و Valid SQL Rate فقط درستی execution را می‌سنجند؛ درستی مفهومی/بیزینسی SQL جداگانه در Phase 16 سنجیده می‌شود. وضعیت فعلی فقط failure-only A4 coverage دارد و برای claim کلی هنوز success coverage و review بزرگ‌تر لازم است.
 - LLM-as-a-Judge فقط بعد از کامل شدن traceهای Phase 10 معنی دارد، چون judge باید سوال، schema، SQL، gold SQL، result preview/hash و explanation را ببیند.
 
 برای اجرای عملی test/benchmark همیشه از `BENCHMARK_AND_TEST_GUIDE.md` شروع کنید.
