@@ -400,3 +400,22 @@ Interpretation:
 - Failure-only agreement is useful for error analysis, not for overall semantic accuracy.
 - `VTD-300` remains `adjudication_required` because both judges now mark it as partial/unjudged after canonicalization.
 - The next live review should include successful predictions as well; otherwise the judge layer can only characterize failures, not false-positive or over-rejection behavior.
+
+All-prediction judge coverage:
+
+```text
+qwen_all_predictions: results\judgments\20260519_phase16_openrouter_qwen_a4_all_predictions
+qwen_summary: total_judged=8, authoritative=8, semantic correct=3, incorrect=4, unjudged=1
+deepseek_all_predictions: results\judgments\20260519_phase16_openrouter_deepseek_free_a4_all_predictions
+deepseek_summary: total_judged=8, authoritative=6, provider_error=2, semantic correct=2, incorrect=1, unjudged=5
+agreement_report: results\judgments\20260519_phase16_qwen_deepseek_a4_all_predictions_agreement\judge_agreement.md
+agreement_summary: common_cases=8, semantic_agreement=4, semantic_disagreement=4, verdict_agreement=4, verdict_disagreement=4
+final_counts: agreed_correct=2, agreed_incorrect=1, adjudication_required=5
+```
+
+Interpretation:
+
+- `VTD-027` and `VTD-039` are confirmed success cases by both judges.
+- `VTD-237` is agreed business-incorrect by both judges.
+- `VTD-078`, `VTD-141`, `VTD-300`, `VTD-343`, and `VTD-371` remain adjudication-required because of partial labels, provider errors, or Qwen/DeepSeek disagreement.
+- This all-prediction artifact improves coverage, but the high adjudication count means semantic accuracy must not be reported as a final model-quality metric yet.

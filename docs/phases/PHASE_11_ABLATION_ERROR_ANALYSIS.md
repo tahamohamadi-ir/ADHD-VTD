@@ -616,6 +616,23 @@ tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_judge_agreemen
 
 Interpretation limits: this agreement report compares existing judgment artifacts only. It does not call a model and does not convert partial/unjudged rows into correctness claims. Because the current comparison is failures-only, the next Phase 16 slice needs successful prediction coverage before reporting broader semantic accuracy.
 
+All-prediction agreement:
+
+```text
+qwen_all_predictions: results/judgments/20260519_phase16_openrouter_qwen_a4_all_predictions
+deepseek_all_predictions: results/judgments/20260519_phase16_openrouter_deepseek_free_a4_all_predictions
+agreement_report: results/judgments/20260519_phase16_qwen_deepseek_a4_all_predictions_agreement/judge_agreement.md
+common_cases: 8
+semantic_agreement_count: 4
+semantic_disagreement_count: 4
+verdict_agreement_count: 4
+verdict_disagreement_count: 4
+final_counts: agreed_correct=2, agreed_incorrect=1, adjudication_required=5
+provider_limitation: DeepSeek free returned provider_error for 2/8 cases, so missing labels remain unjudged.
+```
+
+Interpretation limits: the all-prediction artifact confirms that the two exact-correct benchmark cases (`VTD-027`, `VTD-039`) are also business-correct under both judges. It also shows that semantic review is not yet stable enough for paper metrics because five cases still require adjudication.
+
 ## Runtime Flag Contract
 
 Current Phase 11 ablation flags are interpreted as follows:
