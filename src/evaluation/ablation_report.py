@@ -33,6 +33,10 @@ def _row_from_job(job: dict[str, Any]) -> dict[str, Any]:
     artifact_dir = Path(job["artifact_dir"])
     summary_path = _first_file(artifact_dir, "*_summary.json")
     summary = read_json(summary_path)
+    config = summary.get("config", {})
+    runtime_contract = config.get("ablation_runtime_contract") or job.get("runtime_contract", {})
+    if config.get("mode") == "retrieval":
+        runtime_contract = job.get("runtime_contract") or runtime_contract
     return {
         "config_id": job.get("config_id"),
         "ablation_id": job.get("ablation_id"),
@@ -45,12 +49,17 @@ def _row_from_job(job: dict[str, Any]) -> dict[str, Any]:
         "valid_sql_rate": _metric(summary, "valid_sql_rate"),
         "reliability_score": summary.get("reliability", {}).get("score"),
         "unsafe_sql": summary.get("reliability", {}).get("unsafe_sql"),
+        "retrieval_hit_rate": _metric(summary, "retrieval_hit_rate"),
+        "retrieval_miss_rate": _metric(summary, "retrieval_miss_rate"),
         "latency_mean_ms": summary.get("latency", {}).get("mean_ms"),
         "latency_p95_ms": summary.get("latency", {}).get("p95_ms"),
+        "benchmark_mode": config.get("mode"),
+        "retrieval_backend": config.get("retrieval_backend"),
+        "retrieval_reranker": config.get("retrieval_reranker"),
         "dataset_hash": summary.get("config", {}).get("dataset_hash"),
         "selected_cases_hash": summary.get("config", {}).get("selected_cases_hash"),
         "module_flags": summary.get("config", {}).get("module_flags", {}),
-        "runtime_contract": summary.get("config", {}).get("ablation_runtime_contract", job.get("runtime_contract", {})),
+        "runtime_contract": runtime_contract,
     }
 
 
@@ -81,8 +90,11 @@ def build_ablation_comparison(manifest_path: str | Path) -> dict[str, Any]:
 
 
 def render_ablation_comparison(report: dict[str, Any]) -> str:
+    complete_rows = [row for row in report["rows"] if row.get("complete")]
+    all_retrieval = bool(complete_rows) and all(row.get("benchmark_mode") == "retrieval" for row in complete_rows)
+    title = "Phase 11 Retrieval Ablation Comparison" if all_retrieval else "Phase 11 A0-A7 Ablation Comparison"
     lines = [
-        "# Phase 11 A0-A7 Ablation Comparison",
+        f"# {title}",
         "",
         f"Generated at: {report['generated_at']}",
         "",
@@ -100,33 +112,54 @@ def render_ablation_comparison(report: dict[str, Any]) -> str:
         "",
         "## Metrics",
         "",
-        "| Config | Evaluated | EX | Valid SQL | Reliability | Unsafe SQL | Mean Latency ms | P95 Latency ms |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    if all_retrieval:
+        lines.extend(
+            [
+                "| Config | Backend | Reranker | Evaluated | Retrieval Hit Rate | Retrieval Miss Rate | Mean Latency ms | P95 Latency ms |",
+                "|---|---|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "| Config | Evaluated | EX | Valid SQL | Reliability | Unsafe SQL | Mean Latency ms | P95 Latency ms |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
     for row in report["rows"]:
         if not row.get("complete"):
             lines.append(f"| {row.get('config_id')} | incomplete |  |  |  |  |  |  |")
             continue
-        lines.append(
-            "| {config_id} | {evaluated} | {execution_accuracy} | {valid_sql_rate} | "
-            "{reliability_score} | {unsafe_sql} | {latency_mean_ms} | {latency_p95_ms} |".format(**row)
-        )
+        if all_retrieval:
+            lines.append(
+                "| {config_id} | {retrieval_backend} | {retrieval_reranker} | {evaluated} | "
+                "{retrieval_hit_rate} | {retrieval_miss_rate} | {latency_mean_ms} | {latency_p95_ms} |".format(
+                    **{**row, "retrieval_reranker": row.get("retrieval_reranker") or "none"}
+                )
+            )
+        else:
+            lines.append(
+                "| {config_id} | {evaluated} | {execution_accuracy} | {valid_sql_rate} | "
+                "{reliability_score} | {unsafe_sql} | {latency_mean_ms} | {latency_p95_ms} |".format(**row)
+            )
     lines.extend(
         [
             "",
             "## Runtime Contract",
             "",
-            "| Config | Runtime Enforced | Runtime Locked | Metadata Only | Warnings |",
-            "|---|---|---|---|---|",
+            "| Config | Runtime Enforced | Runtime Locked | Runtime Parameters | Metadata Only | Warnings |",
+            "|---|---|---|---|---|---|",
         ]
     )
     for row in report["rows"]:
         contract = row.get("runtime_contract") or {}
         enforced = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_enforced") or {}).items())
         locked = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_locked") or {}).items())
+        runtime_parameters = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_parameters") or {}).items()) or "none"
         metadata_only = ", ".join(f"{k}={v}" for k, v in (contract.get("metadata_only") or {}).items()) or "none"
         warnings = "; ".join(contract.get("warnings") or []) or "none"
-        lines.append(f"| {row.get('config_id')} | {enforced} | {locked} | {metadata_only} | {warnings} |")
+        lines.append(f"| {row.get('config_id')} | {enforced} | {locked} | {runtime_parameters} | {metadata_only} | {warnings} |")
     lines.extend(["", "## Limitations", ""])
     lines.extend(f"- {item}" for item in report["limitations"])
     return "\n".join(lines) + "\n"

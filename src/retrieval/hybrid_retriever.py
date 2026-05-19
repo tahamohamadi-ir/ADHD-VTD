@@ -21,11 +21,17 @@ class HybridRetriever:
     indexed_examples_path: Path = INDEXED_EXAMPLES_PATH
     bm25_index_path: Path = field(default_factory=lambda: RAG_DIR / "bm25" / "bm25_index.json")
     use_vector_store: bool = True
+    retrieval_mode: str | None = None
     scorer: RetrievalScorer = field(default_factory=RetrievalScorer)
 
     def __post_init__(self) -> None:
         self.indexed_examples_path = Path(self.indexed_examples_path)
         self.records = read_jsonl(self.indexed_examples_path)
+        if self.retrieval_mode is None:
+            self.retrieval_mode = "hybrid" if self.use_vector_store else "bm25"
+        if self.retrieval_mode not in {"bm25", "vector", "hybrid"}:
+            raise ValueError(f"Unsupported retrieval_mode: {self.retrieval_mode}")
+        self.use_vector_store = self.retrieval_mode in {"vector", "hybrid"}
         self._bm25: BM25Index | None = None
         self._vector_store: ChromaStore | None = None
 
@@ -55,11 +61,13 @@ class HybridRetriever:
     ) -> list[RetrievedExample]:
         retrieval_query = query if isinstance(query, RetrievalQuery) else RetrievalQuery(text=query)
 
-        lexical_raw = self.bm25.score(retrieval_query.text)
-        lexical_scores = normalize_scores(lexical_raw)
+        lexical_scores: dict[str, float] = {}
+        if self.retrieval_mode in {"bm25", "hybrid"}:
+            lexical_raw = self.bm25.score(retrieval_query.text)
+            lexical_scores = normalize_scores(lexical_raw)
 
         semantic_raw: dict[str, float] = {}
-        if self.use_vector_store:
+        if self.retrieval_mode in {"vector", "hybrid"}:
             for item in self.vector_store.search(retrieval_query.text, top_k=candidate_pool_size):
                 record_id = str(item.record.get("id"))
                 semantic_raw[record_id] = item.score

@@ -1,7 +1,7 @@
 # Phase 11 - Ablation, Error Analysis, and Research Metrics
 
-**Status:** In progress - artifact error report, runtime flag contract, real A0-A7 smoke runs, and ablation comparison report complete  
-**Updated:** 2026-05-18  
+**Status:** In progress - artifact error report, runtime flag contract, real A0-A7 smoke runs, ablation comparison report, and docs/06 taxonomy alignment complete  
+**Updated:** 2026-05-19  
 **Dependency:** Phase 10 benchmark/trace infrastructure is complete.  
 
 ## Non-Negotiable Rules
@@ -62,6 +62,15 @@ First-paper ablations:
 
 Current A0-A7 smoke runs have real benchmark artifacts and a comparison report, but they are still smoke-scale evidence, not paper-grade final metrics. Reports must show the runtime flag contract so component isolation is auditable.
 
+Retrieval ablation configs:
+
+| ID | Backend | Status |
+|---|---|---|
+| R0 | BM25 lexical only | config and real smoke artifact exist |
+| R1 | vector only | config and real smoke artifact exist |
+| R2 | BM25 + vector hybrid | config and real smoke artifact exist |
+| R3 | hybrid + current identity reranker | config and real smoke artifact exist; wiring only, not a model-backed reranker claim |
+
 ## Statistical Testing Rules
 
 Use paired tests only when two runs evaluated the same `case_id` set:
@@ -88,21 +97,25 @@ The report must include `b`, `c`, chi-square statistic, p-value approximation, a
 Primary categories:
 
 - `INTENT_ERROR`
-- `SAFETY_FALSE_POSITIVE`
-- `FALSE_ABSTENTION`
-- `INVALID_SQL`
-- `RESULT_MISMATCH`
+- `PERSIAN_NORMALIZATION_ERROR`
+- `DATE_NORMALIZATION_ERROR`
+- `JALALI_MAPPING_ERROR`
+- `FINGLISH_RESOLUTION_ERROR`
+- `COLLOQUIAL_MISMATCH_ERROR`
 - `SCHEMA_LINKING_ERROR`
 - `VALUE_LINKING_ERROR`
-- `RETRIEVAL_ERROR`
+- `JOIN_ERROR`
+- `SQL_SYNTAX_ERROR`
 - `AGGREGATION_ERROR`
+- `SEMANTIC_METRIC_ERROR`
 - `FILTER_ERROR`
-- `SHAPE_CONTRACT_ERROR`
+- `RAG_RETRIEVAL_ERROR`
 - `REFLEXION_FAILURE`
-- `SEMANTIC_REVIEW_REQUIRED`
-- `UNKNOWN_ERROR`
+- `SAFETY_FAILURE`
+- `CLARIFICATION_FAILURE`
+- `UNSUPPORTED_QUERY`
 
-The taxonomy is report-side analysis. It must not rewrite benchmark outcomes.
+The docs/06 taxonomy is report-side analysis. It must not rewrite benchmark outcomes. Valid SQL result mismatches without an independent semantic/business judgment stay as `pending_semantic_review`; Phase 11 must not guess a docs/06 semantic label just to fill a table.
 
 ## First Closeout Target
 
@@ -117,6 +130,7 @@ Phase 11 first slice is done when:
 - [x] Runtime flag contract is recorded so ablation configs cannot silently claim unsupported component isolation.
 - [x] A real A0-A7 smoke manifest has completed with benchmark artifacts for every job.
 - [x] A comparison report can be generated from the completed manifest without running a model or inventing missing metrics.
+- [x] Artifact analysis now writes docs/06-aligned labels separately from legacy `research_error` labels and preserves `pending_semantic_review` for unjudged valid mismatches.
 
 ## Verified Outputs
 
@@ -446,6 +460,55 @@ latency_median_ms: 9746.5
 latency_p95_ms: 17686.0
 latency_max_ms: 17686.0
 research_error_counts: FALSE_ABSTENTION=3, SEMANTIC_REVIEW_REQUIRED=2
+```
+
+Docs/06 taxonomy alignment rerun:
+
+```text
+artifact: results/benchmark/manual_a4_after_generation_token_cap
+report: results/error_analysis/20260519_phase11_docs06_taxonomy_a4_token_cap/error_report.md
+summary: results/error_analysis/20260519_phase11_docs06_taxonomy_a4_token_cap/analysis_summary.json
+docs06_error_counts: AGGREGATION_ERROR=2, SCHEMA_LINKING_ERROR=1
+pending_semantic_review: 2
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_artifact_analysis.py tests\tier1_unit\test_statistical_tests.py -vv --tb=short -> 7 passed
+```
+
+Retrieval ablation dry-run:
+
+```text
+manifest: results/ablation/20260519_phase11_retrieval_dry_run_manifest/ablation_manifest.json
+jobs: 4
+result_status: not_run for all R0-R3 jobs
+anti_fake_policy: config manifests are not benchmark results
+runtime_parameters: retrieval_backend and reranker are recorded without unknown-flag warnings
+```
+
+Retrieval config smoke:
+
+```text
+artifact: results/benchmark/manual_r0_retrieval_bm25_smoke
+config: experiments/configs/R0_retrieval_bm25.yaml
+backend: bm25
+evaluated: 8
+retrieval_hit_rate: 1.0
+latency_mean_ms: 1.38
+limitation: this verifies config/runtime wiring only; it is not the full retrieval ablation matrix.
+```
+
+Retrieval ablation smoke execution:
+
+```text
+manifest: results/ablation/20260519_phase11_retrieval_execute/ablation_manifest.json
+report: results/ablation/20260519_phase11_retrieval_execute/ablation_comparison.md
+jobs_completed: 4/4
+same_dataset_hash: True
+same_selected_cases_hash: True
+R0_retrieval_bm25: hit_rate=1.0, miss_rate=0.0, latency_mean_ms=1.75
+R1_retrieval_vector: hit_rate=1.0, miss_rate=0.0, latency_mean_ms=690.88
+R2_retrieval_hybrid: hit_rate=0.875, miss_rate=0.125, latency_mean_ms=650.5
+R3_retrieval_hybrid_rerank: hit_rate=0.875, miss_rate=0.125, latency_mean_ms=740.25
+limitation: 8-case smoke only; R3 uses the current identity reranker and is not a model-backed reranker claim.
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_ablation_report.py tests\tier1_unit\test_ablation_runner.py tests\tier1_unit\test_retrieval.py -vv --tb=short -> 12 passed, 2 warnings
 ```
 
 Improvements verified from real artifacts:

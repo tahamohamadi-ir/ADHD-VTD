@@ -17,6 +17,11 @@ RUNTIME_LOCKED_FLAGS = {
     "validation": "Read-only SQL validation cannot be disabled in benchmark execution.",
 }
 
+RUNTIME_PARAMETER_FLAGS = {
+    "retrieval_backend",
+    "reranker",
+}
+
 METADATA_ONLY_FLAGS: dict[str, str] = {}
 
 
@@ -30,6 +35,7 @@ def ablation_runtime_contract(flags: dict[str, bool]) -> dict[str, Any]:
     warnings: list[str] = []
     enforced: dict[str, bool] = {}
     locked: dict[str, bool] = {}
+    runtime_parameters: dict[str, Any] = {}
     metadata_only: dict[str, bool] = {}
     unknown: dict[str, bool] = {}
 
@@ -40,6 +46,8 @@ def ablation_runtime_contract(flags: dict[str, bool]) -> dict[str, Any]:
             locked[key] = True
             if value is False:
                 warnings.append(f"{key}=false requested but ignored: {RUNTIME_LOCKED_FLAGS[key]}")
+        elif key in RUNTIME_PARAMETER_FLAGS:
+            runtime_parameters[key] = value
         elif key in METADATA_ONLY_FLAGS:
             metadata_only[key] = value
             warnings.append(f"{key} is metadata-only: {METADATA_ONLY_FLAGS[key]}")
@@ -50,6 +58,7 @@ def ablation_runtime_contract(flags: dict[str, bool]) -> dict[str, Any]:
     return {
         "runtime_enforced": enforced,
         "runtime_locked": locked,
+        "runtime_parameters": runtime_parameters,
         "metadata_only": metadata_only,
         "unknown": unknown,
         "warnings": warnings,

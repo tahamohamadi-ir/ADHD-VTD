@@ -17,6 +17,27 @@ REQUIRED_SUFFIXES = {
     "failures": "_failures.jsonl",
 }
 
+DOCS06_TAXONOMY = {
+    "INTENT_ERROR",
+    "PERSIAN_NORMALIZATION_ERROR",
+    "DATE_NORMALIZATION_ERROR",
+    "JALALI_MAPPING_ERROR",
+    "FINGLISH_RESOLUTION_ERROR",
+    "COLLOQUIAL_MISMATCH_ERROR",
+    "SCHEMA_LINKING_ERROR",
+    "VALUE_LINKING_ERROR",
+    "JOIN_ERROR",
+    "SQL_SYNTAX_ERROR",
+    "AGGREGATION_ERROR",
+    "SEMANTIC_METRIC_ERROR",
+    "FILTER_ERROR",
+    "RAG_RETRIEVAL_ERROR",
+    "REFLEXION_FAILURE",
+    "SAFETY_FAILURE",
+    "CLARIFICATION_FAILURE",
+    "UNSUPPORTED_QUERY",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkArtifact:
@@ -96,6 +117,74 @@ def classify_research_error(record: dict[str, Any]) -> str:
     return error or "UNKNOWN_ERROR"
 
 
+def _docs06_from_validation_codes(codes: list[str]) -> str | None:
+    normalized = [code.upper() for code in codes]
+    joined = " ".join(normalized)
+    if not joined:
+        return None
+
+    if any(token in joined for token in ("UNSUPPORTED", "PERCENTILE", "WITHIN_GROUP", "SQLITE_DIALECT")):
+        return "SQL_SYNTAX_ERROR"
+    if any(token in joined for token in ("UNKNOWN_TABLE", "UNKNOWN_COLUMN", "MISSING_LONG_PREVALENCE_TABLE", "MISSING_PREVALENCE_LONG_COLUMNS")):
+        return "SCHEMA_LINKING_ERROR"
+    if "JOIN" in joined:
+        return "JOIN_ERROR"
+    if any(token in joined for token in ("FILTER", "THRESHOLD", "NULL", "AVERAGE_FILTER")):
+        return "FILTER_ERROR"
+    if any(token in joined for token in ("CHANGE_MEASURE", "RATE_FORMULA", "POSITIVES", "METRIC")):
+        return "SEMANTIC_METRIC_ERROR"
+    if any(token in joined for token in ("GROUP", "COUNT", "AVERAGE", "BINNING", "AGGREGATE", "RISK_KEY")):
+        return "AGGREGATION_ERROR"
+    if any(code.startswith("ANALYTICAL_SHAPE") for code in normalized):
+        return "AGGREGATION_ERROR"
+    return None
+
+
+def classify_docs06_error(record: dict[str, Any]) -> str | None:
+    """Return a docs/06 primary error only when artifact evidence is sufficient.
+
+    Valid SQL result mismatches without a semantic/business judgment are left
+    unclassified instead of being guessed as semantic metric errors.
+    """
+
+    error = str(record.get("error") or "")
+    intent = str(record.get("intent") or "")
+    expected_action = str(record.get("expected_action") or "")
+    actual_action = str(record.get("actual_action") or "")
+    codes = _validation_codes(record)
+
+    if intent == "unsafe_query" and expected_action == "generate_sql":
+        return "INTENT_ERROR"
+    if error == "ACTION_MISMATCH":
+        return "INTENT_ERROR"
+
+    code_label = _docs06_from_validation_codes(codes)
+    if code_label:
+        return code_label
+
+    if actual_action.startswith("ask_") and expected_action == "generate_sql":
+        return "CLARIFICATION_FAILURE"
+    if error == "MISSING_GENERATED_SQL":
+        return "CLARIFICATION_FAILURE"
+
+    if error == "INVALID_SQL":
+        return "SQL_SYNTAX_ERROR"
+    if error == "RESULT_MISMATCH":
+        semantic_business_correct = record.get("semantic_business_correct")
+        if semantic_business_correct is False:
+            return "SEMANTIC_METRIC_ERROR"
+        return None
+    return None
+
+
+def requires_semantic_review(record: dict[str, Any]) -> bool:
+    return (
+        str(record.get("error") or "") == "RESULT_MISMATCH"
+        and bool(record.get("valid_sql"))
+        and record.get("semantic_business_correct") is None
+    )
+
+
 def _is_failure(record: dict[str, Any]) -> bool:
     return not bool(record.get("ok") or record.get("execution_correct") or record.get("result_match"))
 
@@ -115,6 +204,8 @@ def build_error_rows(predictions: list[dict[str, Any]], *, max_examples: int = 2
                 "actual_action": record.get("actual_action"),
                 "benchmark_error": record.get("error"),
                 "research_error": classify_research_error(record),
+                "docs06_error": classify_docs06_error(record),
+                "requires_semantic_review": requires_semantic_review(record),
                 "valid_sql": record.get("valid_sql"),
                 "execution_correct": record.get("execution_correct"),
                 "semantic_business_correct": record.get("semantic_business_correct"),
@@ -154,6 +245,8 @@ def render_error_report(
     latency = summary.get("latency", {})
     dataset = summary.get("dataset", {})
     taxonomy = Counter(row["research_error"] for row in error_rows)
+    docs06_taxonomy = Counter(row["docs06_error"] for row in error_rows if row.get("docs06_error"))
+    semantic_review_required = sum(1 for row in error_rows if row.get("requires_semantic_review"))
     by_difficulty = Counter(str(row.get("difficulty") or "unknown") for row in error_rows)
     by_category = Counter(str(row.get("category") or "unknown") for row in error_rows)
     semantic_unknown = sum(1 for row in predictions if row.get("semantic_business_correct") is None)
@@ -242,6 +335,27 @@ def render_error_report(
     lines.extend(
         [
             "",
+            "## Docs 06 Taxonomy Alignment",
+            "",
+            "This section maps failures to `docs/06_EVALUATION_ABLATION_AND_PAPER_PLAN.md` categories only when the artifact contains enough evidence. Valid SQL result mismatches without a semantic/business judgment remain pending review.",
+            "",
+            "| Docs06 Error | Count |",
+            "|---|---:|",
+        ]
+    )
+    if docs06_taxonomy:
+        for key, count in docs06_taxonomy.most_common():
+            lines.append(f"| {key} | {count} |")
+    else:
+        lines.append("| none_deterministic | 0 |")
+    lines.extend(
+        [
+            f"| pending_semantic_review | {semantic_review_required} |",
+        ]
+    )
+    lines.extend(
+        [
+            "",
             "## Failure Distribution",
             "",
             "### By Difficulty",
@@ -260,14 +374,14 @@ def render_error_report(
             "",
             "## Representative Failures",
             "",
-            "| ID | Difficulty | Category | Benchmark Error | Research Error | Valid SQL |",
-            "|---|---|---|---|---|---:|",
+            "| ID | Difficulty | Category | Benchmark Error | Research Error | Docs06 Error | Semantic Review Required | Valid SQL |",
+            "|---|---|---|---|---|---|---:|---:|",
         ]
     )
     for row in error_rows:
         lines.append(
-            "| {id} | {difficulty} | {category} | {benchmark_error} | {research_error} | {valid_sql} |".format(
-                **row
+            "| {id} | {difficulty} | {category} | {benchmark_error} | {research_error} | {docs06_error} | {requires_semantic_review} | {valid_sql} |".format(
+                **{**row, "docs06_error": row.get("docs06_error") or "pending"}
             )
         )
     lines.extend(
@@ -337,6 +451,8 @@ def analyze_benchmark_artifact(
             "total_attempts": len(attempts),
             "total_failures_analyzed": len(error_rows),
             "research_error_counts": dict(Counter(row["research_error"] for row in error_rows).most_common()),
+            "docs06_error_counts": dict(Counter(row["docs06_error"] for row in error_rows if row.get("docs06_error")).most_common()),
+            "semantic_review_required_count": sum(1 for row in error_rows if row.get("requires_semantic_review")),
         },
     )
     return {"report": report_path, "failure_cases": cases_path, "summary": summary_path}

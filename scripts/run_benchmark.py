@@ -33,6 +33,7 @@ from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
 from src.retrieval.hybrid_retriever import HybridRetriever
+from src.retrieval.reranker import IdentityReranker
 from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.retrieval.self_overlap import filter_self_overlaps
 from src.graph.state import VTDState
@@ -141,6 +142,7 @@ def retrieval_prediction(
     *,
     top_k: int,
     exclude_self: bool = False,
+    use_reranker: bool = False,
 ) -> dict[str, Any]:
     expected_tables, expected_columns = infer_sql_references(case.get("gold_sql") or case.get("sql"))
     expected_intent = case.get("intent") or case.get("expected_intent")
@@ -163,6 +165,8 @@ def retrieval_prediction(
             question=case_question(case),
         )
         retrieved = retrieved[:top_k]
+    if use_reranker:
+        retrieved = IdentityReranker().rerank(retrieved, top_k=top_k)
     latency_ms = int((time.perf_counter() - started) * 1000)
     retrieved_dicts = [item.to_dict() for item in retrieved]
 
@@ -618,7 +622,11 @@ def run(args: argparse.Namespace) -> Path:
         )
 
     if args.mode == "retrieval":
-        retriever = HybridRetriever(use_vector_store=args.use_vector)
+        retrieval_backend_arg = getattr(args, "retrieval_backend", None)
+        retrieval_backend_mode = retrieval_backend_arg or ("hybrid" if args.use_vector else "bm25")
+        use_reranker = retrieval_backend_mode == "hybrid_rerank"
+        retriever_mode = "hybrid" if use_reranker else retrieval_backend_mode
+        retriever = HybridRetriever(retrieval_mode=retriever_mode)
         for index, case in enumerate(cases, start=1):
             record = dict(
                 case,
@@ -627,6 +635,7 @@ def run(args: argparse.Namespace) -> Path:
                     retriever,
                     top_k=args.top_k,
                     exclude_self=exclude_self,
+                    use_reranker=use_reranker,
                 ),
             )
             records.append(record)
@@ -678,7 +687,7 @@ def run(args: argparse.Namespace) -> Path:
     dataset_summary = summarize_cases(cases)
     difficulty_counts = dataset_summary.get("by_difficulty", {})
     self_overlap_removed_total = sum(int(record.get("self_overlap_removed") or 0) for record in records)
-    retrieval_backend = "hybrid_json_vector" if args.use_vector else "bm25"
+    retrieval_backend = getattr(args, "retrieval_backend", None) or ("hybrid" if args.use_vector else "bm25")
     config = {
         "config_id": config_id,
         "mode": args.mode,
@@ -693,6 +702,7 @@ def run(args: argparse.Namespace) -> Path:
         "top_k": args.top_k,
         "use_vector": args.use_vector,
         "retrieval_backend": retrieval_backend,
+        "retrieval_reranker": "identity" if retrieval_backend == "hybrid_rerank" else None,
         "max_retries": SETTINGS.max_retries,
         "llm_context_window": SETTINGS.llm_context_window,
         "prompt_template": {
@@ -812,6 +822,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-k", type=int, default=3, help="Retrieval top-k.")
     parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
     parser.add_argument(
+        "--retrieval-backend",
+        choices=("bm25", "vector", "hybrid", "hybrid_rerank"),
+        default=None,
+        help="Retrieval backend for retrieval-mode ablations. hybrid_rerank uses the current identity reranker.",
+    )
+    parser.add_argument(
         "--exclude-self",
         action="store_true",
         help="Remove retrieved examples that match the evaluated case by base id or normalized question.",
@@ -875,6 +891,13 @@ def main() -> None:
             args.trace_level = yaml_data["trace_level"]
         if "exclude_self" in yaml_data:
             args.exclude_self = bool(yaml_data["exclude_self"])
+        if "retrieval" in yaml_data and isinstance(yaml_data["retrieval"], dict):
+            retrieval = yaml_data["retrieval"]
+            if "top_k" in retrieval:
+                args.top_k = int(retrieval["top_k"])
+            if "backend" in retrieval:
+                args.retrieval_backend = str(retrieval["backend"])
+                args.use_vector = args.retrieval_backend in {"vector", "hybrid", "hybrid_rerank"}
 
     if args.sample == 0:
         args.sample = None
