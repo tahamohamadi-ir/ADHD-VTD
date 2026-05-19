@@ -16,19 +16,21 @@
 | Phase 6 | Milestone 1.5 Stress Test | Completed | [PHASE_6_STRESS_TEST.md](PHASE_6_STRESS_TEST.md) |
 | Phase 7 | Hybrid CAG/RAG Retrieval | Completed | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
 | Phase 9 | Graph-Level Reflexion and SQL Repair | Basic completed | [PHASE_9_REFLEXION.md](PHASE_9_REFLEXION.md) |
-| Phase 10 | Benchmark Runner | In progress | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
+| Phase 10 | Benchmark Runner | Completed - infrastructure | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
+| Phase 11 | Ablation, Error Analysis, Research Metrics | In progress | [PHASE_11_ABLATION_ERROR_ANALYSIS.md](PHASE_11_ABLATION_ERROR_ANALYSIS.md) |
+| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | In progress | [../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md](../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md) |
 
 ## فازهای نیازمند سند مستقل
 
 | Phase | عنوان | وضعیت سند |
 |---|---|---|
 | Phase 8 | LangGraph Orchestration | TODO |
-| Phase 11 | Ablation, Error Analysis, Research Metrics | TODO |
+| Phase 11 | Ablation, Error Analysis, Research Metrics | Documented in `PHASE_11_ABLATION_ERROR_ANALYSIS.md` |
 | Phase 12 | Output, Chart, Narrative | TODO |
 | Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
 | Phase 14 | Edge Runtime | TODO |
 | Phase 15 | Research Packaging | TODO |
-| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` |
+| Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`; mock/offline scaffold implemented |
 
 ## قالب پیشنهادی هر phase document
 

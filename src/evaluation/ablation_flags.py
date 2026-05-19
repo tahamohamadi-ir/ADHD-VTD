@@ -10,6 +10,7 @@ RUNTIME_ENFORCED_FLAGS = {
     "cag",
     "reflexion",
     "repair",
+    "llm_judge",
 }
 
 RUNTIME_LOCKED_FLAGS = {

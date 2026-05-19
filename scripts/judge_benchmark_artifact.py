@@ -1,0 +1,53 @@
+from __future__ import annotations
+
+import argparse
+
+from _bootstrap_path import PROJECT_ROOT  # type: ignore
+
+from src.evaluation.llm_judge import judge_benchmark_artifact
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Create Phase 16 judgment artifacts from an existing benchmark artifact."
+    )
+    parser.add_argument("artifact_dir", help="Path to results/benchmark/<run> directory.")
+    parser.add_argument("--output-dir", help="Optional output directory under results/judgments.")
+    parser.add_argument(
+        "--judge-provider",
+        default="mock",
+        choices=["mock"],
+        help="Judge provider. The current offline scaffold supports only deterministic mock.",
+    )
+    parser.add_argument(
+        "--judge-sample-size",
+        type=int,
+        help="Limit the number of selected predictions to judge.",
+    )
+    parser.add_argument(
+        "--all-predictions",
+        action="store_true",
+        help="Judge all predictions instead of failures only.",
+    )
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    paths = judge_benchmark_artifact(
+        args.artifact_dir,
+        output_dir=args.output_dir,
+        provider_name=args.judge_provider,
+        failures_only=not args.all_predictions,
+        sample_size=args.judge_sample_size,
+    )
+    print(f"project_root={PROJECT_ROOT}")
+    print(f"judgments={paths['judgments']}")
+    print(f"summary={paths['summary']}")
+    print(f"costs={paths['costs']}")
+    print(f"semantic_summary={paths['semantic_summary']}")
+    print(f"reasoning={paths['reasoning']}")
+
+
+if __name__ == "__main__":
+    main()

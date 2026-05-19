@@ -93,7 +93,29 @@ class HybridRetriever:
             )
 
         scored.sort(key=lambda item: item.score, reverse=True)
-        return self._diversify(scored, top_k=top_k)
+        selected = self._diversify(scored, top_k=top_k)
+        return self._ensure_schema_evidence(selected, scored, retrieval_query)
+
+    def _ensure_schema_evidence(
+        self,
+        selected: list[RetrievedExample],
+        candidates: list[RetrievedExample],
+        query: RetrievalQuery,
+    ) -> list[RetrievedExample]:
+        if not selected or not (query.tables or query.columns):
+            return selected
+        if any(item.schema_overlap_score > 0 for item in selected):
+            return selected
+        schema_candidates = [item for item in candidates if item.schema_overlap_score > 0]
+        if not schema_candidates:
+            return selected
+        best_schema = max(schema_candidates, key=lambda item: (item.schema_overlap_score, item.score))
+        if best_schema.id in {item.id for item in selected}:
+            return selected
+        adjusted = list(selected)
+        adjusted[-1] = best_schema
+        adjusted.sort(key=lambda item: item.score, reverse=True)
+        return adjusted
 
     def _diversify(self, examples: list[RetrievedExample], top_k: int) -> list[RetrievedExample]:
         selected: list[RetrievedExample] = []

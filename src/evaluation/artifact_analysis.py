@@ -52,7 +52,8 @@ def _find_one(root: Path, suffix: str) -> Path:
     matches = sorted(root.glob(f"*{suffix}"))
     if not matches:
         raise FileNotFoundError(f"Missing required artifact '*{suffix}' in {root}")
-    return matches[0]
+    final_matches = [path for path in matches if "_partial_" not in path.name]
+    return final_matches[0] if final_matches else matches[0]
 
 
 def locate_benchmark_artifact(path: str | Path) -> BenchmarkArtifact:

@@ -1,0 +1,20 @@
+config_id: R0_retrieval_bm25
+ablation_id: R0_retrieval_bm25
+config_version: "phase11_retrieval_v1"
+mode: retrieval
+description: "Retrieval ablation baseline: BM25 lexical retrieval only."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+retrieval:
+  backend: bm25
+  top_k: 3
+exclude_self: true
+trace_level: compact
+features:
+  retrieval_backend: bm25
+reporting:
+  result_status: config_only_not_a_result
+  anti_fake: "This config is not a result until scripts/run_benchmark.py writes a real artifact."
+  anti_leakage: "Keep exclude_self=true for dev/test."

@@ -1,6 +1,6 @@
 # 11 - Semantic Business Logic Evaluation (LLM-as-a-Judge)
 
-**Status:** Phase 16 specification, not implemented yet  
+**Status:** Phase 16 scaffold in progress - deterministic mock provider, standalone artifact judge, and `run_benchmark.py --use-judge --judge-provider mock` integration are implemented; online/local providers remain open  
 **Dependency:** Phase 10 must first store complete prompt/response/SQL/result traces.
 
 ## 1. Rationale
@@ -60,23 +60,41 @@ needs_human_review
 ## 3. Technical Implementation
 
 ### Module: `src/evaluation/llm_judge.py`
-- Uses `src.config.settings` and environment variables for API keys.
-- Must never hardcode API keys or model names in code.
-- Provides a common provider interface:
-  - `OpenAIJudgeProvider`
-  - `LocalJudgeProvider`
-  - `MockJudgeProvider` for tests
-- Implements batching where provider allows it.
-- Supports reasoning summaries: the judge must explain why a score was given.
-- Stores token/cost estimates when an online provider is used.
+- [x] Provides a common provider protocol and deterministic `MockJudgeProvider` for tests/offline scaffolding.
+- [x] `MockJudgeProvider` is intentionally conservative:
+  - exact SQL match after normalization -> scaffold-correct;
+  - missing/invalid SQL -> scaffold-incorrect;
+  - valid SQL `RESULT_MISMATCH` -> `requires_semantic_review`, no invented semantic label.
+- [x] Standalone artifact judgment entry point exists:
+  `scripts/judge_benchmark_artifact.py`.
+- [ ] Uses `src.config.settings` and environment variables for API keys when online providers are added.
+- [ ] Must never hardcode API keys or online model names in code.
+- [ ] Add `OpenAIJudgeProvider`.
+- [ ] Add `LocalJudgeProvider`.
+- [ ] Implements batching where provider allows it.
+- [ ] Supports provider reasoning summaries beyond deterministic scaffold reasons.
+- [ ] Stores token/cost estimates when an online provider is used.
 
 ### Integration: `run_benchmark.py --use-judge`
-- When enabled, the runner sends failures and a sample of successes to the judge.
-- Generates:
-  - `judgments.jsonl`
-  - `judge_reasoning.md`
-  - `judge_costs.json`
-  - `semantic_business_summary.csv`
+- [x] Direct `run_benchmark.py --use-judge --judge-provider mock` integration exists for offline mock mode.
+- [ ] Direct `run_benchmark.py --use-judge` integration for online/local providers is still pending.
+- [x] Offline/standalone judgment from an existing benchmark artifact is available:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\judge_benchmark_artifact.py `
+  results\benchmark\manual_a4_after_generation_token_cap `
+  --output-dir results\judgments\20260519_phase16_mock_a4_token_cap `
+  --judge-provider mock
+```
+
+Current standalone scaffold generates:
+
+- `judgments.jsonl`
+- `judge_reasoning.md`
+- `judge_summary.json`
+- `judge_costs.json`
+- `semantic_business_summary.csv`
+- direct benchmark-run integration.
 
 Required CLI flags:
 
@@ -166,3 +184,57 @@ Phase 16 is done when:
 - Reports show execution correctness and semantic/business correctness separately.
 - Cases where EX passes but business correctness fails are explicitly listed.
 - Privacy redaction status is recorded for every judged case.
+
+## 9. Current Verified Scaffold
+
+Implemented files:
+
+- `src/evaluation/llm_judge.py`
+- `scripts/judge_benchmark_artifact.py`
+- `tests/tier1_unit/test_llm_judge.py`
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py tests\tier1_unit\test_artifact_analysis.py -vv --tb=short
+7 passed
+
+.\.venv\Scripts\python.exe -m py_compile src\evaluation\llm_judge.py scripts\judge_benchmark_artifact.py
+passed
+```
+
+First real artifact-backed mock judgment:
+
+```text
+source_artifact: results\benchmark\manual_a4_after_generation_token_cap
+output_dir: results\judgments\20260519_phase16_mock_a4_token_cap
+judgments: results\judgments\20260519_phase16_mock_a4_token_cap\judgments.jsonl
+summary: results\judgments\20260519_phase16_mock_a4_token_cap\judge_summary.json
+reasoning: results\judgments\20260519_phase16_mock_a4_token_cap\judge_reasoning.md
+costs: results\judgments\20260519_phase16_mock_a4_token_cap\judge_costs.json
+semantic_summary: results\judgments\20260519_phase16_mock_a4_token_cap\semantic_business_summary.csv
+total_predictions: 8
+total_judged: 5
+verdict_counts: invalid_sql=3, requires_semantic_review=2
+semantic_business_counts: incorrect=3, unjudged=2
+mock_cost: input_tokens=0, output_tokens=0, estimated_cost_usd=0.0, cost_authoritative=false
+authoritative: false
+```
+
+Interpretation:
+
+- The scaffold proves the judgment artifact contract can be generated from real benchmark outputs.
+- It does **not** claim semantic/business correctness for valid result mismatches.
+- `VTD-141` and `VTD-300` remain `requires_semantic_review`.
+- This is an anti-fake guard, not a replacement for a SOTA online/local judge or human review.
+
+Integrated runner smoke:
+
+```text
+command: .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode gold --dataset dev --sample 1 --bootstrap-iterations 20 --use-judge --judge-provider mock --no-judge-failures-only --ablation-id phase16_mock_integration_smoke_v2
+artifact: results\benchmark\20260519_085308_gold_dev_qwen2-5-coder-7b_phase16_mock_integration_smoke_v2
+benchmark: evaluated=1, failures=0, execution_accuracy=1.0, valid_sql_rate=1.0, reliability_score=1.0, unsafe_sql=0
+judge_files: judgments.jsonl, judge_summary.json, judge_reasoning.md, judge_costs.json, semantic_business_summary.csv
+judge_result: total_judged=1, exact_sql_match=1, semantic_correct=1, authoritative=false
+artifact_locator_fix: final *_predictions.jsonl is preferred over *_partial_predictions.jsonl when both exist.
+```

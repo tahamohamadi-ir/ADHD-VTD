@@ -1,6 +1,6 @@
 # Phase 11 - Ablation, Error Analysis, and Research Metrics
 
-**Status:** In progress - artifact error report, runtime flag contract, real A0-A7 smoke runs, ablation comparison report, and docs/06 taxonomy alignment complete  
+**Status:** In progress - artifact error report, runtime flag contract, real A0-A7 smoke runs, docs/06 taxonomy alignment, retrieval ablation smoke, and full-dev retrieval ablation complete  
 **Updated:** 2026-05-19  
 **Dependency:** Phase 10 benchmark/trace infrastructure is complete.  
 
@@ -66,10 +66,10 @@ Retrieval ablation configs:
 
 | ID | Backend | Status |
 |---|---|---|
-| R0 | BM25 lexical only | config and real smoke artifact exist |
-| R1 | vector only | config and real smoke artifact exist |
-| R2 | BM25 + vector hybrid | config and real smoke artifact exist |
-| R3 | hybrid + current identity reranker | config and real smoke artifact exist; wiring only, not a model-backed reranker claim |
+| R0 | BM25 lexical only | config, smoke artifact, and full-dev artifact exist |
+| R1 | vector only | config, smoke artifact, and full-dev artifact exist |
+| R2 | BM25 + vector hybrid | config, smoke artifact, full-dev artifact, and schema-evidence guard verification exist |
+| R3 | hybrid + current identity reranker | config, smoke artifact, and full-dev artifact exist; wiring only, not a model-backed reranker claim |
 
 ## Statistical Testing Rules
 
@@ -509,6 +509,51 @@ R2_retrieval_hybrid: hit_rate=0.875, miss_rate=0.125, latency_mean_ms=650.5
 R3_retrieval_hybrid_rerank: hit_rate=0.875, miss_rate=0.125, latency_mean_ms=740.25
 limitation: 8-case smoke only; R3 uses the current identity reranker and is not a model-backed reranker claim.
 tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_ablation_report.py tests\tier1_unit\test_ablation_runner.py tests\tier1_unit\test_retrieval.py -vv --tb=short -> 12 passed, 2 warnings
+```
+
+Initial full-dev retrieval ablation before schema-evidence guard:
+
+```text
+manifest: results/ablation/20260519_phase11_retrieval_dev_full_execute/ablation_manifest.json
+report: results/ablation/20260519_phase11_retrieval_dev_full_execute/ablation_comparison.md
+jobs_completed: 4/4
+same_dataset_hash: True
+same_selected_cases_hash: True
+evaluated_per_config: 60
+R0_retrieval_bm25_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=0.78, latency_max_ms=8.0
+R1_retrieval_vector_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=97.88, latency_max_ms=5657.0
+R2_retrieval_hybrid_dev_full: hits=58/60, hit_rate=0.9666666666666667, miss_rate=0.03333333333333333, latency_mean_ms=95.52, latency_max_ms=5440.0
+R3_retrieval_hybrid_rerank_dev_full: hits=58/60, hit_rate=0.9666666666666667, miss_rate=0.03333333333333333, latency_mean_ms=104.47, latency_max_ms=5960.0
+hybrid_misses: VTD-039, VTD-036
+interpretation: this was a real intermediate failure. BM25-only and vector-only both hit all 60 dev cases, while hybrid scoring/ranking lost two easy distribution cases before the schema-evidence guard.
+limitation: R3 still uses the identity reranker placeholder; it is not a model-backed reranker claim.
+```
+
+Full-dev retrieval ablation after general schema-evidence guard:
+
+```text
+guard: schema evidence is preserved after self-overlap filtering and before the final top-k slice.
+scope: general schema-overlap promotion; no benchmark IDs or gold SQL are used at runtime.
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_benchmark_retrieval_prediction.py tests\tier1_unit\test_retrieval.py tests\tier1_unit\test_ablation_report.py tests\tier1_unit\test_ablation_runner.py -vv --tb=short -> 14 passed, 2 warnings
+compile: .\.venv\Scripts\python.exe -m py_compile scripts\run_benchmark.py src\retrieval\hybrid_retriever.py src\retrieval\schema_evidence.py
+intermediate_check_manifest: results/ablation/20260519_phase11_retrieval_dev_full_schema_guard_after_filter_r2_r3/ablation_manifest.json
+intermediate_check_report: results/ablation/20260519_phase11_retrieval_dev_full_schema_guard_after_filter_r2_r3/ablation_comparison.md
+intermediate_check_result: R2 and R3 both recovered to 60/60 on the previously missed full-dev cases.
+final_manifest: results/ablation/20260519_phase11_retrieval_dev_full_final/ablation_manifest.json
+final_report: results/ablation/20260519_phase11_retrieval_dev_full_final/ablation_comparison.md
+final_summary: results/ablation/20260519_phase11_retrieval_dev_full_final/ablation_comparison.json
+jobs_completed: 4/4
+same_dataset_hash: True
+same_selected_cases_hash: True
+selected_cases_hash: d83596c1a3f32e1bf4e27a7db38cd7cab0c27632ca77ba0da91ee0d8a40721fa
+dataset_hash: 909d855452bca90a7f5b25cf098d05748b281f2756b037afc86159fc2d256aee
+evaluated_per_config: 60
+R0_retrieval_bm25_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=0.7, latency_p95_ms=1.0
+R1_retrieval_vector_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=109.28, latency_p95_ms=9.0
+R2_retrieval_hybrid_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=109.28, latency_p95_ms=8.0
+R3_retrieval_hybrid_rerank_dev_full: hits=60/60, hit_rate=1.0, miss_rate=0.0, latency_mean_ms=102.75, latency_p95_ms=7.0
+interpretation: the earlier R2/R3 58/60 full-dev result was a real intermediate failure. The final artifact-backed run shows that the general schema-evidence guard fixes those retrieval misses on dev without editing labels or using case-specific logic.
+limitation: R3 still uses the identity reranker placeholder; this is not a model-backed reranker claim.
 ```
 
 Improvements verified from real artifacts:

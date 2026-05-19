@@ -32,9 +32,11 @@ from src.evaluation.reliability_metrics import reliability_score
 from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
+from src.evaluation.llm_judge import judge_benchmark_artifact
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.reranker import IdentityReranker
 from src.retrieval.retrieval_scorer import RetrievalQuery
+from src.retrieval.schema_evidence import ensure_schema_evidence_after_filter
 from src.retrieval.self_overlap import filter_self_overlaps
 from src.graph.state import VTDState
 import uuid
@@ -164,6 +166,7 @@ def retrieval_prediction(
             case_id=case.get("id") or case.get("case_id"),
             question=case_question(case),
         )
+        retrieved = ensure_schema_evidence_after_filter(retrieved, top_k=top_k)
         retrieved = retrieved[:top_k]
     if use_reranker:
         retrieved = IdentityReranker().rerank(retrieved, top_k=top_k)
@@ -586,6 +589,9 @@ def run(args: argparse.Namespace) -> Path:
         "reliability_gate": False,
         "llm_judge": False,
     }
+    if getattr(args, "use_judge", False):
+        ablation_config = dict(ablation_config)
+        ablation_config["llm_judge"] = True
     ablation_contract = ablation_runtime_contract(ablation_config)
     enabled_modules, disabled_modules = split_module_flags(ablation_config)
     
@@ -725,6 +731,12 @@ def run(args: argparse.Namespace) -> Path:
         "disabled_modules": disabled_modules,
         "module_flags": ablation_config,
         "ablation_runtime_contract": ablation_contract,
+        "judge": {
+            "enabled": bool(getattr(args, "use_judge", False)),
+            "provider": getattr(args, "judge_provider", "mock"),
+            "sample_size": getattr(args, "judge_sample_size", None),
+            "failures_only": bool(getattr(args, "judge_failures_only", True)),
+        },
         "started_at": started_at,
         "finished_at": utc_now(),
         "git_commit": git_commit(),
@@ -798,6 +810,34 @@ def run(args: argparse.Namespace) -> Path:
     write_json(artifact_paths["summary_json"], summary)
     if args.mode == "retrieval":
         write_json(artifact_paths["retrieval_metrics"], summary["retrieval_metrics"])
+
+    if getattr(args, "use_judge", False):
+        judge_paths = judge_benchmark_artifact(
+            output_dir,
+            output_dir=output_dir,
+            provider_name=getattr(args, "judge_provider", "mock"),
+            failures_only=bool(getattr(args, "judge_failures_only", True)),
+            sample_size=getattr(args, "judge_sample_size", None),
+        )
+        artifact_paths.update(
+            {
+                "judgments": judge_paths["judgments"],
+                "judge_summary": judge_paths["summary"],
+                "judge_costs": judge_paths["costs"],
+                "semantic_business_summary_csv": judge_paths["semantic_summary"],
+                "judge_reasoning": judge_paths["reasoning"],
+            }
+        )
+        summary["artifacts"] = {key: str(path) for key, path in artifact_paths.items()}
+        summary["judge"] = {
+            "enabled": True,
+            "provider": getattr(args, "judge_provider", "mock"),
+            "sample_size": getattr(args, "judge_sample_size", None),
+            "failures_only": bool(getattr(args, "judge_failures_only", True)),
+            "artifacts": {key: str(path) for key, path in judge_paths.items()},
+            "authoritative": False,
+        }
+        write_json(artifact_paths["summary_json"], summary)
     
     # Export CSVs and Paper Tables
     export_benchmark_csvs(records, summary, output_dir, prefix=prefix)
@@ -844,6 +884,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", help="Path to a benchmark YAML config file.")
     parser.add_argument("--seed", type=int, default=SETTINGS.random_seed, help="Random seed for deterministic metric resampling.")
     parser.add_argument("--bootstrap-iterations", type=int, default=1000, help="Bootstrap iterations for confidence intervals.")
+    parser.add_argument("--use-judge", action="store_true", help="Generate judgment artifacts after the benchmark run.")
+    parser.add_argument(
+        "--judge-provider",
+        choices=("mock",),
+        default="mock",
+        help="Judge provider. Current integrated runner supports offline deterministic mock only.",
+    )
+    parser.add_argument("--judge-sample-size", type=int, help="Limit selected predictions sent to the judge.")
+    parser.add_argument(
+        "--judge-failures-only",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Judge failures only by default. Use --no-judge-failures-only to judge all predictions.",
+    )
     parser.set_defaults(ablation_config=None)
     return parser
 

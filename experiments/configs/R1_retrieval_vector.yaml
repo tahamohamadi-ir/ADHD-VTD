@@ -1,0 +1,20 @@
+config_id: R1_retrieval_vector
+ablation_id: R1_retrieval_vector
+config_version: "phase11_retrieval_v1"
+mode: retrieval
+description: "Retrieval ablation: vector retrieval only."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+retrieval:
+  backend: vector
+  top_k: 3
+exclude_self: true
+trace_level: compact
+features:
+  retrieval_backend: vector
+reporting:
+  result_status: config_only_not_a_result
+  anti_fake: "This config is not a result until scripts/run_benchmark.py writes a real artifact."
+  anti_leakage: "Keep exclude_self=true for dev/test."
