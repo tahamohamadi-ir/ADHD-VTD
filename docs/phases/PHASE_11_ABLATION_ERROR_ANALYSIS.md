@@ -746,6 +746,25 @@ semantic_correct_strict_incorrect: VTD-300
 
 Interpretation: the final A4 dual-policy slice is complete and artifact-backed. It must be used as evaluation evidence only; do not tune prompts, validators, retrieval, or shape contracts to these eight IDs. Any model-quality change must be general and revalidated on a separate dev slice or larger balanced run.
 
+Paper-facing evidence package:
+
+```text
+code: src/evaluation/dual_policy_packaging.py
+cli: scripts/package_dual_policy_evidence.py
+test: tests/tier1_unit/test_dual_policy_packaging.py
+output_dir: results/paper/20260520_phase16_a4_dual_policy_evidence
+summary: results/paper/20260520_phase16_a4_dual_policy_evidence/paper_evidence_summary.json
+case_csv: results/paper/20260520_phase16_a4_dual_policy_evidence/paper_evidence_cases.csv
+report: results/paper/20260520_phase16_a4_dual_policy_evidence/paper_evidence_table.md
+evidence_label: small_dev_a4_slice
+benchmark_metrics: execution_accuracy=0.375, valid_sql_rate=0.625, reliability_score=0.25
+dual_policy_metrics: semantic_correct=4, semantic_incorrect=4, strict_correct=3, strict_incorrect=5, both_correct=3, both_incorrect=4, semantic_correct_strict_incorrect=1
+verification: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_dual_policy_packaging.py tests\tier1_unit\test_dual_policy_report.py -vv --tb=short -> 2 passed
+compile: .\.venv\Scripts\python.exe -m py_compile src\evaluation\dual_policy_packaging.py scripts\package_dual_policy_evidence.py -> passed
+```
+
+Interpretation: the package is a paper-facing view over existing artifacts only. It adds no new labels and keeps semantic-user-question correctness separate from strict-reference correctness.
+
 Redaction policy artifact:
 
 ```text

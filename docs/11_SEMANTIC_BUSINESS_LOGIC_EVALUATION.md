@@ -673,6 +673,25 @@ semantic_correct_strict_incorrect: VTD-300
 
 Interpretation: this is a completed 8-case A4 dual-policy evaluation slice. It is evidence for reporting evaluation gaps, not a license to tune prompts or validators to these IDs. Any future quality improvement must be general and validated on a fresh dev slice or larger run.
 
+Paper-facing evidence package:
+
+```text
+code: src\evaluation\dual_policy_packaging.py
+cli: scripts\package_dual_policy_evidence.py
+test: tests\tier1_unit\test_dual_policy_packaging.py
+output_dir: results\paper\20260520_phase16_a4_dual_policy_evidence
+summary: results\paper\20260520_phase16_a4_dual_policy_evidence\paper_evidence_summary.json
+case_csv: results\paper\20260520_phase16_a4_dual_policy_evidence\paper_evidence_cases.csv
+report: results\paper\20260520_phase16_a4_dual_policy_evidence\paper_evidence_table.md
+evidence_label: small_dev_a4_slice
+benchmark_metrics: execution_accuracy=0.375, valid_sql_rate=0.625, reliability_score=0.25
+dual_policy_metrics: semantic_correct=4, semantic_incorrect=4, strict_correct=3, strict_incorrect=5, both_correct=3, both_incorrect=4, semantic_correct_strict_incorrect=1
+verification: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_dual_policy_packaging.py tests\tier1_unit\test_dual_policy_report.py -vv --tb=short -> 2 passed
+compile: .\.venv\Scripts\python.exe -m py_compile src\evaluation\dual_policy_packaging.py scripts\package_dual_policy_evidence.py -> passed
+```
+
+Anti-fake interpretation: this package reads only existing benchmark and dual-policy artifacts. It does not call a model, edit predictions, infer missing labels, or turn provider-error/unjudged rows into correctness claims. It is safe to cite as a small dev/A4 evidence table, not as a final benchmark result.
+
 Redaction policy artifact:
 
 ```text
