@@ -29,6 +29,8 @@ from src.evaluation.ablation_flags import ablation_runtime_contract, normalize_f
 from src.evaluation.error_analyzer import analyze_errors
 from src.evaluation.metrics import add_bootstrap_cis, aggregate_basic_metrics, latency_summary
 from src.evaluation.reliability_metrics import reliability_score
+from src.evaluation.reliability_gate import evaluate_reliability_gate
+from src.evaluation.sql_consistency_critic import analyze_question_sql_consistency
 from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
@@ -388,7 +390,7 @@ def agent_prediction(
         final_state=final_state_dict,
     )
 
-    return {
+    prediction = {
         "actual_action": actual_action,
         "mode": "agent",
         "ok": ok,
@@ -418,6 +420,26 @@ def agent_prediction(
         "attempts": attempts,
         "error": error,
     }
+    if (ablation_config or {}).get("reliability_gate", False):
+        consistency_report = analyze_question_sql_consistency(question, generated_sql)
+        prediction["sql_consistency_critic"] = consistency_report.as_dict()
+        prediction["sql_consistency_issue_count"] = len(consistency_report.issues)
+        gate_record = {
+            **prediction,
+            "should_generate_sql": case.get("should_generate_sql"),
+            "intent_confidence": final_state_dict.get("intent_confidence"),
+            "execution_result": final_state_dict.get("execution_result"),
+            "max_retries": final_state_dict.get("max_retries"),
+            "needs_clarification": final_state_dict.get("needs_clarification"),
+            "safety_label": final_state_dict.get("safety_label"),
+            "sql_consistency_issues": [issue.as_dict() for issue in consistency_report.issues],
+        }
+        gate_decision = evaluate_reliability_gate(gate_record)
+        prediction["reliability_gate"] = gate_decision.as_dict()
+        prediction["reliability_gate_action"] = gate_decision.action
+        prediction["reliability_gate_reason"] = gate_decision.reason
+        prediction["reliability_gate_warnings"] = gate_decision.warnings
+    return prediction
 
 
 def retrieval_basic_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:

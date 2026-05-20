@@ -1,0 +1,24 @@
+config_id: A7_reliability_gate_smoke
+ablation_id: A7_reliability_gate_smoke
+config_version: "phase13_v1"
+mode: agent
+description: "Full agent smoke with annotation-only reliability gate enabled. This records gate decisions but does not alter graph routing."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 1
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  reliability_gate: true
+reporting:
+  result_status: config_only_not_a_result
+  anti_overfit: "Use this as a smoke artifact only. Do not tune prompts, validators, retrieval, or gate rules to the selected case IDs."

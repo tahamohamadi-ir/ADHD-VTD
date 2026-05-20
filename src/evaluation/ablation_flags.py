@@ -11,6 +11,7 @@ RUNTIME_ENFORCED_FLAGS = {
     "reflexion",
     "repair",
     "llm_judge",
+    "reliability_gate",
 }
 
 RUNTIME_LOCKED_FLAGS = {
