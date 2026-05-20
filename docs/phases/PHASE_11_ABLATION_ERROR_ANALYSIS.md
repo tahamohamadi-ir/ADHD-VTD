@@ -633,6 +633,93 @@ provider_limitation: DeepSeek free returned provider_error for 2/8 cases, so mis
 
 Interpretation limits: the all-prediction artifact confirms that the two exact-correct benchmark cases (`VTD-027`, `VTD-039`) are also business-correct under both judges. It also shows that semantic review is not yet stable enough for paper metrics because five cases still require adjudication.
 
+Follow-up policy: DeepSeek free is now historical pilot evidence only. The next official second-judge run should use paid `deepseek/deepseek-v4-flash` over all predictions, then compare it with Qwen. Any third-model adjudication should use the new `--case-ids` filter to send only unresolved/provider-error/partial cases.
+
+Paid DeepSeek replacement result:
+
+```text
+deepseek_paid_all_predictions: results/judgments/20260520_phase16_openrouter_deepseek_paid_a4_all_predictions
+deepseek_paid_summary: total_judged=8, authoritative_judgments=7, non_authoritative_judgments=1, provider_parse_error=1
+deepseek_paid_semantic_business_counts: correct=3, incorrect=1, unjudged=4
+agreement_report: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_all_predictions_agreement/judge_agreement.md
+agreement_summary: common_cases=8, semantic_agreement_count=5, semantic_disagreement_count=3, verdict_agreement_count=4, verdict_disagreement_count=4
+final_counts: agreed_correct=3, agreed_incorrect=1, adjudication_required=4
+confirmed_correct: VTD-027, VTD-039, VTD-371
+confirmed_incorrect: VTD-237
+adjudication_required: VTD-078, VTD-141, VTD-300, VTD-343
+```
+
+Interpretation limits: paid DeepSeek reduced the unresolved count but did not eliminate it. The next valid action is a targeted adjudicator run over the four unresolved case IDs only, not a paper-level semantic metric.
+
+Consensus tooling:
+
+```text
+files: src/evaluation/judge_consensus.py, scripts/analyze_judge_consensus.py, tests/tier1_unit/test_judge_consensus.py
+policy: at least two authoritative non-null semantic votes and no opposing authoritative semantic vote are required for consensus_correct/consensus_incorrect.
+partial_policy: at least two authoritative partial_business_match votes and no non-null semantic votes produce consensus_partial_business_match.
+anti_fake_guard: provider-error, provider-parse-error, non-authoritative and single-judge labels remain adjudication_required.
+tests_after_partial_policy: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_judge_consensus.py tests\tier1_unit\test_judge_agreement.py tests\tier1_unit\test_llm_judge.py -vv --tb=short -> 17 passed
+```
+
+GPT-5.1 targeted adjudication and three-judge consensus:
+
+```text
+gpt51_unresolved_only: results/judgments/20260520_phase16_openrouter_gpt51_a4_unresolved_only
+gpt51_summary: total_judged=4, authoritative_judgments=4, semantic_business_counts=incorrect=3, unjudged=1
+consensus_report: results/judgments/20260520_phase16_qwen_deepseek_paid_gpt51_a4_consensus/judge_consensus.md
+consensus_final_counts: consensus_correct=3, consensus_incorrect=4, consensus_partial_business_match=1
+metric_policy_counts: semantic_correct=3, semantic_incorrect=4, partial_business_match=1, needs_human_review=0
+consensus_correct: VTD-027, VTD-039, VTD-371
+consensus_incorrect: VTD-078, VTD-141, VTD-237, VTD-343
+consensus_partial_business_match: VTD-300
+```
+
+Interpretation limits under the older `phase16_sql_business_logic_v0` rubric: `VTD-300` was intentionally not converted into semantic correctness. All three judges treated it as partial/unjudged: the core depression-rate logic is present, but auxiliary/gold columns are missing. It was reported as `partial_business_match`, a separate paper/report column from semantic correct and semantic incorrect.
+
+Follow-up semantic policy update:
+
+```text
+prompt_version: phase16_sql_business_logic_v1
+semantic criterion: the generated SQL is business-correct when it answers the user's actual question.
+gold_sql role: reference implementation, not a mandatory exact output schema.
+allowed differences: extra harmless columns/parameters and missing gold-only support columns when the user can still get the requested answer.
+canonicalization: partial+semantic_true -> business_correct; partial+semantic_false -> business_incorrect; partial+semantic_null -> partial_business_match.
+strict policy: --judge-policy strict records stricter reference/gold-output-contract correctness separately from semantic user-question utility.
+consensus traceability: prompt_versions, same_prompt_version, judge_policies and same_judge_policy are recorded to prevent silent mixing of v0/v1 or semantic/strict artifacts.
+verification: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py tests\tier1_unit\test_judge_consensus.py tests\tier1_unit\test_judge_agreement.py -vv --tb=short -> 23 passed.
+compile: .\.venv\Scripts\python.exe -m py_compile src\evaluation\llm_judge.py src\evaluation\judge_consensus.py scripts\judge_benchmark_artifact.py scripts\analyze_judge_consensus.py -> passed.
+offline_contract_smoke: results\judgments\20260520_phase16_mock_v1_user_question_policy_smoke\judge_summary.json records prompt_version=phase16_sql_business_logic_v1 and redaction_applied=true; it is non-authoritative mock evidence only.
+dual_policy_mock_smoke_semantic: results\judgments\20260520_phase16_mock_v1_semantic_vtd300_policy_smoke.
+dual_policy_mock_smoke_strict: results\judgments\20260520_phase16_mock_v1_strict_vtd300_policy_smoke.
+```
+
+Next evidence required: rerun `VTD-300`, or the full A4 all-prediction set, with `phase16_sql_business_logic_v1` under both `--judge-policy semantic` and `--judge-policy strict`. Old v0 judgment artifacts remain valid historical evidence but must not be reinterpreted as v1 labels.
+
+Live v1 VTD-300 policy check:
+
+```text
+semantic_qwen: results/judgments/20260520_phase16_openrouter_qwen_a4_v1_semantic_vtd300
+semantic_deepseek_paid: results/judgments/20260520_phase16_openrouter_deepseek_paid_a4_v1_semantic_vtd300
+semantic_agreement: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_v1_semantic_vtd300_agreement
+semantic_result: both judges authoritative; both business_correct; agreement final_counts agreed_correct=1.
+
+strict_qwen: results/judgments/20260520_phase16_openrouter_qwen_a4_v1_strict_vtd300
+strict_deepseek_paid: results/judgments/20260520_phase16_openrouter_deepseek_paid_a4_v1_strict_vtd300
+strict_agreement: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_v1_strict_vtd300_agreement
+strict_result: Qwen authoritative business_incorrect; paid DeepSeek provider_parse_error; final_counts adjudication_required=1.
+```
+
+Interpretation: `VTD-300` is confirmed correct for user-question utility but not yet resolved for strict-reference correctness. This supports reporting two paper columns rather than forcing one metric to carry both meanings.
+
+Redaction policy artifact:
+
+```text
+artifact: results/judgments/20260520_phase16_mock_redaction_policy_smoke/judge_summary.json
+redaction_policy: redaction_applied=true, raw_rows_sent=false, result_previews_sent=false, prompt_response_trace_sent=false
+excluded_fields: raw_database_rows, execution_result_preview, gold_result_preview, full_prompt, raw_model_response
+tests: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_llm_judge.py tests\tier1_unit\test_judge_consensus.py tests\tier1_unit\test_judge_agreement.py -vv --tb=short -> 18 passed
+```
+
 ## Runtime Flag Contract
 
 Current Phase 11 ablation flags are interpreted as follows:
