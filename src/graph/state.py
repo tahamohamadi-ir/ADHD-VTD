@@ -34,6 +34,25 @@ class LinkedSchema(BaseModel):
     confidence: float = 0.0
     unresolved_terms: list[str] = Field(default_factory=list)
 
+
+class SQLCandidate(BaseModel):
+    candidate_id: str
+    sql: str | None = None
+    valid_sql: bool | None = None
+    execution_passed: bool | None = None
+    result_hash: str | None = None
+    source: str = "unknown"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReliabilityState(BaseModel):
+    gate_action: str | None = None
+    gate_reason: str | None = None
+    confidence: float | None = None
+    warnings: list[str] = Field(default_factory=list)
+    signals: dict[str, Any] = Field(default_factory=dict)
+
+
 from src.core.query_ir import QueryIR
 
 class VTDState(BaseModel):
@@ -76,6 +95,12 @@ class VTDState(BaseModel):
     execution_result: list[dict[str, Any]] | None = None
     execution_error: str | None = None
     semantic_passed: bool = False
+
+    candidate_sqls: list[SQLCandidate] = Field(default_factory=list)
+    selected_candidate_id: str | None = None
+    candidate_consistency: dict[str, Any] | None = None
+    multi_candidate_policy: dict[str, Any] | None = None
+    reliability: ReliabilityState | None = None
 
     final_answer: str | None = None
     explanation: str | None = None

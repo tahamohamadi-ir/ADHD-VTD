@@ -50,6 +50,7 @@ Non-negotiable documentation principles:
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Dataset files, golden examples, few-shot bank, behavioral evaluation, human agreement, dataset card |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from current state to research-grade and SOTA-style local/edge Text-to-SQL |
 | `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Specification and current artifact-backed status for Phase 16: Semantic/business correctness evaluation using LLM-as-a-Judge, OpenRouter live pilots and judge agreement, separate from SQL execution correctness |
+| `phases/PHASE_13_RELIABILITY_GATE.md` | Current Phase 13 reliability-gate contract, annotation-only benchmark wiring, anti-overfit policy, and verification commands |
 | `BENCHMARK_AND_TEST_GUIDE.md` | Practical guide for running tests, retrieval/gold/agent benchmarks, balanced sampling, reading artifacts, and debugging failures |
 | `VTD_Edge_PARS_SQL_Proposal_FINAL_v2_3_Execution_Ready_FA.docx` | Final implementation-first mini proposal / execution guide |
 | `requirements-vtd-edge-research.txt` | Suggested additional/updated Python dependencies for the research-grade version |

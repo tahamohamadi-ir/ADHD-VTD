@@ -76,6 +76,9 @@ def evaluate_reliability_gate(
     if signals["consistency_failed"]:
         return _retry_or_review(signals, "consistency_failed")
 
+    if signals["candidate_consistency_failed"]:
+        return _retry_or_review(signals, "candidate_consistency_failed")
+
     if signals["execution_failed"]:
         return _retry_or_review(signals, "execution_failed")
 
@@ -160,6 +163,7 @@ def _decision_from_judge_signals(signals: dict[str, Any]) -> ReliabilityGateDeci
 def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
     validation_issues = _listish(record.get("validation_issues") or record.get("validation_errors"))
     consistency_issues = _extract_consistency_issues(record)
+    candidate_consistency_issues = _extract_candidate_consistency_issues(record)
     execution_result = record.get("execution_result")
     attempts = _listish(record.get("attempts"))
     retry_count = _int_or_default(record.get("retry_count"), _attempt_retry_count(attempts))
@@ -184,6 +188,9 @@ def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "actual_action": actual_action,
         "combined_label": record.get("combined_label"),
+        "candidate_consistency_failed": bool(candidate_consistency_issues),
+        "candidate_consistency_issue_count": len(candidate_consistency_issues),
+        "candidate_consistency_issues": candidate_consistency_issues,
         "consistency_failed": bool(consistency_issues),
         "consistency_issue_count": len(consistency_issues),
         "consistency_issues": consistency_issues,
@@ -225,6 +232,26 @@ def _extract_consistency_issues(record: dict[str, Any]) -> list[dict[str, Any]]:
         return []
     report = analyze_question_sql_consistency(str(question), str(sql))
     return [issue.as_dict() for issue in report.issues if issue.severity == "error"]
+
+
+def _extract_candidate_consistency_issues(record: dict[str, Any]) -> list[dict[str, Any]]:
+    report = record.get("candidate_consistency") or record.get("candidate_consistency_report")
+    if not isinstance(report, dict):
+        return []
+    issues = [
+        issue
+        for issue in _listish(report.get("issues"))
+        if isinstance(issue, dict) and str(issue.get("severity") or "error") == "error"
+    ]
+    if report.get("passed") is False and not issues:
+        return [
+            {
+                "code": "CANDIDATE_CONSISTENCY_FAILED",
+                "message": "Candidate consistency report failed without a structured issue.",
+                "severity": "error",
+            }
+        ]
+    return issues
 
 
 def _listish(value: Any) -> list[Any]:

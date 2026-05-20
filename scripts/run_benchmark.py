@@ -418,6 +418,11 @@ def agent_prediction(
         "result_hash": result_hash,
         "gold_result_hash": gold_hash,
         "attempts": attempts,
+        "candidate_sqls": final_state_dict.get("candidate_sqls", []),
+        "selected_candidate_id": final_state_dict.get("selected_candidate_id"),
+        "candidate_consistency": final_state_dict.get("candidate_consistency"),
+        "multi_candidate_policy": final_state_dict.get("multi_candidate_policy"),
+        "reliability": final_state_dict.get("reliability"),
         "error": error,
     }
     if (ablation_config or {}).get("reliability_gate", False):

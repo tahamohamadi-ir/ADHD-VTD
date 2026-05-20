@@ -18,6 +18,7 @@
 | Phase 9 | Graph-Level Reflexion and SQL Repair | Basic completed | [PHASE_9_REFLEXION.md](PHASE_9_REFLEXION.md) |
 | Phase 10 | Benchmark Runner | Completed - infrastructure | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
 | Phase 11 | Ablation, Error Analysis, Research Metrics | In progress | [PHASE_11_ABLATION_ERROR_ANALYSIS.md](PHASE_11_ABLATION_ERROR_ANALYSIS.md) |
+| Phase 13 | Reliability Gate, Multi-Candidate, Abstention | In progress | [PHASE_13_RELIABILITY_GATE.md](PHASE_13_RELIABILITY_GATE.md) |
 | Phase 16 | Semantic Business Logic / LLM-as-a-Judge | In progress | [../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md](../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md) |
 
 ## فازهای نیازمند سند مستقل
@@ -27,7 +28,7 @@
 | Phase 8 | LangGraph Orchestration | TODO |
 | Phase 11 | Ablation, Error Analysis, Research Metrics | Documented in `PHASE_11_ABLATION_ERROR_ANALYSIS.md` |
 | Phase 12 | Output, Chart, Narrative | TODO |
-| Phase 13 | Reliability Gate, Multi-Candidate, Abstention | TODO |
+| Phase 13 | Reliability Gate, Multi-Candidate, Abstention | Documented in `PHASE_13_RELIABILITY_GATE.md`; first annotation-only gate implemented |
 | Phase 14 | Edge Runtime | TODO |
 | Phase 15 | Research Packaging | TODO |
 | Phase 16 | Semantic Business Logic / LLM-as-a-Judge | Covered in `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`; mock/OpenRouter providers, canonical all-failure live pilots and Qwen/DeepSeek agreement report implemented; success-sample coverage still open |
