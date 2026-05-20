@@ -615,9 +615,43 @@ strict_deepseek_paid: results\judgments\20260520_phase16_openrouter_deepseek_pai
 strict_deepseek_paid_result: authoritative=false, verdict=provider_parse_error, semantic_business_correct=null
 strict_agreement: results\judgments\20260520_phase16_qwen_deepseek_paid_a4_v1_strict_vtd300_agreement
 strict_agreement_result: adjudication_required=1
+strict_gpt51: results\judgments\20260520_phase16_openrouter_gpt51_a4_v1_strict_vtd300
+strict_gpt51_result: authoritative=true, verdict=business_incorrect, semantic_business_correct=false
+strict_consensus: results\judgments\20260520_phase16_qwen_deepseek_paid_gpt51_a4_v1_strict_vtd300_consensus
+strict_consensus_result: consensus_incorrect=1, same_prompt_version=true, same_judge_policy=true, incorrect_votes=2
 ```
 
-Interpretation: `VTD-300` is now artifact-backed semantic-user-question correct under two live judges. It remains strict-reference unresolved because Qwen judged it strict incorrect while paid DeepSeek did not return parseable JSON. For paper tables, report this as semantic correct and strict pending/adjudication-required until a strict rerun or GPT-5.1 strict adjudication resolves it.
+Interpretation: `VTD-300` is now artifact-backed semantic-user-question correct under two live judges, and strict-reference incorrect under two authoritative strict votes (Qwen and GPT-5.1). For paper tables, report this as `semantic_user_question_correct=true` and `strict_reference_correct=false`. This is a useful qualitative example: the query answers the user's requested depression-rate question, but fails the stricter gold/reference output contract because reference support columns are missing.
+
+Dual-policy report tooling:
+
+```text
+code: src\evaluation\dual_policy_report.py
+cli: scripts\analyze_dual_policy_judgments.py
+test: tests\tier1_unit\test_dual_policy_report.py
+purpose: merge semantic-user-question and strict-reference agreement/consensus artifacts into one paper-facing table without calling a model or changing judgments.
+verification: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_dual_policy_report.py tests\tier1_unit\test_judge_agreement.py tests\tier1_unit\test_judge_consensus.py -vv --tb=short -> 5 passed
+broader_verification: dual-policy + agreement + consensus + llm_judge -> 24 passed
+```
+
+Current VTD-300 dual-policy report:
+
+```text
+artifact: results\judgments\20260520_phase16_a4_v1_vtd300_dual_policy_report
+semantic_counts: correct=1
+strict_counts: incorrect=1
+combined_counts: semantic_correct_strict_incorrect=1
+case: VTD-300 -> semantic correct, strict incorrect
+```
+
+Command pattern for future full-slice dual-policy reports:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\analyze_dual_policy_judgments.py `
+  --semantic-dir results\judgments\<semantic_agreement_or_consensus_dir> `
+  --strict-dir results\judgments\<strict_agreement_or_consensus_dir> `
+  --output-dir results\judgments\<dual_policy_report_dir>
+```
 
 Redaction policy artifact:
 

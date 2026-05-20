@@ -707,9 +707,24 @@ strict_qwen: results/judgments/20260520_phase16_openrouter_qwen_a4_v1_strict_vtd
 strict_deepseek_paid: results/judgments/20260520_phase16_openrouter_deepseek_paid_a4_v1_strict_vtd300
 strict_agreement: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_v1_strict_vtd300_agreement
 strict_result: Qwen authoritative business_incorrect; paid DeepSeek provider_parse_error; final_counts adjudication_required=1.
+strict_gpt51: results/judgments/20260520_phase16_openrouter_gpt51_a4_v1_strict_vtd300
+strict_consensus: results/judgments/20260520_phase16_qwen_deepseek_paid_gpt51_a4_v1_strict_vtd300_consensus
+strict_consensus_result: consensus_incorrect=1, same_prompt_version=true, same_judge_policy=true, incorrect_votes=2.
 ```
 
-Interpretation: `VTD-300` is confirmed correct for user-question utility but not yet resolved for strict-reference correctness. This supports reporting two paper columns rather than forcing one metric to carry both meanings.
+Interpretation: `VTD-300` is confirmed correct for user-question utility and incorrect for strict-reference correctness. This supports reporting two paper columns rather than forcing one metric to carry both meanings.
+
+Dual-policy report tooling:
+
+```text
+code: src/evaluation/dual_policy_report.py
+cli: scripts/analyze_dual_policy_judgments.py
+test: tests/tier1_unit/test_dual_policy_report.py
+verification: .\.venv\Scripts\python.exe -m pytest tests\tier1_unit\test_dual_policy_report.py tests\tier1_unit\test_judge_agreement.py tests\tier1_unit\test_judge_consensus.py -vv --tb=short -> 5 passed.
+broader_verification: dual-policy + agreement + consensus + llm_judge -> 24 passed.
+VTD-300_dual_policy_report: results/judgments/20260520_phase16_a4_v1_vtd300_dual_policy_report.
+VTD-300_combined_label: semantic_correct_strict_incorrect.
+```
 
 Redaction policy artifact:
 
