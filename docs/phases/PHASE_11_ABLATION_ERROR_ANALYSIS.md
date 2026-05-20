@@ -726,6 +726,26 @@ VTD-300_dual_policy_report: results/judgments/20260520_phase16_a4_v1_vtd300_dual
 VTD-300_combined_label: semantic_correct_strict_incorrect.
 ```
 
+Full A4 v1 dual-policy report:
+
+```text
+semantic_agreement: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_v1_semantic_all_agreement
+semantic_result: common_cases=8, agreement=8/8, agreed_correct=4, agreed_incorrect=4
+strict_agreement: results/judgments/20260520_phase16_qwen_deepseek_paid_a4_v1_strict_all_agreement
+strict_result: common_cases=8, agreement=7/8, agreed_correct=3, agreed_incorrect=4, adjudication_required=1
+strict_gpt51_vtd141: results/judgments/20260520_phase16_openrouter_gpt51_a4_v1_strict_vtd141
+strict_gpt51_vtd141_result: authoritative=true, business_incorrect=1
+strict_final_consensus: results/judgments/20260520_phase16_qwen_deepseek_paid_gpt51_a4_v1_strict_all_consensus
+strict_final_result: consensus_correct=3, consensus_incorrect=5
+dual_policy_final: results/judgments/20260520_phase16_a4_v1_all_dual_policy_final
+dual_policy_final_counts: both_correct=3, both_incorrect=4, semantic_correct_strict_incorrect=1
+both_correct: VTD-027, VTD-039, VTD-371
+both_incorrect: VTD-078, VTD-141, VTD-237, VTD-343
+semantic_correct_strict_incorrect: VTD-300
+```
+
+Interpretation: the final A4 dual-policy slice is complete and artifact-backed. It must be used as evaluation evidence only; do not tune prompts, validators, retrieval, or shape contracts to these eight IDs. Any model-quality change must be general and revalidated on a separate dev slice or larger balanced run.
+
 Redaction policy artifact:
 
 ```text
