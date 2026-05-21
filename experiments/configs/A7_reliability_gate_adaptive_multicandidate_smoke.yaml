@@ -1,0 +1,27 @@
+config_id: A7_reliability_gate_adaptive_multicandidate_smoke
+ablation_id: A7_reliability_gate_adaptive_multicandidate_smoke
+config_version: "phase13_v1"
+mode: agent
+description: "Full agent smoke with reliability gate plus adaptive multi-candidate generation. Use only for controlled A/B comparisons against the annotation-only baseline."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 1
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  reliability_gate: true
+  multi_candidate_generation: true
+  multi_candidate_adoption: false
+reporting:
+  result_status: config_only_not_a_result
+  anti_overfit: "Use only as a matched A/B smoke against the annotation-only baseline. Do not tune prompts, validators, triggers, or selection to selected case IDs."
+  latency_warning: "This can add LLM calls on triggered hard/retry cases; inspect latency p95 before any rollout."

@@ -32,6 +32,10 @@ from src.reflexion.error_taxonomy import classify_error
 from src.reflexion.repair_planner import RepairPlanner
 from src.reflexion.retry_policy import RetryPolicy
 from src.reflexion.transition_memory import TransitionMemory
+from src.evaluation.candidate_consistency import (
+    SqlCandidate as ConsistencySqlCandidate,
+    analyze_candidate_consistency,
+)
 from src.evaluation.multi_candidate_policy import decide_multi_candidate
 
 logger = get_logger(__name__)
@@ -312,7 +316,18 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
         return {"generated_sql": ""}
         
     llm = _get_local_llm()
-    
+
+    policy = state.multi_candidate_policy if isinstance(state.multi_candidate_policy, dict) else {}
+    multi_candidate_enabled = (
+        bool(state.ablation_config.get("multi_candidate_generation", False))
+        and bool(policy.get("enabled"))
+        and int(policy.get("candidate_count") or 1) > 1
+        and _can_generate_extra_candidates(state)
+    )
+
+    if multi_candidate_enabled:
+        return _generate_sql_candidates(state, llm, int(policy.get("candidate_count") or 1))
+
     started = time.perf_counter()
     response_text = llm.generate_json(
         state.prompt,
@@ -325,6 +340,169 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
         "raw_model_response": response_text,
         "generation_latency_ms": generation_latency_ms,
     }
+
+
+def _generate_sql_candidates(state: VTDState, llm: LocalLLM, candidate_count: int) -> Dict[str, Any]:
+    """Generate and inspect multiple candidates behind an explicit feature flag.
+
+    The first candidate is the primary generation. Extra candidates are adopted
+    only when consistency passes and the selected candidate is viable. Otherwise
+    the primary response continues through the normal graph path and candidate
+    evidence remains review-only.
+    """
+
+    requested = max(1, min(3, candidate_count))
+    raw_outputs: dict[str, str] = {}
+    parsed_payloads: dict[str, dict[str, Any] | None] = {}
+    candidates: list[dict[str, Any]] = []
+    started = time.perf_counter()
+
+    for index in range(requested):
+        candidate_id = f"candidate_{index + 1}"
+        response_text = llm.generate_json(
+            state.prompt,
+            enforce_json=True,
+            max_tokens=_sql_generation_max_tokens(),
+        )
+        raw_outputs[candidate_id] = response_text
+        parsed = OutputParser.extract_json(response_text)
+        parsed_payloads[candidate_id] = parsed
+        sql = parsed.get("sql") if isinstance(parsed, dict) else None
+        candidate = _inspect_sql_candidate(
+            candidate_id=candidate_id,
+            sql=sql,
+            state=state,
+            raw_model_response=response_text,
+            parsed_payload=parsed,
+        )
+        candidates.append(candidate)
+
+    consistency_report = analyze_candidate_consistency(
+        [
+            ConsistencySqlCandidate(
+                candidate_id=str(candidate["candidate_id"]),
+                sql=candidate.get("sql"),
+                valid_sql=candidate.get("valid_sql"),
+                execution_passed=candidate.get("execution_passed"),
+                result_hash=candidate.get("result_hash"),
+                metadata=candidate.get("metadata") or {},
+            )
+            for candidate in candidates
+        ]
+    )
+    primary = candidates[0] if candidates else {}
+    primary_id = str(primary.get("candidate_id") or "candidate_1")
+    selected_candidate_id = consistency_report.selected_candidate_id
+    selected = _candidate_by_id(candidates, selected_candidate_id)
+    adoption_enabled = bool(state.ablation_config.get("multi_candidate_adoption", False))
+    adopted_candidate_id = (
+        str(selected_candidate_id)
+        if adoption_enabled and consistency_report.passed and selected is not None and _candidate_is_viable(selected)
+        else None
+    )
+    output_candidate_id = adopted_candidate_id or primary_id
+    selected_raw = raw_outputs.get(output_candidate_id) or ""
+    selected_payload = parsed_payloads.get(output_candidate_id)
+    generation_latency_ms = int((time.perf_counter() - started) * 1000)
+
+    return {
+        "generated_sql": selected_raw,
+        "raw_model_response": selected_raw,
+        "generation_latency_ms": generation_latency_ms,
+        "candidate_sqls": candidates,
+        "selected_candidate_id": adopted_candidate_id,
+        "candidate_consistency": consistency_report.as_dict(),
+        "parsed_payload": selected_payload,
+    }
+
+
+def _inspect_sql_candidate(
+    *,
+    candidate_id: str,
+    sql: str | None,
+    state: VTDState,
+    raw_model_response: str,
+    parsed_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "raw_model_response": raw_model_response,
+        "parsed": parsed_payload is not None,
+    }
+    if not sql:
+        metadata["validation_errors"] = [{"message": "Missing SQL in candidate payload."}]
+        return {
+            "candidate_id": candidate_id,
+            "sql": sql,
+            "valid_sql": False,
+            "execution_passed": False,
+            "result_hash": None,
+            "source": "multi_candidate_generation",
+            "metadata": metadata,
+        }
+
+    registry = SchemaRegistry()
+    validator = ValidationPipeline(registry=registry)
+    validation = validator.validate(sql)
+    validated_sql = validation.normalized_sql or sql
+    if validation.ok:
+        shape_result = SQLShapeValidator().validate(
+            validated_sql,
+            question=state.raw_question,
+            qir=state.qir,
+            schema=state.schema_context,
+        )
+        if not shape_result.ok:
+            validation = ValidationResult(
+                ok=False,
+                issues=[*validation.issues, *shape_result.issues],
+                normalized_sql=validation.normalized_sql,
+            )
+    metadata["validation_errors"] = [{"message": str(issue)} for issue in validation.issues] if not validation.ok else []
+
+    result_hash = None
+    execution_passed = False
+    if validation.ok:
+        execution = ReadOnlyExecutor(db_path=SETTINGS.db_path).execute_readonly(validated_sql)
+        execution_passed = execution.ok
+        result_hash = execution.result_hash if execution.ok else None
+        metadata["execution_error"] = execution.error if not execution.ok else None
+        metadata["execution_latency_ms"] = execution.latency_ms
+    return {
+        "candidate_id": candidate_id,
+        "sql": validated_sql,
+        "valid_sql": validation.ok,
+        "execution_passed": execution_passed,
+        "result_hash": result_hash,
+        "source": "multi_candidate_generation",
+        "metadata": metadata,
+    }
+
+
+def _first_candidate_id(candidates: list[dict[str, Any]]) -> str | None:
+    if not candidates:
+        return None
+    return str(candidates[0].get("candidate_id"))
+
+
+def _candidate_by_id(candidates: list[dict[str, Any]], candidate_id: str | None) -> dict[str, Any] | None:
+    for candidate in candidates:
+        if str(candidate.get("candidate_id")) == str(candidate_id):
+            return candidate
+    return None
+
+
+def _candidate_is_viable(candidate: dict[str, Any]) -> bool:
+    return bool(candidate.get("sql")) and candidate.get("valid_sql") is not False and candidate.get("execution_passed") is not False
+
+
+def _can_generate_extra_candidates(state: VTDState) -> bool:
+    """Keep extra generation off the repair loop until A/B evidence improves."""
+
+    if state.retry_count > 0:
+        return False
+    if state.validation_errors or state.execution_error:
+        return False
+    return True
 
 def parse_llm_output(state: VTDState) -> Dict[str, Any]:
     """

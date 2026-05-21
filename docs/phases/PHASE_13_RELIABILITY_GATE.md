@@ -229,8 +229,8 @@ Result: passed.
 ## Remaining Work
 
 - Add broader artifact analysis for gate actions, false abstention risk, critic false positives, and future candidate-consistency disagreements.
-- Add graph nodes for adaptive multi-candidate generation. It should stay disabled for simple/confident questions and only activate on the policy triggers.
-- The policy node is present; the next missing graph work is actual candidate generation/execution when the policy is enabled.
+- Run a controlled A/B benchmark before making any quality claim about adaptive multi-candidate generation.
+- The policy node and feature-flagged candidate generation path are present; actual generation remains disabled unless `multi_candidate_generation=true` is set explicitly.
 - Add a stronger general signal for valid-but-wrong-SQL cases before any routing change. Options: judge consensus, adaptive multi-candidate consistency, or a richer semantic/shape critic output.
 - Only after annotation evidence is stable, decide whether graph routing should use the gate to change final behavior.
 - Keep fixed test blocked until dev behavior, leakage limitations, and reliability are stable.
@@ -455,9 +455,326 @@ posthoc_risk_counts: review_or_clarify_on_incorrect=1, answer_on_correct=1, answ
 
 This confirms the current gate still answers some valid-result-mismatch cases, so routing must remain annotation-only until candidate generation/consistency or judge-backed semantic signals are available.
 
+## Feature-Flagged Candidate Generation
+
+Adaptive candidate generation now exists behind an explicit feature flag:
+
+```text
+feature flag: multi_candidate_generation
+config: experiments/configs/A7_reliability_gate_adaptive_multicandidate_smoke.yaml
+implementation: src/graph/nodes/base_nodes.py::generate_sql
+```
+
+Default behavior is unchanged:
+
+```text
+multi_candidate_generation absent/false -> one LLM generation call
+```
+
+When explicitly enabled and `multi_candidate_policy.enabled=true`, the generation node:
+
+```text
+generates up to the policy candidate count
+parses each candidate JSON
+validates each candidate with the same validation/shape stack
+executes only valid candidates to obtain runtime result hashes
+records candidate_sqls
+records selected_candidate_id
+records candidate_consistency
+passes the selected candidate through the existing parse/validate/execute path
+```
+
+Selection and consistency use only candidate SQL signatures and runtime result hashes. They do not use benchmark case IDs, gold SQL, exact execution-match labels, or hand-written failure exceptions.
+
+Latency policy:
+
+```text
+The feature is disabled unless the config explicitly enables multi_candidate_generation=true.
+The adaptive policy defaults to 2 candidates on triggered cases, not unbounded generation.
+Simple/confident questions remain single-candidate.
+```
+
+Verification:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\tier1_unit\test_multi_candidate_graph_node.py `
+  tests\tier1_unit\test_multi_candidate_policy.py `
+  tests\tier1_unit\test_candidate_consistency.py `
+  tests\tier1_unit\test_ablation_runner.py `
+  -vv --tb=short
+```
+
+Result:
+
+```text
+18 passed
+```
+
+Compile check:
+
+```powershell
+.\.venv\Scripts\python.exe -m py_compile `
+  src\graph\nodes\base_nodes.py `
+  src\evaluation\ablation_flags.py
+```
+
+Result: passed.
+
+## Adaptive Multi-Candidate Smoke
+
+A first real matched smoke was run after enabling the feature flag. This is a small diagnostic run, not paper-grade evidence.
+
+Baseline artifact:
+
+```text
+results\benchmark\manual_phase13_policy_node_smoke
+```
+
+Adaptive artifact:
+
+```text
+results\benchmark\manual_phase13_adaptive_multicandidate_smoke
+```
+
+Adaptive command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py `
+  --config experiments\configs\A7_reliability_gate_adaptive_multicandidate_smoke.yaml `
+  --output-dir results\benchmark\manual_phase13_adaptive_multicandidate_smoke
+```
+
+Adaptive result:
+
+```text
+evaluated=4
+failures=3
+execution_accuracy=0.25
+valid_sql_rate=0.5
+reliability_score=-0.5
+unsafe_sql=0
+latency_ms mean=50582.75 median=43167.5 p95=106646.0
+```
+
+Reliability analysis:
+
+```text
+results\reliability_gate\20260521_phase13_adaptive_multicandidate_smoke_analysis
+```
+
+A/B comparison:
+
+```text
+results\multi_candidate_ablation\20260521_phase13_policy_vs_adaptive_multicandidate_smoke_v2
+```
+
+A/B integrity:
+
+```text
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+```
+
+A/B deltas:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=-0.25
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=52292.0
+candidate_issue_counts: NO_VIABLE_CANDIDATES=2
+acceptance_status=blocked
+```
+
+Interpretation:
+
+```text
+This is a negative smoke. Adaptive multi-candidate generation did not improve EX, lowered valid SQL rate, and increased p95 latency substantially.
+The feature must remain disabled for routing and quality claims.
+Do not tune to the named case IDs; treat this as a general policy/selection failure around retry-triggered candidate generation with no viable candidates.
+```
+
+## Adaptive Redesign Smoke
+
+After the first blocked smoke, the candidate path was made more conservative:
+
+```text
+No extra candidates are generated inside the retry loop.
+No extra candidates are generated when prior validation/execution errors are already present.
+Candidates are adopt-only-if-safe: consistency must pass and the selected candidate must be viable.
+If candidates are invalid or disagree, the primary generation continues and candidate evidence remains review-only.
+```
+
+Verification:
+
+```text
+focused multi-candidate tests: 20 passed
+compile check: passed
+```
+
+Second adaptive artifact:
+
+```text
+results\benchmark\manual_phase13_adaptive_multicandidate_smoke_v2
+```
+
+Second adaptive result:
+
+```text
+evaluated=4
+failures=3
+execution_accuracy=0.25
+valid_sql_rate=0.75
+reliability_score=-1.25
+unsafe_sql=0
+latency_ms mean=29431.0 median=16984.5 p95=74206.0
+```
+
+Second A/B report:
+
+```text
+results\multi_candidate_ablation\20260521_phase13_policy_vs_adaptive_multicandidate_smoke_v3
+```
+
+Second A/B deltas:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=19852.0
+candidate_issue_counts: NO_VIABLE_CANDIDATES=1
+acceptance_status=insufficient_semantic_evidence
+```
+
+Interpretation:
+
+```text
+The redesign removed the valid-SQL regression from the first adaptive smoke, but still did not improve EX and still increased p95 latency.
+This is not ready for routing or paper claims.
+Keep multi_candidate_generation disabled outside explicit experiments.
+```
+
+## Shadow-Only Candidate Evidence
+
+Candidate adoption is now controlled separately:
+
+```text
+multi_candidate_generation=true -> generate/record candidate evidence when policy triggers.
+multi_candidate_adoption=false -> default shadow-only mode; do not alter selected output.
+multi_candidate_adoption=true -> experimental adoption mode; only allowed after A/B evidence.
+```
+
+Config:
+
+```text
+experiments/configs/A7_reliability_gate_adaptive_multicandidate_smoke.yaml
+multi_candidate_adoption: false
+```
+
+Verification:
+
+```text
+focused graph/multi-candidate/ablation tests: 21 passed
+compile check: passed
+```
+
+Shadow-only artifact:
+
+```text
+results\benchmark\manual_phase13_shadow_multicandidate_smoke
+```
+
+Shadow-only result:
+
+```text
+evaluated=4
+failures=3
+execution_accuracy=0.25
+valid_sql_rate=0.75
+reliability_score=-1.25
+unsafe_sql=0
+latency_ms mean=26450.0 median=17624.5 p95=61931.0
+```
+
+Shadow-only A/B report:
+
+```text
+results\multi_candidate_ablation\20260521_phase13_policy_vs_shadow_multicandidate_smoke
+```
+
+Shadow-only A/B deltas:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=7577.0
+candidate_issue_counts: NO_VIABLE_CANDIDATES=1
+acceptance_status=insufficient_semantic_evidence
+```
+
+Interpretation:
+
+```text
+Shadow-only avoids output regression on this smoke and has lower added latency than adoption mode.
+It still does not improve EX and still leaves valid-result-mismatch answers, so it remains experimental evidence only.
+```
+
+## Cost-Benefit Series Report
+
+The negative/neutral multi-candidate result is preserved as an artifact-backed finding for research reporting.
+
+Tooling:
+
+```text
+src/evaluation/multi_candidate_series_report.py
+scripts/build_multi_candidate_series_report.py
+tests/tier1_unit/test_multi_candidate_series_report.py
+```
+
+Report:
+
+```text
+results\multi_candidate_ablation\20260521_phase13_multicandidate_cost_benefit_series\multi_candidate_series_report.md
+```
+
+Summary:
+
+```text
+run_count=3
+status_counts: blocked=1, insufficient_semantic_evidence=2
+best_available_recommendation=do_not_adopt_candidate_adoption
+```
+
+Runs:
+
+```text
+1. adoption smoke: EX delta 0.0, valid SQL delta -0.25, p95 +52292ms, blocked.
+2. safer adoption smoke: EX delta 0.0, valid SQL delta 0.0, p95 +19852ms, insufficient evidence.
+3. shadow-only smoke: EX delta 0.0, valid SQL delta 0.0, p95 +7577ms, insufficient evidence.
+```
+
+Paper interpretation:
+
+```text
+Multi-candidate generation is an explored but not yet cost-effective reliability intervention on this smoke slice.
+Candidate adoption is blocked or unsupported because it did not improve execution accuracy and increased p95 latency.
+Shadow-only candidate evidence is safer than adoption, but still requires larger dev-set and semantic/strict dual-policy review before any quality claim.
+```
+
+Anti-fake policy:
+
+```text
+The series report summarizes existing A/B artifacts only.
+It does not run a model, execute SQL, edit predictions, infer missing semantic labels, or convert negative/null findings into success claims.
+```
+
 ## Multi-Candidate A/B Comparison Tooling
 
-Before actual candidate generation is enabled, the project now has an artifact-backed comparison scaffold:
+Before actual candidate generation is used for claims or routing, the project now has an artifact-backed comparison scaffold:
 
 ```text
 src/evaluation/multi_candidate_ablation.py
