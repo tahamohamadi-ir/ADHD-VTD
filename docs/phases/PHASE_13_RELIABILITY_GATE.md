@@ -18,13 +18,17 @@ src/evaluation/reliability_gate_analysis.py
 src/evaluation/sql_consistency_critic.py
 src/evaluation/candidate_consistency.py
 src/evaluation/multi_candidate_policy.py
+src/evaluation/multi_candidate_ablation.py
 tests/tier1_unit/test_reliability_gate.py
 tests/tier1_unit/test_reliability_gate_analysis.py
 tests/tier1_unit/test_sql_consistency_critic.py
 tests/tier1_unit/test_candidate_consistency.py
 tests/tier1_unit/test_multi_candidate_policy.py
+tests/tier1_unit/test_multi_candidate_ablation.py
+tests/tier1_unit/test_multi_candidate_graph_node.py
 scripts/run_benchmark.py
 scripts/analyze_reliability_gate_artifact.py
+scripts/analyze_multi_candidate_ablation.py
 src/evaluation/ablation_flags.py
 ```
 
@@ -81,6 +85,14 @@ reliability
 That means Phase 13 can safely preserve reliability/multi-candidate annotations in graph state and benchmark artifacts without changing latency or routing. Multi-candidate routing still needs explicit graph nodes before it can generate extra SQL.
 
 Latency policy: multi-candidate generation must not run for every question. The project now has a standalone adaptive policy in `src/evaluation/multi_candidate_policy.py`. Default behavior is one candidate for simple/confident questions and at most two candidates for adaptive triggers such as retry/validation failure, execution failure, low intent confidence, complex dashboard/category hints, or hard/complex metadata hints when available. This policy only decides whether extra candidates are worth the cost; it does not generate extra SQL by itself.
+
+Graph policy node:
+
+```text
+src/graph/nodes/base_nodes.py::plan_multi_candidate
+```
+
+The node records the adaptive policy decision in `VTDState.multi_candidate_policy`. It is annotation-only: it does not call the LLM, does not generate extra SQL, and does not change graph routing. The workflow routes both initial generation and retry generation through this node so the policy can observe retry/validation-failure conditions.
 
 Inspected benchmark prediction signals:
 
@@ -218,6 +230,7 @@ Result: passed.
 
 - Add broader artifact analysis for gate actions, false abstention risk, critic false positives, and future candidate-consistency disagreements.
 - Add graph nodes for adaptive multi-candidate generation. It should stay disabled for simple/confident questions and only activate on the policy triggers.
+- The policy node is present; the next missing graph work is actual candidate generation/execution when the policy is enabled.
 - Add a stronger general signal for valid-but-wrong-SQL cases before any routing change. Options: judge consensus, adaptive multi-candidate consistency, or a richer semantic/shape critic output.
 - Only after annotation evidence is stable, decide whether graph routing should use the gate to change final behavior.
 - Keep fixed test blocked until dev behavior, leakage limitations, and reliability are stable.
@@ -385,3 +398,199 @@ Compile check:
 ```
 
 Result: passed.
+
+## Policy Node Smoke Artifact
+
+After adding `plan_multi_candidate`, a real 4-case dev smoke was run. This is artifact-backed evidence, not an inferred result.
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py `
+  --config experiments\configs\A7_reliability_gate_smoke.yaml `
+  --output-dir results\benchmark\manual_phase13_policy_node_smoke
+```
+
+Artifact:
+
+```text
+results\benchmark\manual_phase13_policy_node_smoke
+```
+
+Benchmark result:
+
+```text
+evaluated=4
+failures=3
+execution_accuracy=0.25
+valid_sql_rate=0.75
+reliability_score=-1.25
+unsafe_sql=0
+latency_ms mean=25962.25 median=19182.0 p95=54354.0
+```
+
+Policy annotation result:
+
+```text
+multi_candidate_policy enabled=2, disabled=2
+trigger_counts: complex_intent=1, retry_in_progress=2, validation_failed=2
+candidate_sqls: empty for all cases
+```
+
+Interpretation: the policy node correctly marks harder/retry cases as eligible for extra candidates while leaving simple/confident cases single-candidate. Since candidate generation is not active, this smoke does not prove multi-candidate quality improvement and should not be reported as such.
+
+Artifact-backed analysis:
+
+```text
+results\reliability_gate\20260520_phase13_policy_node_smoke_analysis\reliability_gate_report.md
+```
+
+Analysis counts:
+
+```text
+action_counts: needs_review=1, answer=3
+multi_candidate_counts: enabled=2, disabled=2
+posthoc_risk_counts: review_or_clarify_on_incorrect=1, answer_on_correct=1, answer_on_valid_result_mismatch=2
+```
+
+This confirms the current gate still answers some valid-result-mismatch cases, so routing must remain annotation-only until candidate generation/consistency or judge-backed semantic signals are available.
+
+## Multi-Candidate A/B Comparison Tooling
+
+Before actual candidate generation is enabled, the project now has an artifact-backed comparison scaffold:
+
+```text
+src/evaluation/multi_candidate_ablation.py
+scripts/analyze_multi_candidate_ablation.py
+tests/tier1_unit/test_multi_candidate_ablation.py
+```
+
+The tool compares two existing benchmark artifact directories:
+
+```text
+baseline A: current single-candidate graph with plan_multi_candidate annotation only
+adaptive B: future adaptive candidate generation run
+```
+
+It records:
+
+```text
+same_selected_cases_hash
+same_dataset_hash
+same_model
+execution_accuracy / valid_sql_rate / reliability_score / unsafe_sql deltas
+latency mean/median/p95 deltas
+multi_candidate activation rate
+candidate_count distribution
+candidate consistency issue counts
+baseline-correct -> adaptive-wrong execution regressions
+optional semantic_user_question and strict_reference label changes when dual-policy reports are supplied
+```
+
+Anti-fake policy:
+
+```text
+The comparison tool reads existing benchmark and optional dual-policy judgment artifacts only.
+It does not run a model, execute SQL, edit predictions, infer missing semantic labels, or use case IDs/gold SQL as tuning rules.
+```
+
+Verification:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\tier1_unit\test_multi_candidate_ablation.py `
+  tests\tier1_unit\test_multi_candidate_policy.py `
+  tests\tier1_unit\test_candidate_consistency.py `
+  -vv --tb=short
+```
+
+Result:
+
+```text
+13 passed
+```
+
+CLI self-check:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\analyze_multi_candidate_ablation.py `
+  results\benchmark\manual_phase13_policy_node_smoke `
+  results\benchmark\manual_phase13_policy_node_smoke `
+  --output-dir results\multi_candidate_ablation\20260521_phase13_policy_node_self_check
+```
+
+Self-check result:
+
+```text
+same_selected_cases_hash=true
+metric_deltas=0 for all benchmark metrics
+multi_candidate activation_rate=0.5 from annotation-only policy
+generated candidate count=0 for all cases
+status=insufficient_semantic_evidence
+```
+
+Interpretation: this verifies the comparison pipeline only. It is not a multi-candidate quality claim because actual adaptive candidate generation is not enabled and no dual-policy A/B labels were supplied.
+
+## Multi-Candidate Regression Plan
+
+Before enabling actual multi-candidate generation, the project must prove that adaptive generation reduces errors rather than adding latency and false confidence.
+
+Primary correctness policy:
+
+```text
+semantic_user_question: the generated answer/SQL answers the user's actual question.
+strict_reference: stricter comparison against the reference/gold output contract.
+```
+
+Both must be reported separately. Semantic correctness is primary for user utility; strict-reference correctness is a secondary paper metric.
+
+A/B design:
+
+```text
+A: single-candidate graph with plan_multi_candidate annotation only
+B: adaptive candidate generation only when multi_candidate_policy.enabled=true
+```
+
+The comparison must use the same dataset split, selected cases, model, retrieval settings, and `--exclude-self` policy. The report must verify `same_selected_cases_hash=true`.
+
+Required metrics:
+
+```text
+execution_accuracy
+valid_sql_rate
+reliability_score
+unsafe_sql
+semantic_user_question correctness
+strict_reference correctness
+latency mean/median/p95
+multi_candidate activation rate
+candidate_count distribution
+candidate_result_hash_disagreement count
+candidate table/filter/aggregation disagreement counts
+baseline-correct -> adaptive-wrong regressions
+```
+
+Acceptance gate:
+
+```text
+unsafe_sql must not increase
+semantic_user_question correctness must not drop on agreed judge labels
+baseline-correct -> adaptive-wrong regressions must be explicitly reviewed
+latency p95 must be reported and accepted explicitly
+partial/unjudged/provider-error rows must not be counted as correct
+```
+
+Stop condition:
+
+```text
+If adaptive generation increases valid-result-mismatch or false-answer risk, keep it disabled and use candidate consistency only as a review signal.
+```
+
+Anti-overfit / anti-fake constraints:
+
+```text
+Do not tune prompts, validators, triggers, or candidate selection to named case IDs.
+Do not infer missing semantic labels.
+Do not edit predictions or benchmark outcomes.
+Report only generated benchmark and judge artifacts.
+```

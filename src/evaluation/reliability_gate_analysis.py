@@ -30,9 +30,16 @@ def analyze_reliability_gate_artifact(
     action_counts: Counter[str] = Counter()
     reason_counts: Counter[str] = Counter()
     risk_counts: Counter[str] = Counter()
+    multi_candidate_counts: Counter[str] = Counter()
+    multi_candidate_trigger_counts: Counter[str] = Counter()
     for record in predictions:
         action = str(record.get("reliability_gate_action") or "missing")
         reason = str(record.get("reliability_gate_reason") or "missing")
+        multi_candidate_policy = record.get("multi_candidate_policy") if isinstance(record.get("multi_candidate_policy"), dict) else {}
+        multi_candidate_enabled = bool(multi_candidate_policy.get("enabled"))
+        multi_candidate_counts["enabled" if multi_candidate_enabled else "disabled"] += 1
+        for trigger in multi_candidate_policy.get("triggers") or []:
+            multi_candidate_trigger_counts[str(trigger)] += 1
         execution_correct = bool(record.get("execution_correct") or record.get("result_match") or record.get("ok"))
         valid_sql = bool(record.get("valid_sql"))
         error = record.get("error") or ""
@@ -49,6 +56,9 @@ def analyze_reliability_gate_artifact(
                 "execution_correct": execution_correct,
                 "reliability_gate_action": action,
                 "reliability_gate_reason": reason,
+                "multi_candidate_enabled": multi_candidate_enabled,
+                "multi_candidate_candidate_count": multi_candidate_policy.get("candidate_count"),
+                "multi_candidate_triggers": list(multi_candidate_policy.get("triggers") or []),
                 "posthoc_gate_risk": risk_label,
             }
         )
@@ -61,6 +71,8 @@ def analyze_reliability_gate_artifact(
         "with_gate_annotations": sum(1 for row in rows if row["reliability_gate_action"] != "missing"),
         "action_counts": dict(action_counts),
         "reason_counts": dict(reason_counts),
+        "multi_candidate_counts": dict(multi_candidate_counts),
+        "multi_candidate_trigger_counts": dict(multi_candidate_trigger_counts),
         "posthoc_risk_counts": dict(risk_counts),
         "anti_fake_policy": (
             "This report reads existing prediction artifacts only. Post-hoc risk labels are analysis labels; "
@@ -114,6 +126,8 @@ def _render_report(summary: dict[str, Any], rows: list[dict[str, Any]]) -> str:
         f"- with_gate_annotations: `{summary['with_gate_annotations']}`",
         f"- action_counts: `{summary['action_counts']}`",
         f"- reason_counts: `{summary['reason_counts']}`",
+        f"- multi_candidate_counts: `{summary['multi_candidate_counts']}`",
+        f"- multi_candidate_trigger_counts: `{summary['multi_candidate_trigger_counts']}`",
         f"- posthoc_risk_counts: `{summary['posthoc_risk_counts']}`",
         "",
         "## Anti-Fake Statement",
@@ -122,12 +136,12 @@ def _render_report(summary: dict[str, Any], rows: list[dict[str, Any]]) -> str:
         "",
         "## Cases",
         "",
-        "| Case | Action | Reason | EX | Valid SQL | Benchmark Error | Post-hoc Risk |",
-        "|---|---|---|---:|---:|---|---|",
+        "| Case | Action | Reason | MC Enabled | MC Triggers | EX | Valid SQL | Benchmark Error | Post-hoc Risk |",
+        "|---|---|---|---:|---|---:|---:|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {case_id} | {reliability_gate_action} | {reliability_gate_reason} | {execution_correct} | {valid_sql} | {benchmark_error} | {posthoc_gate_risk} |".format(
+            "| {case_id} | {reliability_gate_action} | {reliability_gate_reason} | {multi_candidate_enabled} | {multi_candidate_triggers} | {execution_correct} | {valid_sql} | {benchmark_error} | {posthoc_gate_risk} |".format(
                 **row
             )
         )

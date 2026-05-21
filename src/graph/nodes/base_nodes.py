@@ -32,6 +32,7 @@ from src.reflexion.error_taxonomy import classify_error
 from src.reflexion.repair_planner import RepairPlanner
 from src.reflexion.retry_policy import RetryPolicy
 from src.reflexion.transition_memory import TransitionMemory
+from src.evaluation.multi_candidate_policy import decide_multi_candidate
 
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
@@ -256,6 +257,32 @@ def build_prompt(state: VTDState) -> Dict[str, Any]:
         few_shot=state.retrieved_examples,
     )
     return {"prompt": prompt, "value_links": value_links}
+
+
+def plan_multi_candidate(state: VTDState) -> Dict[str, Any]:
+    """Record whether extra candidates would be worth the latency cost.
+
+    This node is intentionally annotation-only. It does not call the LLM and does
+    not generate additional SQL candidates.
+    """
+
+    decision = decide_multi_candidate(
+        {
+            "question": state.raw_question,
+            "normalized_question": state.normalized_question,
+            "intent": state.intent,
+            "intent_confidence": state.intent_confidence,
+            "qir": state.qir.model_dump() if hasattr(state.qir, "model_dump") else state.qir,
+            "generated_sql": state.generated_sql,
+            "retry_count": state.retry_count,
+            "max_retries": state.max_retries,
+            "validation_errors": state.validation_errors,
+            "execution_error": state.execution_error,
+            "should_generate_sql": state.should_generate_sql,
+            "generation_attempted": bool(state.attempts or state.raw_model_response),
+        }
+    )
+    return {"multi_candidate_policy": decision.as_dict()}
 
 
 def _schema_candidate_columns(schema_context: dict[str, Any]) -> list[str]:

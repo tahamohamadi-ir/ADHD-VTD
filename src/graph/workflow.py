@@ -9,6 +9,7 @@ from src.graph.nodes.base_nodes import (
     link_schema,
     retrieve_context,
     build_prompt,
+    plan_multi_candidate,
     generate_sql,
     parse_llm_output,
     validate_sql,
@@ -36,6 +37,7 @@ def create_workflow():
     workflow.add_node("link_schema", link_schema)
     workflow.add_node("retrieve_context", retrieve_context)
     workflow.add_node("build_prompt", build_prompt)
+    workflow.add_node("plan_multi_candidate", plan_multi_candidate)
     workflow.add_node("generate_sql", generate_sql)
     workflow.add_node("parse_llm_output", parse_llm_output)
     workflow.add_node("validate_sql", validate_sql)
@@ -65,7 +67,8 @@ def create_workflow():
 
     workflow.add_edge("link_schema", "retrieve_context")
     workflow.add_edge("retrieve_context", "build_prompt")
-    workflow.add_edge("build_prompt", "generate_sql")
+    workflow.add_edge("build_prompt", "plan_multi_candidate")
+    workflow.add_edge("plan_multi_candidate", "generate_sql")
     workflow.add_edge("generate_sql", "parse_llm_output")
     workflow.add_edge("parse_llm_output", "validate_sql")
 
@@ -92,7 +95,7 @@ def create_workflow():
     )
 
     # From reflection back to generation
-    workflow.add_edge("reflect_on_error", "generate_sql")
+    workflow.add_edge("reflect_on_error", "plan_multi_candidate")
 
     # Endings
     workflow.add_edge("format_answer", END)
