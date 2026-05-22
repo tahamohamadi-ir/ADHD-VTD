@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from src.evaluation.dataset_loader import read_jsonl, write_json, write_jsonl
+from src.evaluation.reliability_gate import evaluate_reliability_gate
 
 
 def _first_file(root: Path, pattern: str) -> Path:
@@ -21,6 +22,7 @@ def analyze_reliability_gate_artifact(
     artifact_dir: str | Path,
     *,
     output_dir: str | Path,
+    recompute_gate: bool = False,
 ) -> dict[str, Path]:
     artifact_root = Path(artifact_dir)
     predictions_path = _first_file(artifact_root, "*_predictions.jsonl")
@@ -34,9 +36,10 @@ def analyze_reliability_gate_artifact(
     multi_candidate_counts: Counter[str] = Counter()
     multi_candidate_trigger_counts: Counter[str] = Counter()
     for record in predictions:
-        action = str(record.get("reliability_gate_action") or "missing")
-        reason = str(record.get("reliability_gate_reason") or "missing")
-        warnings = [str(warning) for warning in _listish(record.get("reliability_gate_warnings"))]
+        gate = _gate_view(record, recompute_gate=recompute_gate)
+        action = gate["action"]
+        reason = gate["reason"]
+        warnings = gate["warnings"]
         multi_candidate_policy = record.get("multi_candidate_policy") if isinstance(record.get("multi_candidate_policy"), dict) else {}
         multi_candidate_enabled = bool(multi_candidate_policy.get("enabled"))
         multi_candidate_counts["enabled" if multi_candidate_enabled else "disabled"] += 1
@@ -61,6 +64,8 @@ def analyze_reliability_gate_artifact(
                 "reliability_gate_action": action,
                 "reliability_gate_reason": reason,
                 "reliability_gate_warnings": warnings,
+                "reliability_gate_source": gate["source"],
+                "recomputed_gate_signals": gate.get("signals", {}),
                 "multi_candidate_enabled": multi_candidate_enabled,
                 "multi_candidate_candidate_count": multi_candidate_policy.get("candidate_count"),
                 "multi_candidate_triggers": list(multi_candidate_policy.get("triggers") or []),
@@ -72,6 +77,7 @@ def analyze_reliability_gate_artifact(
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "artifact_dir": str(artifact_dir),
         "predictions_path": str(predictions_path),
+        "analysis_mode": "recomputed_runtime_gate" if recompute_gate else "stored_gate_annotations",
         "total_predictions": len(predictions),
         "with_gate_annotations": sum(1 for row in rows if row["reliability_gate_action"] != "missing"),
         "action_counts": dict(action_counts),
@@ -81,7 +87,7 @@ def analyze_reliability_gate_artifact(
         "multi_candidate_trigger_counts": dict(multi_candidate_trigger_counts),
         "posthoc_risk_counts": dict(risk_counts),
         "anti_fake_policy": (
-            "This report reads existing prediction artifacts only. Post-hoc risk labels are analysis labels; "
+            "This report reads existing prediction artifacts only. Recomputed gate decisions, when enabled, are analysis labels; "
             "they do not alter benchmark outcomes, runtime routing, generated SQL, or semantic correctness."
         ),
     }
@@ -125,6 +131,7 @@ def _render_report(summary: dict[str, Any], rows: list[dict[str, Any]]) -> str:
         "",
         f"- artifact_dir: `{summary['artifact_dir']}`",
         f"- predictions: `{summary['predictions_path']}`",
+        f"- analysis_mode: `{summary['analysis_mode']}`",
         "",
         "## Summary",
         "",
@@ -162,3 +169,29 @@ def _listish(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _gate_view(record: dict[str, Any], *, recompute_gate: bool) -> dict[str, Any]:
+    if not recompute_gate:
+        return {
+            "action": str(record.get("reliability_gate_action") or "missing"),
+            "reason": str(record.get("reliability_gate_reason") or "missing"),
+            "warnings": [str(warning) for warning in _listish(record.get("reliability_gate_warnings"))],
+            "source": "stored",
+        }
+
+    decision = evaluate_reliability_gate(_record_for_recompute(record))
+    return {
+        "action": decision.action,
+        "reason": decision.reason,
+        "warnings": list(decision.warnings),
+        "signals": decision.signals,
+        "source": "recomputed",
+    }
+
+
+def _record_for_recompute(record: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(record)
+    if "execution_result" not in enriched and enriched.get("result_hash"):
+        enriched["execution_ok"] = True
+    return enriched

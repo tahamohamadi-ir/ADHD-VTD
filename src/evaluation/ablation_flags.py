@@ -12,6 +12,7 @@ RUNTIME_ENFORCED_FLAGS = {
     "repair",
     "llm_judge",
     "reliability_gate",
+    "reliability_gate_review_consistency_failures",
     "multi_candidate_generation",
     "multi_candidate_adoption",
 }

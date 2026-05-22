@@ -41,6 +41,14 @@ def _has_not_null_filter(sql: str, column: str) -> bool:
     )
 
 
+def _select_clause(sql: str) -> str:
+    return sql.split(" from ", 1)[0]
+
+
+def _selects_column(sql: str, column: str) -> bool:
+    return column.lower() in _select_clause(sql)
+
+
 def _table_columns(schema: dict[str, Any] | None, table_name: str) -> set[str]:
     if not schema:
         return set()
@@ -167,7 +175,7 @@ class SQLShapeValidator:
                 "ANALYTICAL_SHAPE_MISSING_RISK_GROUPING",
                 "Risk-profile questions must summarize by GROUP BY mental_health_risk instead of returning row-level risk values.",
             )
-        if asks_grouped_risk_profile and "select mental_health_risk" not in sql:
+        if asks_grouped_risk_profile and not _selects_column(sql, "mental_health_risk"):
             _add(
                 issues,
                 "ANALYTICAL_SHAPE_MISSING_RISK_KEY",

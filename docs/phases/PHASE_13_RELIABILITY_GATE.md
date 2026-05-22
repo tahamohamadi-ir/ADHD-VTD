@@ -232,10 +232,10 @@ Result: passed.
 
 ## Remaining Work
 
-- Add broader artifact analysis for gate actions, false abstention risk, critic false positives, and future candidate-consistency disagreements.
+- Broaden artifact analysis from small smoke slices to larger dev artifacts, including gate actions, false abstention risk, critic false positives, and future candidate-consistency disagreements.
 - Run a larger controlled A/B benchmark before making any quality claim about adaptive multi-candidate generation.
 - The policy node and feature-flagged candidate generation path are present; actual generation remains disabled unless `multi_candidate_generation=true` is set explicitly.
-- Add a stronger general signal for valid-but-wrong-SQL cases before any routing change. Options: judge consensus, adaptive multi-candidate consistency, or a richer semantic/shape critic output.
+- Redesign the action policy for valid-but-risky SQL before any routing change. The current retry path can still end in valid-result-mismatch answers; next versions should evaluate `needs_review` or judge-backed adjudication for high-risk consistency failures.
 - Only after annotation evidence is stable, decide whether graph routing should use the gate to change final behavior.
 - Keep fixed test blocked until dev behavior, leakage limitations, and reliability are stable.
 - Current decision: multi-candidate adoption remains blocked, and reliability-gate routing remains annotation-only until larger dev evidence shows reduced false answers without unacceptable latency/abstention regression.
@@ -1046,6 +1046,306 @@ Anti-fake policy:
 This result is based on existing benchmark artifacts and live OpenRouter judge artifacts.
 No prediction, SQL, judgment label, metric, or benchmark outcome was edited or inferred.
 Partial, unjudged, and provider-error rows remain explicit in their source artifacts.
+```
+
+## Richer Semantic Critic
+
+After the dual-policy A/B blocked multi-candidate adoption, Phase 13 moved back to a lower-latency reliability signal: strengthen the question/SQL critic so valid-but-wrong SQL is more likely to be retried or reviewed before final answer.
+
+New general checks:
+
+```text
+1. Risk-profile questions with stress/sleep above/below-average thresholds must include result context averages:
+   AVG(stress_level) and AVG(sleep_hours) must appear in the SELECT list, not only inside WHERE threshold subqueries.
+
+2. Comparative questions such as "more", "higher", or Persian equivalents must include a grouped comparison or baseline.
+   A SQL query that filters only one group, e.g. WHERE mental_health_risk = 'High', is not enough to answer "more than what?".
+
+3. Above/below-average questions must compute the average threshold in WHERE/HAVING.
+   AVG(...) in the SELECT list alone does not satisfy an average-threshold filter when the predicate uses fixed numbers.
+```
+
+Code:
+
+```text
+src\evaluation\sql_consistency_critic.py
+src\evaluation\reliability_gate_analysis.py
+scripts\analyze_reliability_gate_artifact.py --recompute-gate
+```
+
+Verification:
+
+```text
+tests\tier1_unit\test_sql_consistency_critic.py
+tests\tier1_unit\test_reliability_gate.py
+tests\tier1_unit\test_reliability_gate_analysis.py
+result: 31 passed
+compile check: passed
+```
+
+Post-hoc recompute artifacts:
+
+```text
+baseline: results\reliability_gate\20260522_phase13_gate_dev_spl2_richer_semantic_critic_recomputed
+shadow:   results\reliability_gate\20260522_phase13_shadow_multicandidate_dev_spl2_richer_semantic_critic_recomputed
+```
+
+Recomputed baseline summary:
+
+```text
+action_counts: needs_review=2, answer=4, retry=2
+posthoc_risk_counts:
+  review_or_clarify_on_incorrect=2
+  answer_on_correct=3
+  retry_requested=2
+  answer_on_valid_result_mismatch=1
+```
+
+Recomputed shadow summary:
+
+```text
+action_counts: needs_review=3, answer=4, retry=1
+posthoc_risk_counts:
+  review_or_clarify_on_incorrect=3
+  answer_on_correct=3
+  retry_requested=1
+  answer_on_valid_result_mismatch=1
+```
+
+Interpretation:
+
+```text
+The richer critic reduces post-hoc answer-on-valid-result-mismatch risk on the existing dev-spl2 artifacts.
+This is not a model-quality or routing claim because no benchmark was rerun and no prediction artifact was edited.
+The next valid step is a fresh matched dev-spl2 benchmark with the richer critic active at runtime, then dual-policy review only if runtime risk improves without excessive retry/abstention cost.
+```
+
+Anti-overfit policy:
+
+```text
+The checks are based on explicit question/SQL obligations only.
+They do not use case IDs, gold SQL, execution_correct, selected failure lists, result hashes, or judge labels.
+```
+
+### Runtime Reruns
+
+First richer-critic runtime run:
+
+```text
+artifact: results\benchmark\manual_phase13_gate_dev_spl2_richer_semantic_critic
+analysis: results\reliability_gate\20260522_phase13_gate_dev_spl2_richer_semantic_critic_runtime_analysis
+A/B: results\reliability_gate\20260522_phase13_gate_dev_spl2_before_after_richer_semantic_critic
+
+EX=0.375
+valid_sql_rate=0.625
+reliability_score=0.25
+unsafe_sql=0
+status=blocked
+```
+
+Interpretation: reliability improved versus the previous baseline, but valid SQL regressed, so this was not acceptable.
+
+General shape-key fix:
+
+```text
+bug: mental_health_risk was falsely reported missing unless it appeared immediately after SELECT.
+fix: the validator now checks the whole SELECT clause.
+verification: focused shape/critic/gate tests -> 45 passed
+```
+
+Second runtime run after shape-key fix:
+
+```text
+artifact: results\benchmark\manual_phase13_gate_dev_spl2_richer_critic_after_shape_key_fix
+analysis: results\reliability_gate\20260522_phase13_gate_dev_spl2_richer_critic_after_shape_key_fix_analysis
+A/B: results\reliability_gate\20260522_phase13_gate_dev_spl2_before_after_richer_critic_shape_key_fix
+
+EX=0.375
+valid_sql_rate=0.875
+reliability_score=-1.25
+unsafe_sql=0
+status=insufficient_semantic_evidence
+```
+
+Interpretation: valid SQL improved, but reliability worsened because three valid-result-mismatch cases were still answered. This is not a rollout claim.
+
+Average-threshold recompute after the final critic tightening:
+
+```text
+artifact: results\reliability_gate\20260522_phase13_gate_dev_spl2_richer_critic_shape_key_fix_recomputed_avg_threshold
+analysis_mode=recomputed_runtime_gate
+action_counts: needs_review=1, answer=5, retry=2
+posthoc_risk_counts:
+  review_or_clarify_on_incorrect=1
+  answer_on_correct=3
+  retry_requested=2
+  answer_on_valid_result_mismatch=2
+verification: focused shape/critic/gate tests -> 46 passed
+```
+
+Interpretation: this recompute was more promising than the stored second run, but it was analysis-only and required a fresh runtime benchmark before any claim.
+
+Final runtime run after the AVG-threshold critic fix:
+
+```text
+artifact: results\benchmark\manual_phase13_gate_dev_spl2_richer_critic_avg_threshold_final
+analysis: results\reliability_gate\20260522_phase13_gate_dev_spl2_richer_critic_avg_threshold_final_analysis
+A/B: results\reliability_gate\20260522_phase13_gate_dev_spl2_before_after_richer_critic_avg_threshold_final
+
+EX=0.375
+valid_sql_rate=0.875
+reliability_score=-1.25
+unsafe_sql=0
+latency mean=17328.75ms
+latency median=15082.0ms
+latency p95=35112.0ms
+```
+
+Stored gate analysis:
+
+```text
+action_counts: needs_review=1, answer=5, retry=2
+posthoc_risk_counts:
+  review_or_clarify_on_incorrect=1
+  answer_on_correct=3
+  retry_requested=2
+  answer_on_valid_result_mismatch=2
+```
+
+A/B versus `results\benchmark\manual_phase13_gate_dev_spl2_after_gate_fix`:
+
+```text
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=+0.125
+reliability_score_delta=-0.75
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=-503073.0
+acceptance_status=insufficient_semantic_evidence
+```
+
+Case-level finding:
+
+```text
+VTD-343 -> retry / consistency_failed_retryable / valid SQL but result mismatch
+VTD-141 -> retry / consistency_failed_retryable / valid SQL but result mismatch
+VTD-300 -> answer / validated_executed_sql / valid SQL but result mismatch
+VTD-078 -> answer / validated_executed_sql / valid SQL but result mismatch
+```
+
+Final interpretation:
+
+```text
+The richer critic improved valid SQL rate versus the earlier gate baseline and reduced latency in this run, but it did not improve execution accuracy and worsened the reliability score.
+The p95 latency decrease is dominated by the earlier baseline outlier and must not be reported as a general speedup claim.
+The gate still answers two valid-result-mismatch cases, so it is not safe to route final answers from this signal alone.
+Reliability-gate routing remains disabled/annotation-only.
+Next engineering direction should be conservative: valid-but-risky SQL should move to needs_review or judge-backed adjudication rather than automatic retry loops that can preserve or create wrong answers.
+```
+
+## Review-On-Consistency-Failure Policy
+
+A conservative feature flag was added to test whether high-risk question/SQL consistency failures should be reviewed instead of retried:
+
+```text
+feature flag: reliability_gate_review_consistency_failures
+config: experiments\configs\A7_reliability_gate_review_consistency_dev_spl2.yaml
+implementation: src\evaluation\reliability_gate.py
+```
+
+Default behavior is unchanged. When the flag is false, consistency failures before the retry limit still return:
+
+```text
+retry / consistency_failed_retryable
+```
+
+When the flag is true, consistency failures return:
+
+```text
+needs_review / consistency_failed_review
+```
+
+Verification:
+
+```text
+tests\tier1_unit\test_reliability_gate.py
+tests\tier1_unit\test_ablation_runner.py
+tests\tier1_unit\test_reliability_gate_analysis.py
+tests\tier1_unit\test_sql_consistency_critic.py
+tests\tier1_unit\test_shape_validator.py
+result: 51 passed
+compile check: passed
+```
+
+Runtime artifact:
+
+```text
+artifact: results\benchmark\manual_phase13_gate_dev_spl2_review_consistency_failures
+analysis: results\reliability_gate\20260522_phase13_gate_dev_spl2_review_consistency_failures_analysis
+A/B vs original gate baseline: results\reliability_gate\20260522_phase13_gate_dev_spl2_before_after_review_consistency_failures
+A/B vs AVG-threshold run: results\reliability_gate\20260522_phase13_gate_dev_spl2_avg_threshold_vs_review_consistency_failures
+```
+
+Benchmark result:
+
+```text
+evaluated=8
+execution_accuracy=0.375
+valid_sql_rate=0.875
+reliability_score=-1.25
+unsafe_sql=0
+latency mean=17355.88ms
+latency median=15256.5ms
+latency p95=42649.0ms
+```
+
+Stored gate analysis:
+
+```text
+action_counts: needs_review=3, answer=5
+reason_counts:
+  validation_failed_exhausted=1
+  validated_executed_sql=5
+  consistency_failed_review=2
+posthoc_risk_counts:
+  review_or_clarify_on_incorrect=3
+  answer_on_correct=3
+  answer_on_valid_result_mismatch=2
+```
+
+A/B versus the original gate baseline:
+
+```text
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=+0.125
+reliability_score_delta=-0.75
+unsafe_sql_delta=0.0
+acceptance_status=insufficient_semantic_evidence
+```
+
+A/B versus the AVG-threshold final runtime run:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+reliability_score_delta=0.0
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=+7537.0
+acceptance_status=insufficient_semantic_evidence
+```
+
+Interpretation:
+
+```text
+The policy changes gate annotations as intended: two consistency failures move to needs_review instead of retry.
+It does not change benchmark actual_action or final answer because Phase 13 routing is still disabled.
+Therefore it is useful evidence for the next routing experiment, but it is not a quality improvement claim.
+The two remaining answer_on_valid_result_mismatch cases show that critic coverage is still incomplete.
 ```
 
 ## Multi-Candidate A/B Comparison Tooling

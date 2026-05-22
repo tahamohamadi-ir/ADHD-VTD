@@ -20,6 +20,7 @@ class ReliabilityGatePolicy:
     min_intent_confidence: float = 0.4
     review_empty_results: bool = True
     use_judge_signals: bool = True
+    consistency_failure_action: Literal["retry", "needs_review"] = "retry"
 
 
 @dataclass(slots=True)
@@ -52,7 +53,7 @@ def evaluate_reliability_gate(
     already present in the record.
     """
 
-    p = policy or ReliabilityGatePolicy()
+    p = policy or _policy_from_record(record)
     signals = _extract_signals(record)
 
     if signals["unsafe_request"] or signals["unsafe_sql"]:
@@ -74,6 +75,8 @@ def evaluate_reliability_gate(
         return _retry_or_review(signals, "validation_failed")
 
     if signals["consistency_failed"]:
+        if p.consistency_failure_action == "needs_review":
+            return _decision("needs_review", "consistency_failed_review", 0.82, signals=signals)
         return _retry_or_review(signals, "consistency_failed")
 
     if signals["candidate_consistency_failed"]:
@@ -169,6 +172,14 @@ def _decision_from_judge_signals(signals: dict[str, Any]) -> ReliabilityGateDeci
     return None
 
 
+def _policy_from_record(record: dict[str, Any]) -> ReliabilityGatePolicy:
+    return ReliabilityGatePolicy(
+        consistency_failure_action="needs_review"
+        if bool(record.get("reliability_gate_review_consistency_failures"))
+        else "retry"
+    )
+
+
 def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
     validation_issues = _listish(record.get("validation_issues") or record.get("validation_errors"))
     consistency_issues = _extract_consistency_issues(record)
@@ -237,6 +248,7 @@ def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
         "multi_candidate_generation_enabled": multi_candidate_generation_enabled,
         "multi_candidate_policy_triggers": list(multi_candidate_policy_dict.get("triggers") or []),
         "needs_clarification": bool(record.get("needs_clarification")),
+        "reliability_gate_review_consistency_failures": bool(record.get("reliability_gate_review_consistency_failures")),
         "retry_count": retry_count,
         "safety_label": safety_label,
         "semantic_policy_label": record.get("semantic_policy_label"),
