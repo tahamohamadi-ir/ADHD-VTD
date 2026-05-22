@@ -54,11 +54,24 @@ class IntentClassifier:
         norm = self.normalizer.normalize_text(text).lower()
         reasons: list[str] = []
 
-        # 3. Definition query — "X چیست" / "what is X" / "تعریف X"
-        if any(x in norm for x in ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition"]):
+        # 3. Definition or Advice query — "X چیست", "چطور", "چگونه"
+        if any(x in norm for x in ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition", "چطور", "چگونه"]):
+            if "چطور" in norm and any(y in norm for y in ["انتخاب", "استفاده", "بهتر"]):
+                return IntentDecision(
+                    IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
+                    ["Methodological advice question detected — no SQL needed."],
+                )
+            if not any(y in norm for y in ["نمودار", "چارت"]): # Avoid catching chart questions here
+                return IntentDecision(
+                    IntentLabel.DEFINITION_QUERY, 0.80, False, ExpectedAction.ANSWER_WITHOUT_SQL,
+                    ["Definition/explanation question detected — no SQL needed."],
+                )
+
+        # 3.5 Chart Recommendation Advice
+        if any(x in norm for x in ["چه نموداری", "کدوم نمودار", "کدام نمودار", "چه چارتی", "چی بهتره", "چی بذارم", "پیشنهاد بده"]):
             return IntentDecision(
-                IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
-                ["Definition/explanation question detected — no SQL needed."],
+                IntentLabel.CHART_QUERY, 0.90, False, ExpectedAction.ANSWER_CHART_RECOMMENDATION,
+                ["Chart recommendation advice detected — no SQL needed."]
             )
 
         # 4. Comparison query — "مقایسه" / "تفاوت" / "compare"

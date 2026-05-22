@@ -38,6 +38,7 @@ class ExpectedAction(StrEnum):
     REFUSE_HALLUCINATION = "refuse_hallucination"
     REFUSE_SQL_EXPLAIN_SCHEMA_GAP = "refuse_sql_explain_schema_gap"
     ANSWER_WITHOUT_SQL = "answer_without_sql"
+    ANSWER_CHART_RECOMMENDATION = "answer_chart_recommendation"
     ABSTAIN = "abstain"
     WARN_WITH_UNCERTAIN_RESULT = "warn_with_uncertain_result"
 

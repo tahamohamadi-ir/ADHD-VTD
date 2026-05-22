@@ -2,6 +2,56 @@
 
 Status: In progress.
 
+## Current Decision Snapshot - 2026-05-22
+
+Current decision:
+
+```text
+reliability_gate: enabled for benchmark annotation
+reliability_gate_routing: disabled
+multi_candidate_generation: feature-flagged only
+multi_candidate_adoption: disabled
+fixed_test_claims: blocked
+paper_quality_claims: blocked
+```
+
+Latest verified artifact:
+
+```text
+artifact: results\benchmark\manual_phase13_gate_dev_spl2_review_consistency_failures
+analysis: results\reliability_gate\20260522_phase13_gate_dev_spl2_review_consistency_failures_analysis
+A/B vs original gate baseline: results\reliability_gate\20260522_phase13_gate_dev_spl2_before_after_review_consistency_failures
+A/B vs AVG-threshold final run: results\reliability_gate\20260522_phase13_gate_dev_spl2_avg_threshold_vs_review_consistency_failures
+```
+
+Latest metrics:
+
+```text
+evaluated=8
+execution_accuracy=0.375
+valid_sql_rate=0.875
+reliability_score=-1.25
+unsafe_sql=0
+gate_actions: needs_review=3, answer=5
+```
+
+Decision rationale:
+
+```text
+The gate can now mark two consistency failures as needs_review through the reliability_gate_review_consistency_failures policy.
+However, benchmark actual_action and final user-facing behavior are unchanged because routing is intentionally disabled.
+Two valid-result-mismatch cases still reach answer under current critic coverage.
+Therefore this phase has useful reliability evidence but no deployable routing improvement yet.
+```
+
+Next required experiment:
+
+```text
+reliability_gate_route_actions should be implemented only as a separate experiment flag.
+It must be compared against annotation-only on the same selected_cases_hash.
+It must be judged with semantic_user_question and strict_reference policies before any adoption or paper claim.
+```
+
 ## Scope
 
 Phase 13 adds a conservative decision layer that decides whether a generated result should be answered, retried, clarified, reviewed, or refused.

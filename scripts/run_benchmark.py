@@ -340,12 +340,16 @@ def agent_prediction(
     actual_action = "generate_sql"
     
     # Determine actual_action from state
-    if final_state_dict.get("final_answer"):
+    if final_state_dict.get("actual_action"):
+        actual_action = final_state_dict["actual_action"]
+    elif final_state_dict.get("final_answer"):
         answer = final_state_dict["final_answer"]
         if "ابهام" in answer or "شفاف" in answer:
             actual_action = "ask_clarification"
         elif "تلاش" in answer or "قادر" in answer:
             actual_action = "fail_gracefully"
+        elif "امنیتی" in answer or "خطرناک" in answer:
+            actual_action = "refuse_unsafe_sql"
         elif "تحلیل" in answer:
             actual_action = "format_answer"
 

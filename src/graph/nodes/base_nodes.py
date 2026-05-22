@@ -37,6 +37,9 @@ from src.evaluation.candidate_consistency import (
     analyze_candidate_consistency,
 )
 from src.evaluation.multi_candidate_policy import decide_multi_candidate
+from src.output.answer_formatter import format_answer as output_format_answer
+from src.output.chart_recommender import recommend_chart
+from src.output.explanation_builder import build_explanation
 
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
@@ -611,13 +614,33 @@ def execute_sql(state: VTDState) -> Dict[str, Any]:
 
 def format_answer(state: VTDState) -> Dict[str, Any]:
     """
-    Constructs the final Persian response for the user.
+    Final node to format the execution result into a user-friendly answer.
     """
-    row_count = len(state.execution_result) if state.execution_result else 0
-    explanation = state.explanation or "پاسخ بر اساس داده‌های موجود تولید شد."
+    state_dict = state.model_dump()
+    state_dict["actual_action"] = "format_answer"
+    
+    ans = output_format_answer(state_dict)
+    chart = recommend_chart(state_dict.get("execution_result", []))
+    exp = build_explanation(state_dict)
+    
     return {
-        "final_answer": f"تحلیل انجام شد. {explanation} (تعداد رکوردهای بازیابی شده: {row_count})"
+        "final_answer": ans.get("final_answer"),
+        "recommended_visual": chart.get("recommended_visual"),
+        "chart_reason": chart.get("chart_reason"),
+        "explanation": exp or state.explanation,
+        "actual_action": "format_answer"
     }
+
+def fail_gracefully(state: VTDState) -> Dict[str, Any]:
+    """
+    Fallback node when execution fails after max retries.
+    """
+    logger.error(f"Execution failed after {state.retry_count} retries.")
+    state_dict = state.model_dump()
+    state_dict["actual_action"] = "fail_gracefully"
+    ans = output_format_answer(state_dict)
+    ans["actual_action"] = "fail_gracefully"
+    return ans
 
 def reflect_on_error(state: VTDState) -> Dict[str, Any]:
     """
@@ -669,19 +692,28 @@ def reflect_on_error(state: VTDState) -> Dict[str, Any]:
         "attempts": new_attempts
     }
 
-def fail_gracefully(state: VTDState) -> Dict[str, Any]:
-    """
-    Final node for unrecoverable errors after maximum retries.
-    """
-    logger.error(f"Execution failed after {state.retry_count} retries.")
-    return {
-        "final_answer": "متأسفانه پس از چند بار تلاش، سیستم قادر به تولید پاسخ دقیق نبود. لطفاً سوال خود را شفاف‌تر بپرسید."
-    }
-
 def ask_clarification(state: VTDState) -> Dict[str, Any]:
     """
     Node invoked when the input is ambiguous or low confidence.
     """
-    return {
-        "final_answer": "سوال شما کمی ابهام دارد یا منابع لازم در دیتابیس یافت نشد. لطفاً جزئیات بیشتری (مثلاً نام دقیق متغیرها) را ذکر کنید."
-    }
+    from src.core.enums import IntentLabel
+    state_dict = state.model_dump()
+    if state.intent == IntentLabel.DEFINITION_QUERY:
+        state_dict["actual_action"] = "answer_without_sql"
+    elif state.intent == IntentLabel.CHART_QUERY and not state.should_generate_sql:
+        state_dict["actual_action"] = "answer_chart_recommendation"
+    else:
+        state_dict["actual_action"] = "ask_clarification"
+    ans = output_format_answer(state_dict)
+    ans["actual_action"] = state_dict["actual_action"]
+    return ans
+
+def refuse_unsafe_sql(state: VTDState) -> Dict[str, Any]:
+    """
+    Node invoked when the safety check fails.
+    """
+    state_dict = state.model_dump()
+    state_dict["actual_action"] = "refuse_unsafe_sql"
+    ans = output_format_answer(state_dict)
+    ans["actual_action"] = "refuse_unsafe_sql"
+    return ans

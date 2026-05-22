@@ -27,7 +27,16 @@ class AmbiguityDetector:
     GENERIC_PATTERNS = [
         "یه آمار کلی", "یک آمار کلی", "آمار کلی", "وضعیت چطوره", "وضعیت دانشجوها",
         "یه چیزی نشون بده", "چیزی نشان بده", "top 10", "کدوم بهتره", "بهترین ها", "بدترین ها",
-        "تحلیل کن", "داشبورد بساز", "خلاصه بده", "خلاصه نمایش بده", "خلاصه",
+        "تحلیل کن", "تحلیل", "داشبورد بساز", "خلاصه بده", "خلاصه نمایش بده", "خلاصه",
+    ]
+    VAGUE_PROFILE_PATTERNS = [
+        "مشخصات", "ویژگی", "پروفایل", "چگونه است", "چطور است", "چه کسانی"
+    ]
+    IMPOSSIBLE_PATTERNS = [
+        "علت و معلول", "رابطه علت", "توصیه", "پیش‌بینی", "score واحد", "وزن دهی", "اصلاح‌شده", "مدل بساز", "صفر فرض کن"
+    ]
+    VAGUE_TERMS = [
+        "پرریسک", "عملکرد", "مشکل", "خوب"
     ]
     REQUIRED_METRIC_HINTS = [
         "افسردگی", "اضطراب", "خواب", "cgpa", "معدل", "نمره", "درمان", "ریسک", "استرس", "شیوع", "حضور", "exam",
@@ -97,14 +106,33 @@ class AmbiguityDetector:
             reasons.append("Very short request without enough semantic anchors.")
             score += 0.5
 
+        # 6. Vague profile request without dimension
+        has_vague_profile = any(p in norm for p in self.VAGUE_PROFILE_PATTERNS)
+        if has_vague_profile and not has_dimension:
+            reasons.append("Vague profile request without specifying which characteristics to look at.")
+            score += 0.6
+            
+        # 7. Impossible tasks
+        if any(p in norm for p in self.IMPOSSIBLE_PATTERNS):
+            reasons.append("Impossible or non-SQL task requested.")
+            score += 0.8
+            
+        # 8. Vague terms
+        has_vague_terms = any(p in norm for p in self.VAGUE_TERMS)
+        if has_vague_terms and not has_dimension:
+            reasons.append("Vague terms used without precise definition.")
+            score += 0.5
+
         is_amb = score >= 0.5
         clarification = None
         if is_amb:
-            clarification = self._build_clarification(reasons, has_ranking, has_chart)
+            clarification = self._build_clarification(reasons, has_ranking, has_chart, has_vague_profile, has_vague_terms)
         return AmbiguityDecision(is_amb, min(score, 1.0), reasons, clarification)
 
-    def _build_clarification(self, reasons: list[str], has_ranking: bool, has_chart: bool) -> str:
+    def _build_clarification(self, reasons: list[str], has_ranking: bool, has_chart: bool, has_vague: bool = False, has_vague_terms: bool = False) -> str:
         """Build a context-appropriate clarification question in Persian."""
+        if has_vague_terms:
+            return "لطفاً منظور دقیق خود را از کلماتی مانند «عملکرد» یا «پرریسک» مشخص کنید تا قابل اندازه‌گیری باشد."
         if has_ranking:
             return (
                 "لطفاً مشخص کنید بر اساس چه شاخصی رتبه‌بندی انجام شود؛ "
@@ -114,6 +142,11 @@ class AmbiguityDetector:
             return (
                 "لطفاً مشخص کنید چه شاخصی و بر اساس چه بعدی نمودار رسم شود؛ "
                 "مثلاً نمودار توزیع افسردگی بر اساس جنسیت، یا روند اضطراب بر اساس سال."
+            )
+        if has_vague:
+            return (
+                "این سوال خیلی کلی است. لطفاً مشخص کنید به دنبال کدام ویژگی‌ها هستید "
+                "(مثلاً میانگین معدل، سن، جنسیت، یا ساعات خواب)؟"
             )
         return (
             "لطفاً مشخص کنید کدام شاخص یا دیتاست مدنظر است؛ "

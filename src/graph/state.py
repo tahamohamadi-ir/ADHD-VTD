@@ -99,11 +99,14 @@ class VTDState(BaseModel):
     candidate_sqls: list[SQLCandidate] = Field(default_factory=list)
     selected_candidate_id: str | None = None
     candidate_consistency: dict[str, Any] | None = None
+    candidate_consistency_report: dict[str, Any] | None = None
+    reliability_decision: dict[str, Any] | None = None
     multi_candidate_policy: dict[str, Any] | None = None
     reliability: ReliabilityState | None = None
 
     final_answer: str | None = None
     explanation: str | None = None
+    actual_action: str | None = None
     benchmark_record: dict[str, Any] | None = None
     
     # Ablation configuration for research studies

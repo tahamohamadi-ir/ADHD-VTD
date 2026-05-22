@@ -17,13 +17,17 @@ from src.graph.nodes.base_nodes import (
     format_answer,
     reflect_on_error,
     fail_gracefully,
-    ask_clarification
+    ask_clarification,
+    refuse_unsafe_sql
 )
 from src.graph.routes import (
     route_pre_generation,
     route_after_validation,
-    route_after_execution
+    route_after_execution,
+    route_after_reliability
 )
+from src.graph.nodes.check_consistency_node import check_consistency
+from src.graph.nodes.compute_reliability_node import compute_reliability
 
 def create_workflow():
     """Create and compile the VTD LangGraph workflow."""
@@ -46,6 +50,9 @@ def create_workflow():
     workflow.add_node("reflect_on_error", reflect_on_error)
     workflow.add_node("fail_gracefully", fail_gracefully)
     workflow.add_node("ask_clarification", ask_clarification)
+    workflow.add_node("refuse_unsafe_sql", refuse_unsafe_sql)
+    workflow.add_node("check_consistency", check_consistency)
+    workflow.add_node("compute_reliability", compute_reliability)
 
     # Set Entry Point
     workflow.set_entry_point("initialize_trace")
@@ -61,7 +68,8 @@ def create_workflow():
         route_pre_generation,
         {
             "link_schema": "link_schema",
-            "ask_clarification": "ask_clarification"
+            "ask_clarification": "ask_clarification",
+            "refuse_unsafe_sql": "refuse_unsafe_sql"
         }
     )
 
@@ -77,20 +85,34 @@ def create_workflow():
         "validate_sql",
         route_after_validation,
         {
-            "execute_sql": "execute_sql",
+            "execute_sql": "check_consistency",
             "reflect_on_error": "reflect_on_error",
             "fail_gracefully": "fail_gracefully"
         }
     )
+
+    workflow.add_edge("check_consistency", "execute_sql")
 
     # Execution Loop
     workflow.add_conditional_edges(
         "execute_sql",
         route_after_execution,
         {
-            "format_answer": "format_answer",
+            "compute_reliability": "compute_reliability",
             "reflect_on_error": "reflect_on_error",
             "fail_gracefully": "fail_gracefully"
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "compute_reliability",
+        route_after_reliability,
+        {
+            "format_answer": "format_answer",
+            "reflect_on_error": "reflect_on_error",
+            "fail_gracefully": "fail_gracefully",
+            "ask_clarification": "ask_clarification",
+            "refuse_unsafe_sql": "refuse_unsafe_sql"
         }
     )
 
@@ -101,5 +123,6 @@ def create_workflow():
     workflow.add_edge("format_answer", END)
     workflow.add_edge("fail_gracefully", END)
     workflow.add_edge("ask_clarification", END)
+    workflow.add_edge("refuse_unsafe_sql", END)
 
     return workflow.compile()
