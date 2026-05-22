@@ -1,0 +1,28 @@
+config_id: A7_reliability_gate_review_consistency_dev_spl2
+ablation_id: A7_reliability_gate_review_consistency_dev_spl2
+config_version: "phase13_v1"
+mode: agent
+description: "Balanced dev samples-per-level=2 reliability gate with conservative review-on-consistency-failure policy. Use only as matched A/B against A7_reliability_gate_dev_spl2."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  reliability_gate: true
+  reliability_gate_review_consistency_failures: true
+  multi_candidate_generation: false
+  multi_candidate_adoption: false
+reporting:
+  result_status: config_only_not_a_result
+  anti_overfit: "Use only as a general policy A/B. Do not tune prompts, validators, gate rules, or reports to selected case IDs."
+  policy_note: "Consistency failures are routed to needs_review instead of retry to measure whether this reduces false answers without hiding model-quality problems."
