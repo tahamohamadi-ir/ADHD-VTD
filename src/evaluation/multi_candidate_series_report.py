@@ -126,9 +126,10 @@ def _render_report(summary: dict[str, Any], rows: list[dict[str, Any]]) -> str:
             (
                 "The current evidence supports reporting multi-candidate generation as an explored but not yet "
                 "cost-effective reliability intervention on this smoke slice. Candidate adoption is blocked or "
-                "unsupported because it did not improve execution accuracy and increased p95 latency. Shadow-only "
-                "candidate evidence is safer than adoption, but still requires larger dev-set and semantic/strict "
-                "dual-policy review before any quality claim."
+                "unsupported because it did not improve execution accuracy, did not provide a reliable latency/value "
+                "tradeoff, and in the dual-policy evidence can regress semantic-user-question correctness. Shadow-only "
+                "candidate evidence is safer than adoption, but remains diagnostic/review infrastructure until a larger "
+                "dev-set ablation proves semantic gain without valid-SQL, strict-reference, safety, or latency regressions."
             ),
             "",
         ]

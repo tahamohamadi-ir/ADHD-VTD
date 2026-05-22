@@ -32,6 +32,7 @@ scripts/run_benchmark.py
 scripts/analyze_reliability_gate_artifact.py
 scripts/analyze_multi_candidate_ablation.py
 scripts/build_multi_candidate_series_report.py
+scripts/plan_dual_policy_judge_ablation.py
 src/evaluation/ablation_flags.py
 ```
 
@@ -742,14 +743,14 @@ tests/tier1_unit/test_multi_candidate_series_report.py
 Report:
 
 ```text
-results\multi_candidate_ablation\20260521_phase13_multicandidate_cost_benefit_series_v4\multi_candidate_series_report.md
+results\multi_candidate_ablation\20260522_phase13_multicandidate_cost_benefit_series_v5_dual_policy\multi_candidate_series_report.md
 ```
 
 Summary:
 
 ```text
-run_count=5
-status_counts: blocked=1, insufficient_semantic_evidence=4
+run_count=6
+status_counts: blocked=2, insufficient_semantic_evidence=4
 best_available_recommendation=do_not_adopt_candidate_adoption
 ```
 
@@ -761,14 +762,15 @@ Runs:
 3. shadow-only smoke: EX delta 0.0, valid SQL delta 0.0, p95 +7577ms, insufficient evidence.
 4. shadow-only with candidate-evidence gate smoke: EX delta 0.0, valid SQL delta 0.0, p95 +48260ms, insufficient evidence.
 5. dev-spl2 shadow-only after gate fix: EX delta 0.0, valid SQL delta 0.0, p95 -401707ms, insufficient evidence. The p95 decrease is dominated by a baseline outlier and is not a general speedup claim.
+6. dev-spl2 shadow-only after dual-policy judging: EX delta 0.0, valid SQL delta 0.0, p95 -401707ms, blocked due semantic_user_question regression.
 ```
 
 Paper interpretation:
 
 ```text
 Multi-candidate generation is an explored but not yet cost-effective reliability intervention on this smoke slice.
-Candidate adoption is blocked or unsupported because it did not improve execution accuracy and increased p95 latency.
-Shadow-only candidate evidence is safer than adoption, but still requires larger dev-set and semantic/strict dual-policy review before any quality claim.
+Candidate adoption is blocked or unsupported because it did not improve execution accuracy, did not provide a reliable latency/value tradeoff, and in the dual-policy evidence can regress semantic-user-question correctness.
+Shadow-only candidate evidence is safer than adoption, but remains diagnostic/review infrastructure until a larger dev-set ablation proves semantic gain without valid-SQL, strict-reference, safety, or latency regressions.
 ```
 
 Anti-fake policy:
@@ -917,6 +919,133 @@ Interpretation:
 Shadow-only candidate evidence still does not improve EX, valid SQL rate, or reliability on this larger dev slice.
 The apparent p95 latency improvement is dominated by a baseline outlier and should be reported as latency variability, not a speedup claim.
 Multi-candidate adoption remains blocked; shadow mode remains diagnostic only.
+```
+
+## Dual-Policy Judge Plan
+
+The next step requires live OpenRouter judge calls. To keep this reproducible and avoid hand-written command drift, a planner was added:
+
+```text
+src\evaluation\judge_ablation_plan.py
+scripts\plan_dual_policy_judge_ablation.py
+tests\tier1_unit\test_judge_ablation_plan.py
+```
+
+Generated plan:
+
+```text
+results\judgments\20260522_phase13_gate_vs_shadow_dev_spl2_dual_policy_plan
+manifest: RUN metadata and all planned commands
+runbook: RUN_JUDGE_ABLATION.ps1
+```
+
+Scope:
+
+```text
+baseline artifact: results\benchmark\manual_phase13_gate_dev_spl2_after_gate_fix
+shadow artifact: results\benchmark\manual_phase13_shadow_multicandidate_dev_spl2_after_gate_fix
+judge models: qwen/qwen3.6-plus, deepseek/deepseek-v4-flash
+judge policies: semantic_user_question, strict_reference
+prediction scope: all 8 predictions from each artifact
+post-processing: agreement -> consensus -> dual-policy report -> multi-candidate A/B with dual-policy dirs
+```
+
+Verification:
+
+```text
+tests\tier1_unit\test_judge_ablation_plan.py
+tests\tier1_unit\test_multi_candidate_ablation.py
+tests\tier1_unit\test_llm_judge.py
+result: 24 passed
+compile check: passed
+```
+
+Anti-fake statement:
+
+```text
+The planner writes commands and a manifest only.
+It does not call OpenRouter, run a model, infer semantic labels, edit predictions, or create benchmark outcomes.
+No semantic/strict correctness claim exists until RUN_JUDGE_ABLATION.ps1 is executed with a real API key and the resulting artifacts are inspected.
+```
+
+## Dual-Policy Dev-Spl2 A/B Result
+
+The generated OpenRouter runbook was executed on the matched dev-spl2 baseline and shadow-only artifacts.
+
+Final artifact:
+
+```text
+results\judgments\20260522_phase13_gate_vs_shadow_dev_spl2_dual_policy_plan\ablation\multi_candidate_dual_policy_ablation
+```
+
+Integrity checks:
+
+```text
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+common_cases=8
+```
+
+Benchmark deltas:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+reliability_score_delta=0.0
+unsafe_sql_delta=0.0
+latency_mean_delta_ms=-46472.37
+latency_median_delta_ms=2627.0
+latency_p95_delta_ms=-401707.0
+```
+
+The p95 decrease is still dominated by the baseline outlier and must be treated as latency variability, not a speedup claim.
+
+Dual-policy counts:
+
+```text
+baseline semantic_user_question: correct=5, incorrect=3
+baseline strict_reference: correct=3, incorrect=4, adjudication_required=1
+baseline combined: both_correct=3, both_incorrect=2, semantic_correct_strict_incorrect=2, adjudication_required=1
+
+shadow semantic_user_question: correct=4, incorrect=4
+shadow strict_reference: correct=3, incorrect=4, adjudication_required=1
+shadow combined: both_correct=3, both_incorrect=3, semantic_correct_strict_incorrect=1, adjudication_required=1
+```
+
+Multi-candidate evidence:
+
+```text
+activation_rate=0.625
+policy enabled for 5/8 cases
+generated two candidates for 3/8 cases
+generated zero candidates for 5/8 cases
+candidate_issue_counts: NO_VIABLE_CANDIDATES=1
+```
+
+Final acceptance:
+
+```text
+status=blocked
+reason=semantic_user_question correctness regressed on one common case
+```
+
+Interpretation:
+
+```text
+Shadow-only multi-candidate evidence did not improve EX, valid SQL rate, reliability, unsafe SQL, or strict-reference correctness on this matched dev-spl2 slice.
+It also reduced semantic_user_question correctness from 5/8 to 4/8 under the two-judge consensus artifacts.
+Therefore multi-candidate adoption remains blocked, and shadow-only evidence remains diagnostic/review infrastructure only.
+This negative result should be preserved for paper reporting as evidence that multi-candidate is not automatically cost-effective.
+Do not tune to the named regression case; use the general finding to require broader semantic protection before any routing or adoption claim.
+```
+
+Anti-fake policy:
+
+```text
+This result is based on existing benchmark artifacts and live OpenRouter judge artifacts.
+No prediction, SQL, judgment label, metric, or benchmark outcome was edited or inferred.
+Partial, unjudged, and provider-error rows remain explicit in their source artifacts.
 ```
 
 ## Multi-Candidate A/B Comparison Tooling
