@@ -19,16 +19,19 @@ src/evaluation/sql_consistency_critic.py
 src/evaluation/candidate_consistency.py
 src/evaluation/multi_candidate_policy.py
 src/evaluation/multi_candidate_ablation.py
+src/evaluation/multi_candidate_series_report.py
 tests/tier1_unit/test_reliability_gate.py
 tests/tier1_unit/test_reliability_gate_analysis.py
 tests/tier1_unit/test_sql_consistency_critic.py
 tests/tier1_unit/test_candidate_consistency.py
 tests/tier1_unit/test_multi_candidate_policy.py
 tests/tier1_unit/test_multi_candidate_ablation.py
+tests/tier1_unit/test_multi_candidate_series_report.py
 tests/tier1_unit/test_multi_candidate_graph_node.py
 scripts/run_benchmark.py
 scripts/analyze_reliability_gate_artifact.py
 scripts/analyze_multi_candidate_ablation.py
+scripts/build_multi_candidate_series_report.py
 src/evaluation/ablation_flags.py
 ```
 
@@ -229,11 +232,12 @@ Result: passed.
 ## Remaining Work
 
 - Add broader artifact analysis for gate actions, false abstention risk, critic false positives, and future candidate-consistency disagreements.
-- Run a controlled A/B benchmark before making any quality claim about adaptive multi-candidate generation.
+- Run a larger controlled A/B benchmark before making any quality claim about adaptive multi-candidate generation.
 - The policy node and feature-flagged candidate generation path are present; actual generation remains disabled unless `multi_candidate_generation=true` is set explicitly.
 - Add a stronger general signal for valid-but-wrong-SQL cases before any routing change. Options: judge consensus, adaptive multi-candidate consistency, or a richer semantic/shape critic output.
 - Only after annotation evidence is stable, decide whether graph routing should use the gate to change final behavior.
 - Keep fixed test blocked until dev behavior, leakage limitations, and reliability are stable.
+- Current decision: multi-candidate adoption remains blocked, and reliability-gate routing remains annotation-only until larger dev evidence shows reduced false answers without unacceptable latency/abstention regression.
 
 ## First Smoke Artifact
 
@@ -738,14 +742,14 @@ tests/tier1_unit/test_multi_candidate_series_report.py
 Report:
 
 ```text
-results\multi_candidate_ablation\20260521_phase13_multicandidate_cost_benefit_series\multi_candidate_series_report.md
+results\multi_candidate_ablation\20260521_phase13_multicandidate_cost_benefit_series_v4\multi_candidate_series_report.md
 ```
 
 Summary:
 
 ```text
-run_count=3
-status_counts: blocked=1, insufficient_semantic_evidence=2
+run_count=5
+status_counts: blocked=1, insufficient_semantic_evidence=4
 best_available_recommendation=do_not_adopt_candidate_adoption
 ```
 
@@ -755,6 +759,8 @@ Runs:
 1. adoption smoke: EX delta 0.0, valid SQL delta -0.25, p95 +52292ms, blocked.
 2. safer adoption smoke: EX delta 0.0, valid SQL delta 0.0, p95 +19852ms, insufficient evidence.
 3. shadow-only smoke: EX delta 0.0, valid SQL delta 0.0, p95 +7577ms, insufficient evidence.
+4. shadow-only with candidate-evidence gate smoke: EX delta 0.0, valid SQL delta 0.0, p95 +48260ms, insufficient evidence.
+5. dev-spl2 shadow-only after gate fix: EX delta 0.0, valid SQL delta 0.0, p95 -401707ms, insufficient evidence. The p95 decrease is dominated by a baseline outlier and is not a general speedup claim.
 ```
 
 Paper interpretation:
@@ -770,6 +776,147 @@ Anti-fake policy:
 ```text
 The series report summarizes existing A/B artifacts only.
 It does not run a model, execute SQL, edit predictions, infer missing semantic labels, or convert negative/null findings into success claims.
+```
+
+## Candidate Evidence Gate Smoke
+
+A conservative gate rule was added after the shadow-only smoke:
+
+```text
+If multi_candidate_policy.enabled=true and candidate_count>1, but no candidate_sqls and no candidate_consistency evidence are present, return needs_review with reason candidate_evidence_missing_after_trigger.
+```
+
+This rule uses only runtime evidence availability. It does not use case IDs, gold SQL, benchmark correctness labels, or known failure lists.
+
+Verification:
+
+```text
+focused reliability/multi-candidate tests: 25 passed
+compile check: passed
+```
+
+Artifact:
+
+```text
+results\benchmark\manual_phase13_shadow_multicandidate_gate_evidence_smoke
+```
+
+Result:
+
+```text
+evaluated=4
+failures=3
+execution_accuracy=0.25
+valid_sql_rate=0.75
+reliability_score=-1.25
+unsafe_sql=0
+latency_ms mean=40036.5 median=23457.0 p95=102614.0
+```
+
+Reliability analysis:
+
+```text
+results\reliability_gate\20260521_phase13_shadow_multicandidate_gate_evidence_analysis
+gate_actions: needs_review=2, answer=2
+gate_reasons: validation_failed_exhausted=1, validated_executed_sql=2, candidate_evidence_missing_after_trigger=1
+gate_warnings: multi_candidate_evidence_unavailable=1
+posthoc_risk_counts: review_or_clarify_on_incorrect=2, answer_on_correct=1, answer_on_valid_result_mismatch=1
+```
+
+A/B comparison:
+
+```text
+results\multi_candidate_ablation\20260521_phase13_policy_vs_shadow_gate_evidence_smoke
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+reliability_score_delta=0.0
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=48260.0
+candidate_issue_counts: NO_VIABLE_CANDIDATES=1
+acceptance_status=insufficient_semantic_evidence
+```
+
+Interpretation:
+
+```text
+The rule correctly turns one expected-but-missing candidate-evidence situation into needs_review, reducing false-answer risk on this smoke.
+It does not improve EX, valid SQL rate, or reliability score, and it increases p95 latency.
+Therefore it is useful as conservative review instrumentation but not sufficient for routing, adoption, or paper-grade quality claims.
+```
+
+## Annotation-Only Gate Fix
+
+The dev-spl2 analysis exposed a general contract bug: `plan_multi_candidate` can mark a case as eligible for extra candidates even when `multi_candidate_generation=false`. In that annotation-only mode, missing candidate evidence is expected and must not create a false `needs_review` action.
+
+Fix:
+
+```text
+scripts\run_benchmark.py records multi_candidate_generation_enabled and multi_candidate_adoption_enabled.
+src\evaluation\reliability_gate.py requires missing candidate evidence only when multi_candidate_generation_enabled=true.
+```
+
+Verification:
+
+```text
+tests\tier1_unit\test_reliability_gate.py
+tests\tier1_unit\test_reliability_gate_analysis.py
+tests\tier1_unit\test_multi_candidate_graph_node.py
+result: 26 passed
+compile check: passed
+```
+
+This is a general feature-flag contract fix. It does not use benchmark IDs, gold SQL, execution labels, or known failures.
+
+## Dev-SPL2 A/B After Gate Fix
+
+Configs:
+
+```text
+experiments\configs\A7_reliability_gate_dev_spl2.yaml
+experiments\configs\A7_reliability_gate_shadow_multicandidate_dev_spl2.yaml
+```
+
+Artifacts:
+
+```text
+baseline: results\benchmark\manual_phase13_gate_dev_spl2_after_gate_fix
+shadow: results\benchmark\manual_phase13_shadow_multicandidate_dev_spl2_after_gate_fix
+baseline analysis: results\reliability_gate\20260521_phase13_gate_dev_spl2_after_gate_fix_analysis
+shadow analysis: results\reliability_gate\20260521_phase13_shadow_multicandidate_dev_spl2_after_gate_fix_analysis
+A/B: results\multi_candidate_ablation\20260521_phase13_gate_vs_shadow_multicandidate_dev_spl2_after_gate_fix
+```
+
+Results:
+
+```text
+baseline: evaluated=8, EX=0.375, valid_sql_rate=0.75, reliability_score=-0.5, unsafe_sql=0, p95=538185ms
+shadow: evaluated=8, EX=0.375, valid_sql_rate=0.75, reliability_score=-0.5, unsafe_sql=0, p95=136478ms
+same_dataset_hash=true
+same_selected_cases_hash=true
+same_model=true
+```
+
+A/B deltas:
+
+```text
+execution_accuracy_delta=0.0
+valid_sql_rate_delta=0.0
+reliability_score_delta=0.0
+unsafe_sql_delta=0.0
+latency_p95_delta_ms=-401707.0
+semantic_evidence_available=false
+acceptance_status=insufficient_semantic_evidence
+```
+
+Interpretation:
+
+```text
+Shadow-only candidate evidence still does not improve EX, valid SQL rate, or reliability on this larger dev slice.
+The apparent p95 latency improvement is dominated by a baseline outlier and should be reported as latency variability, not a speedup claim.
+Multi-candidate adoption remains blocked; shadow mode remains diagnostic only.
 ```
 
 ## Multi-Candidate A/B Comparison Tooling

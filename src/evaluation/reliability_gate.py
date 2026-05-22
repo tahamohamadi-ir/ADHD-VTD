@@ -79,6 +79,15 @@ def evaluate_reliability_gate(
     if signals["candidate_consistency_failed"]:
         return _retry_or_review(signals, "candidate_consistency_failed")
 
+    if signals["candidate_evidence_missing_after_trigger"]:
+        return _decision(
+            "needs_review",
+            "candidate_evidence_missing_after_trigger",
+            0.75,
+            warnings=["multi_candidate_evidence_unavailable"],
+            signals=signals,
+        )
+
     if signals["execution_failed"]:
         return _retry_or_review(signals, "execution_failed")
 
@@ -164,6 +173,9 @@ def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
     validation_issues = _listish(record.get("validation_issues") or record.get("validation_errors"))
     consistency_issues = _extract_consistency_issues(record)
     candidate_consistency_issues = _extract_candidate_consistency_issues(record)
+    multi_candidate_policy = record.get("multi_candidate_policy")
+    multi_candidate_policy_dict = multi_candidate_policy if isinstance(multi_candidate_policy, dict) else {}
+    candidate_sqls = _listish(record.get("candidate_sqls"))
     execution_result = record.get("execution_result")
     attempts = _listish(record.get("attempts"))
     retry_count = _int_or_default(record.get("retry_count"), _attempt_retry_count(attempts))
@@ -184,13 +196,31 @@ def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
     )
     validation_failed = bool(validation_issues) or valid_sql is False
     execution_failed = bool(execution_error)
+    multi_candidate_expected = bool(multi_candidate_policy_dict.get("enabled")) and _int_or_default(
+        multi_candidate_policy_dict.get("candidate_count"),
+        1,
+    ) > 1
+    multi_candidate_generation_enabled = bool(
+        record.get("multi_candidate_generation_enabled")
+        or record.get("multi_candidate_generation")
+        or (
+            isinstance(record.get("ablation_config"), dict)
+            and record["ablation_config"].get("multi_candidate_generation")
+        )
+    )
+    candidate_evidence_missing = multi_candidate_expected and not candidate_sqls and not (
+        record.get("candidate_consistency") or record.get("candidate_consistency_report")
+    ) and multi_candidate_generation_enabled
 
     return {
         "actual_action": actual_action,
         "combined_label": record.get("combined_label"),
+        "candidate_evidence_missing_after_trigger": candidate_evidence_missing,
+        "candidate_evidence_present": bool(candidate_sqls or record.get("candidate_consistency") or record.get("candidate_consistency_report")),
         "candidate_consistency_failed": bool(candidate_consistency_issues),
         "candidate_consistency_issue_count": len(candidate_consistency_issues),
         "candidate_consistency_issues": candidate_consistency_issues,
+        "candidate_sql_count": len(candidate_sqls),
         "consistency_failed": bool(consistency_issues),
         "consistency_issue_count": len(consistency_issues),
         "consistency_issues": consistency_issues,
@@ -203,6 +233,9 @@ def _extract_signals(record: dict[str, Any]) -> dict[str, Any]:
         "intent": intent,
         "intent_confidence": _float_or_none(record.get("intent_confidence")),
         "max_retries": max_retries,
+        "multi_candidate_policy_enabled": bool(multi_candidate_policy_dict.get("enabled")),
+        "multi_candidate_generation_enabled": multi_candidate_generation_enabled,
+        "multi_candidate_policy_triggers": list(multi_candidate_policy_dict.get("triggers") or []),
         "needs_clarification": bool(record.get("needs_clarification")),
         "retry_count": retry_count,
         "safety_label": safety_label,

@@ -1,0 +1,26 @@
+config_id: A7_reliability_gate_dev_spl2
+ablation_id: A7_reliability_gate_dev_spl2
+config_version: "phase13_v1"
+mode: agent
+description: "Balanced dev samples-per-level=2 baseline with annotation-only reliability gate. Use as the matched baseline for Phase 13 shadow multi-candidate A/B."
+dataset:
+  split: dev
+sampling:
+  samples_per_level: 2
+exclude_self: true
+trace_level: full
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  reliability_gate: true
+  multi_candidate_generation: false
+  multi_candidate_adoption: false
+reporting:
+  result_status: config_only_not_a_result
+  anti_overfit: "Use this as a matched dev-slice baseline only. Do not tune prompts, validators, retrieval, or gate rules to selected case IDs."

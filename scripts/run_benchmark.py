@@ -422,6 +422,8 @@ def agent_prediction(
         "selected_candidate_id": final_state_dict.get("selected_candidate_id"),
         "candidate_consistency": final_state_dict.get("candidate_consistency"),
         "multi_candidate_policy": final_state_dict.get("multi_candidate_policy"),
+        "multi_candidate_generation_enabled": bool((ablation_config or {}).get("multi_candidate_generation", False)),
+        "multi_candidate_adoption_enabled": bool((ablation_config or {}).get("multi_candidate_adoption", False)),
         "reliability": final_state_dict.get("reliability"),
         "error": error,
     }
