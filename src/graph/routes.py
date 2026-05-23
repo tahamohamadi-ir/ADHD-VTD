@@ -1,10 +1,12 @@
 from typing import Literal
 from src.graph.state import VTDState
 
-def route_pre_generation(state: VTDState) -> Literal["link_schema", "ask_clarification", "refuse_unsafe_sql"]:
+def route_pre_generation(state: VTDState) -> Literal["link_schema", "ask_clarification", "refuse_unsafe_sql", "answer_without_sql"]:
     """Decide whether to proceed to schema linking or ask for clarification."""
     if state.intent == "unsafe_query" or state.safety_label != "safe":
         return "refuse_unsafe_sql"
+    if state.intent == "definition_query" and not state.should_generate_sql:
+        return "answer_without_sql"
     if not state.should_generate_sql:
         return "ask_clarification"
     if state.needs_clarification or state.intent_confidence < 0.4:

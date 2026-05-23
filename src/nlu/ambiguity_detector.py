@@ -36,13 +36,14 @@ class AmbiguityDetector:
         "علت و معلول", "رابطه علت", "توصیه", "پیش‌بینی", "score واحد", "وزن دهی", "اصلاح‌شده", "مدل بساز", "صفر فرض کن"
     ]
     VAGUE_TERMS = [
-        "پرریسک", "عملکرد", "مشکل", "خوب"
+        "پرریسک", "مشکل", "خوب"
     ]
     REQUIRED_METRIC_HINTS = [
         "افسردگی", "اضطراب", "خواب", "cgpa", "معدل", "نمره", "درمان", "ریسک", "استرس", "شیوع", "حضور", "exam",
         "phq9", "gad7", "bdi", "sleep", "score", "gpa", "depression", "anxiety",
         "eating_disorder", "schizophrenia", "bipolar", "prevalence", "country", "countries",
-        "change", "quartile", "percentile",
+        "change", "quartile", "percentile", "germany", "italy", "united kingdom", "sweden", "japan", "brazil", "iran",
+        "remote", "treatment", "benefits", "تعداد", "توزیع",
     ]
 
     # Ranking terms that need a metric to be actionable
@@ -73,8 +74,17 @@ class AmbiguityDetector:
         score = 0.0
         has_metric = any(h in norm for h in self.REQUIRED_METRIC_HINTS)
 
+        # Data-aware signals
+        _data_signals = [
+            "دیتاست", "dataset", "survey", "دیتابیس", "جدول", "table",
+            "محل کار", "workplace", "دانشجو", "student", "کشور", "country",
+            "پاسخ", "response", "رکورد", "record", "نمونه", "sample",
+            "اشتغال", "employment", "وضعیت", "شغلی",
+        ]
+        has_data_signal = any(s in norm for s in _data_signals)
+
         # 1. Generic request without clear metric/dataset
-        if any(p in norm for p in self.GENERIC_PATTERNS) and not has_metric:
+        if any(p in norm for p in self.GENERIC_PATTERNS) and not has_metric and not has_data_signal:
             reasons.append("Generic request without clear metric/dataset.")
             score += 0.6
 
@@ -108,7 +118,7 @@ class AmbiguityDetector:
 
         # 6. Vague profile request without dimension
         has_vague_profile = any(p in norm for p in self.VAGUE_PROFILE_PATTERNS)
-        if has_vague_profile and not has_dimension:
+        if has_vague_profile and not has_dimension and not has_data_signal:
             reasons.append("Vague profile request without specifying which characteristics to look at.")
             score += 0.6
             

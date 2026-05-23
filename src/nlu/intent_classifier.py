@@ -54,18 +54,26 @@ class IntentClassifier:
         norm = self.normalizer.normalize_text(text).lower()
         reasons: list[str] = []
 
-        # 3. Definition or Advice query — "X چیست", "چطور", "چگونه"
-        if any(x in norm for x in ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition", "چطور", "چگونه"]):
-            if "چطور" in norm and any(y in norm for y in ["انتخاب", "استفاده", "بهتر"]):
-                return IntentDecision(
-                    IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
-                    ["Methodological advice question detected — no SQL needed."],
-                )
-            if not any(y in norm for y in ["نمودار", "چارت"]): # Avoid catching chart questions here
+        # 3. Definition or Advice query — "X چیست", "چطور" (methodology)
+        # Methodology advice
+        if any(x in norm for x in ["چطور", "چگونه", "چطوری"]) and any(y in norm for y in ["انتخاب", "استفاده", "بهتر", "روش", "راهنمایی"]):
+            return IntentDecision(
+                IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
+                ["Methodological advice question detected — no SQL needed."],
+            )
+
+        definition_cues = ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition"]
+        if any(x in norm for x in definition_cues):
+            sql_cues = ["میانگین", "شیوع", "روند", "تغییر", "مقایسه", "نرخ", "بیشترین", "کمترین", "توزیع", "تعداد", "سال", "ماه", "دیتاست", "دیتابیس", "جدول", "درصد"]
+            if any(s in norm for s in sql_cues):
+                pass # Fall through to SQL
+            elif len(norm.split()) <= 5:
                 return IntentDecision(
                     IntentLabel.DEFINITION_QUERY, 0.80, False, ExpectedAction.ANSWER_WITHOUT_SQL,
-                    ["Definition/explanation question detected — no SQL needed."],
+                    ["Short definition/explanation question detected — no SQL needed."],
                 )
+            else:
+                pass # Default to SQL if it's long and has 'چیست'
 
         # 3.5 Chart Recommendation Advice
         if any(x in norm for x in ["چه نموداری", "کدوم نمودار", "کدام نمودار", "چه چارتی", "چی بهتره", "چی بذارم", "پیشنهاد بده"]):
@@ -88,6 +96,7 @@ class IntentClassifier:
         if any(x in norm for x in [
             "لیست", "فهرست", "همه", "نمایش بده", "نشان بده", "بده",
             "list all", "show all", "show me", "get all", "retrieve",
+            "خلاصه کن", "خلاصه", "چطورن", "چطوره",
         ]):
             # Only if no aggregation signal
             if not any(x in norm for x in ["میانگین", "تعداد", "avg", "count", "sum", "درصد"]):

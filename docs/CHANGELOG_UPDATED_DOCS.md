@@ -17,6 +17,7 @@ This package contains corrected and completed documentation files aligned with t
 | `08_PROJECT_STRUCTURE_AND_FILE_MAP.md` | Added repository gates, required artifacts, suggested new source files |
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Added dataset maturity, audit rules, human agreement, dataset card, reliability labels |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Added v2.3 execution addendum, first-paper scope, supervisor/GitHub gate |
+| `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Updated to reflect Phase 16 successful semantic judgement using DeepSeek V4-Flash |
 
 ## New Helper Files
 

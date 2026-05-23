@@ -1,15 +1,51 @@
-﻿The previous SQL was invalid.
+The previous SQL was invalid. Use the schema below to fix it.
 
 Original question:
 {{ question }}
 
-Previous SQL:
-{{ previous_sql }}
+### Database Schema
+{% if schema %}{% for table_name, table_info in schema.items() %}
+Table: `{{ table_name }}`
+Columns:
+{% if table_info is mapping %}{% for col in table_info.get('columns', []) %}{% if col is mapping %}- `{{ col.name }}` ({{ col.type }}){% else %}- `{{ col }}`{% endif %}
+{% endfor %}{% elif table_info.columns is defined %}{% for col in table_info.columns %}- `{{ col.name }}` ({{ col.type }})
+{% endfor %}{% endif %}{% endfor %}{% endif %}
 
-Validation errors:
+{% if qir %}
+### Query Intent
+- Intent: {{ qir.task_type if qir.task_type is defined else qir.get('task_type', 'N/A') }}
+{% endif %}
+
+{% if value_links %}
+### Explicit Value Links
+{% for term, mapped_value in value_links.items() %}
+- "{{ term }}" -> `{{ mapped_value }}`
+{% endfor %}
+{% endif %}
+
+### Previous Failed SQL
+```sql
+{{ previous_sql }}
+```
+
+### Validation Errors
 {{ validation_errors }}
 
-Critic feedback:
+{% if critic_feedback %}
+### Critic Feedback
 {{ critic_feedback }}
+{% endif %}
 
-Regenerate corrected SQLite SELECT SQL only as JSON.
+### Rules
+1. Fix ONLY the reported errors. Do not rewrite the entire query if it is structurally correct.
+2. Use ONLY the columns listed in the schema above. Do not hallucinate columns.
+3. Generate valid SQLite SQL only.
+4. Respond ONLY with a JSON object. Think step-by-step BEFORE writing SQL.
+
+```json
+{
+  "thought_process": "1. Understand error... 2. Identify fix...",
+  "sql": "SELECT ...",
+  "needs_clarification": false
+}
+```

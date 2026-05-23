@@ -5,6 +5,8 @@ from jinja2 import Environment, FileSystemLoader
 from src.core.query_ir import QueryIR
 
 
+import re
+
 _DASHBOARD_TERMS = (
     "dashboard",
     "story",
@@ -104,6 +106,15 @@ class PromptBuilder:
         """
         Builds the main SQL generation prompt.
         """
+        if few_shot:
+            for ex in few_shot:
+                if "thought_process" not in ex or not ex["thought_process"] or ex["thought_process"] == "Generating query for user request.":
+                    ex["thought_process"] = self._generate_synthetic_thought(ex.get("sql", ""))
+                # If skeleton is missing, we could try to extract it, but usually it is pre-populated in golden examples.
+                # Since golden_examples doesn't have it, we'll auto-generate a pseudo-skeleton if missing.
+                if "sql_skeleton" not in ex:
+                    ex["sql_skeleton"] = re.sub(r'([A-Za-z0-9_]+\.[A-Za-z0-9_]+|[A-Za-z0-9_]+) (?:=|<|>|<=|>=|LIKE) (?:\'([^\']+)\'|\d+)', r'\1 = {value}', ex.get("sql", ""))
+
         template = self.env.get_template("sql_generation.j2")
         
         # Serialize QIR to dict for easier templating if needed, but jinja can access properties
@@ -114,6 +125,49 @@ class PromptBuilder:
             value_links=value_links or {},
             few_shot=few_shot or [],
             analysis_hints=self._build_analysis_hints(question, qir, schema),
+        )
+
+    def _generate_synthetic_thought(self, sql: str) -> str:
+        tables = re.findall(r'FROM\s+([a-zA-Z0-9_]+)', sql, re.IGNORECASE)
+        joins = re.findall(r'JOIN\s+([a-zA-Z0-9_]+)', sql, re.IGNORECASE)
+        all_tables = list(set(tables + joins))
+        
+        has_groupby = 'GROUP BY' in sql.upper()
+        has_limit = 'LIMIT' in sql.upper()
+        
+        thought = f"1. Identify main tables: {', '.join(all_tables) if all_tables else 'Unknown'}. "
+        
+        if has_groupby:
+            thought += "2. Query requires grouping (GROUP BY) to summarize metrics. "
+        else:
+            thought += "2. Query is a simple filter or global aggregation. "
+            
+        if 'WHERE' in sql.upper():
+            thought += "3. Apply specific filters in WHERE clause. "
+            
+        thought += "4. Format output columns according to analysis shape hints."
+        
+        return thought
+
+    def build_repair_prompt(
+        self,
+        question: str,
+        schema: dict[str, Any],
+        qir: Any,
+        value_links: dict[str, str],
+        previous_sql: str,
+        validation_errors: str,
+        critic_feedback: str | None = None
+    ) -> str:
+        template = self.env.get_template("sql_repair.j2")
+        return template.render(
+            question=question,
+            schema=schema,
+            qir=qir,
+            value_links=value_links,
+            previous_sql=previous_sql,
+            validation_errors=validation_errors,
+            critic_feedback=critic_feedback
         )
 
     def _build_analysis_hints(
@@ -134,6 +188,12 @@ class PromptBuilder:
                 "section above. If an example uses a similar concept with a different "
                 "column name, map the concept to the current schema column instead."
             )
+            if "student_depression" in schema:
+                hints.append(
+                    "Note: 'دانشجویان افسردگی' or 'student_depression' refers to the table name. "
+                    "Do NOT add 'WHERE depression_flag = 1' just because the dataset is named 'depression'. "
+                    "Only filter by depression_flag if the user explicitly asks for depressed students (e.g. دانشجویانی که افسردگی دارند)."
+                )
 
         if task_type == "rate_query" or _has_any(q, _RATE_TERMS):
             rate_hint = (

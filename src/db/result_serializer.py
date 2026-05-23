@@ -22,7 +22,7 @@ class ResultSerializer:
     @classmethod
     def serialize_rows(cls, rows: list[dict[str, Any]]) -> SerializedResult:
         normalized_rows = [
-            {str(k): cls.normalize_value(v) for k, v in sorted(row.items(), key=lambda x: x[0])}
+            {f"col_{i}": cls.normalize_value(v) for i, (k, v) in enumerate(row.items())}
             for row in rows
         ]
         columns = sorted(normalized_rows[0].keys()) if normalized_rows else []

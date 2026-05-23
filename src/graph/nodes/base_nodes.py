@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from src.config.paths import MODELS_DIR
 from src.config.settings import SETTINGS
+from src.config import features
 from src.core.enums import IntentLabel
 from src.core.query_ir import QueryIR
 from src.graph.state import VTDState, LinkedSchema, SQLAttempt
@@ -322,7 +323,7 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
 
     policy = state.multi_candidate_policy if isinstance(state.multi_candidate_policy, dict) else {}
     multi_candidate_enabled = (
-        bool(state.ablation_config.get("multi_candidate_generation", False))
+        (bool(state.ablation_config.get("multi_candidate_generation", False)) or features.ENABLE_MULTI_CANDIDATE_GENERATION)
         and bool(policy.get("enabled"))
         and int(policy.get("candidate_count") or 1) > 1
         and _can_generate_extra_candidates(state)
@@ -397,7 +398,7 @@ def _generate_sql_candidates(state: VTDState, llm: LocalLLM, candidate_count: in
     primary_id = str(primary.get("candidate_id") or "candidate_1")
     selected_candidate_id = consistency_report.selected_candidate_id
     selected = _candidate_by_id(candidates, selected_candidate_id)
-    adoption_enabled = bool(state.ablation_config.get("multi_candidate_adoption", False))
+    adoption_enabled = bool(state.ablation_config.get("multi_candidate_adoption", False)) or features.ENABLE_MULTI_CANDIDATE_GENERATION
     adopted_candidate_id = (
         str(selected_candidate_id)
         if adoption_enabled and consistency_report.passed and selected is not None and _candidate_is_viable(selected)
@@ -685,7 +686,27 @@ def reflect_on_error(state: VTDState) -> Dict[str, Any]:
         )
 
     # Update prompt for the next generation
-    repair_prompt = critic.build_repair_prompt(f"{feedback}\n\nRepair Plan: {repair_plan}")
+    from src.generation.prompt_builder import PromptBuilder
+    builder = PromptBuilder()
+    
+    if state.validation_errors:
+        validation_err_str = "\n".join([str(e.get("message", e)) if isinstance(e, dict) else str(e) for e in state.validation_errors])
+    else:
+        validation_err_str = error_msg or "Unknown failure"
+        if validation_err_str == "Unknown failure" and state.candidate_consistency_report and not state.candidate_consistency_report.get("passed"):
+            issues = state.candidate_consistency_report.get("issues", [])
+            if issues:
+                validation_err_str = "\n".join([str(i.get("message", i)) for i in issues])
+    
+    repair_prompt = builder.build_repair_prompt(
+        question=state.raw_question,
+        schema=state.schema_context,
+        qir=state.qir,
+        value_links=state.value_links,
+        previous_sql=sql,
+        validation_errors=validation_err_str,
+        critic_feedback=f"{feedback}\n\nRepair Plan: {repair_plan}"
+    )
     
     return {
         "prompt": repair_prompt,

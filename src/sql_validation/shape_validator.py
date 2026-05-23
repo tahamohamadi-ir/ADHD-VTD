@@ -194,9 +194,9 @@ class SQLShapeValidator:
                 "Risk summary SQL should include AVG(stress_level) and AVG(sleep_hours) for the filtered population.",
             )
         if asks_stress_sleep_thresholds and not (
-            "stress_level >" in sql
+            re.search(r"stress_level\s*>", sql)
             and "avg(stress_level" in sql
-            and "sleep_hours <" in sql
+            and re.search(r"sleep_hours\s*<", sql)
             and "avg(sleep_hours" in sql
         ):
             _add(

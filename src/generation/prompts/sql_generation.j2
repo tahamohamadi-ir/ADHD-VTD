@@ -50,34 +50,55 @@ Use these runtime-derived hints to match the analytical shape requested by the u
 {% endif %}
 ### Examples
 **User**: درصد دانشجویانی که افسردگی دارند چقدر است؟
-**SQL**:
-```sql
-SELECT AVG(depression_flag) * 100.0 FROM student_depression;
+**Response**:
+```json
+{
+  "thought_process": "1. Table: student_depression. 2. Column: depression_flag (binary 0/1). 3. No filter needed. 4. Formula: AVG(depression_flag) * 100.0 for percentage.",
+  "sql": "SELECT AVG(depression_flag) * 100.0 AS depression_rate_pct FROM student_depression;",
+  "needs_clarification": false
+}
 ```
 
 **User**: میانگین فشار تحصیلی برای دانشجویان دختر چقدر است؟
-**SQL**:
-```sql
-SELECT AVG(academic_pressure) FROM student_depression WHERE gender = 'Female';
+**Response**:
+```json
+{
+  "thought_process": "1. Table: student_depression. 2. Column: academic_pressure. 3. Filter: gender = 'Female'. 4. Aggregation: AVG(academic_pressure).",
+  "sql": "SELECT AVG(academic_pressure) FROM student_depression WHERE gender = 'Female';",
+  "needs_clarification": false
+}
 ```
 
 {% if few_shot %}
+### SQL SKELETONS
+Here are structural SQL templates extracted from similar past queries to help you structure your query correctly:
+{% for example in few_shot %}
+{% if example.sql_skeleton %}
+- {{ example.sql_skeleton }}
+{% endif %}
+{% endfor %}
+
 {% for example in few_shot %}
 **User**: {{ example.question }}
-**SQL**:
-```sql
-{{ example.sql }}
+**Response**:
+```json
+{
+  "thought_process": {{ example.thought_process | tojson }},
+  "sql": {{ example.sql | tojson }},
+  "needs_clarification": false
+}
 ```
 {% endfor %}
 {% endif %}
 
 ### Output Format
-Respond ONLY with a JSON object in the following format. Do not add any conversational text before or after the JSON.
+Respond ONLY with a JSON object. Think step-by-step BEFORE writing SQL.
+```json
 {
+  "thought_process": "1. Tables needed: ... 2. Columns needed: ... 3. Filters/WHERE: ... 4. Aggregation/GROUP BY: ... 5. Expected output shape: ...",
   "sql": "SELECT ...",
-  "explanation": "A short reasoning for why this query works.",
   "needs_clarification": false
 }
-
+```
 ### User Question
 **User**: {{ question }}

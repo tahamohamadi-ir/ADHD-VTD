@@ -620,6 +620,8 @@ def run(args: argparse.Namespace) -> Path:
         "repair": True,
         "abstention": True,
         "reflexion": True,
+        "multi_candidate_generation": True,
+        "multi_candidate_adoption": True,
         "reliability_gate": False,
         "llm_judge": False,
     }
@@ -897,7 +899,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--path", help="Custom dataset JSON path. Overrides --dataset path.")
     parser.add_argument("--sample", type=int, help="Evaluate the first N cases. Use 0 for all.")
     parser.add_argument("--samples-per-level", type=int, help="Evaluate N cases from each difficulty level.")
-    parser.add_argument("--top-k", type=int, default=3, help="Retrieval top-k.")
+    parser.add_argument("--top-k", type=int, default=5, help="Number of examples to retrieve (default: 5).")
     parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
     parser.add_argument(
         "--retrieval-backend",
