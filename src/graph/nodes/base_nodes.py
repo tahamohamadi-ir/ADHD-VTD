@@ -18,6 +18,7 @@ from src.schema.query_planner import QueryPlanner
 from src.schema.schema_registry import SchemaRegistry
 from src.generation.local_llm import LocalLLM
 from src.generation.prompt_builder import PromptBuilder
+from src.generation.template_sql import try_generate_template_sql
 from src.generation.output_parser import OutputParser
 from src.retrieval.context_builder import ContextBuilder
 from src.retrieval.hybrid_retriever import HybridRetriever
@@ -25,6 +26,7 @@ from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.retrieval.self_overlap import filter_self_overlaps
 from src.sql_validation.validation_pipeline import ValidationPipeline
 from src.sql_validation.shape_validator import SQLShapeValidator
+from src.sql_validation.sql_rewriter import SQLRewriter
 from src.sql_validation.validation_result import ValidationResult
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.utils.logging import get_logger
@@ -218,7 +220,8 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         }
 
     retriever = HybridRetriever(use_vector_store=False)
-    retrieval_top_k = 15 if state.exclude_self_retrieval else 3
+    requested_top_k = max(1, int(state.retrieval_top_k or 5))
+    retrieval_top_k = max(requested_top_k * 5, requested_top_k) if state.exclude_self_retrieval else requested_top_k
     retrieved = retriever.retrieve(retrieval_query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2))
     removed_ids: list[str] = []
     if state.exclude_self_retrieval:
@@ -227,8 +230,8 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
             case_id=state.benchmark_case_id,
             question=query_text,
         )
-        retrieved = retrieved[:3]
-    context = ContextBuilder().build(retrieved, max_examples=3)
+        retrieved = retrieved[:requested_top_k]
+    context = ContextBuilder().build(retrieved, max_examples=requested_top_k)
 
     logger.info(f"Retrieved {len(context.examples)} CAG examples")
     return {
@@ -318,6 +321,14 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     """
     if not state.prompt:
         return {"generated_sql": ""}
+
+    template_response = try_generate_template_sql(state.raw_question)
+    if template_response is not None:
+        return {
+            "generated_sql": template_response,
+            "raw_model_response": template_response,
+            "generation_latency_ms": 0,
+        }
         
     llm = _get_local_llm()
 
@@ -446,6 +457,7 @@ def _inspect_sql_candidate(
 
     registry = SchemaRegistry()
     validator = ValidationPipeline(registry=registry)
+    sql = SQLRewriter().rewrite_for_question(sql, question=state.raw_question)
     validation = validator.validate(sql)
     validated_sql = validation.normalized_sql or sql
     if validation.ok:
@@ -539,7 +551,11 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
         
     registry = SchemaRegistry()
     validator = ValidationPipeline(registry=registry)
-    result = validator.validate(state.generated_sql)
+    question_rewritten_sql = SQLRewriter().rewrite_for_question(
+        state.generated_sql,
+        question=state.raw_question,
+    )
+    result = validator.validate(question_rewritten_sql)
     validated_sql = result.normalized_sql or state.generated_sql
     if result.ok:
         shape_result = SQLShapeValidator().validate(

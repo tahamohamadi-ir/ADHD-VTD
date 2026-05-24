@@ -33,12 +33,14 @@ The following terms in the user's question map to specific database values:
 3. Pay close attention to the "Explicit Value Links" for exact spelling of categorical values.
 4. Do NOT use `SELECT *`. Explicitly select only necessary columns.
 5. **Statistical Queries:**
-   - For "percentage" or "rate" of a binary flag (0/1), use `AVG(column_name) * 100.0`.
-   - For "average" of a numeric score, use `AVG(column_name)`.
+   - For "percentage" or "rate" of a binary flag (0/1), use `ROUND(AVG(column_name) * 100.0, 2)`.
+   - For "average" of a numeric score, use `ROUND(AVG(column_name), 2)`.
    - For "count", use `COUNT(*)`.
-6. Do NOT include any destructive operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`).
-7. For queries returning individual rows (raw retrieval), you MUST end with `LIMIT 100` (unless otherwise requested).
-8. If the question is unanswerable with the given schema, output a JSON with `"needs_clarification": true`.
+   - Always round any decimal values (e.g., AVG, percentage, ratios) using `ROUND(..., 2)`.
+6. **Filtering:** ONLY add a WHERE clause if the user explicitly mentions a condition or filter. If the user asks for a 'total count' or 'average' without conditions, do NOT add any WHERE clause.
+7. Do NOT include any destructive operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`).
+8. **LIMIT Constraints:** ONLY use LIMIT if the user explicitly asks for top-N, bottom-N, or a limited number of rows. For queries returning individual rows (raw retrieval), you MUST end with `LIMIT 100` (unless otherwise requested).
+9. If the question is unanswerable with the given schema, output a JSON with `"needs_clarification": true`.
 
 {% if analysis_hints %}
 ### Analysis Shape Guidance

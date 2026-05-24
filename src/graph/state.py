@@ -77,6 +77,7 @@ class VTDState(BaseModel):
     retrieved_examples: list[dict[str, Any]] = Field(default_factory=list)
     retrieval_context: str | None = None
     retrieval_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    retrieval_top_k: int = 5
     benchmark_case_id: str | None = None
     exclude_self_retrieval: bool = False
     self_overlap_removed: int = 0

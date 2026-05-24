@@ -38,9 +38,10 @@ Columns:
 
 ### Rules
 1. Fix ONLY the reported errors. Do not rewrite the entire query if it is structurally correct.
-2. Use ONLY the columns listed in the schema above. Do not hallucinate columns.
-3. Generate valid SQLite SQL only.
-4. Respond ONLY with a JSON object. Think step-by-step BEFORE writing SQL.
+2. Use ONLY the columns listed in the schema above. Do NOT hallucinate columns. If you are unsure, use 'SELECT COUNT(*)' or the most generic column available.
+3. Check table and column descriptions before using them.
+4. Generate valid SQLite SQL only. Pay special attention to GROUP BY clauses: every non-aggregated column in the SELECT list must appear in the GROUP BY clause.
+5. Respond ONLY with a JSON object. Think step-by-step BEFORE writing SQL.
 
 ```json
 {

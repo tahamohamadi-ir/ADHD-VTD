@@ -124,10 +124,35 @@ class ValueLinker:
         ]
         return any(p in norm for p in negative_patterns)
 
+    def _is_dataset_only_depression_context(self, norm: str) -> bool:
+        """Detect cases where depression names a dataset/table, not a row filter."""
+        dataset_terms = [
+            "\u062f\u06cc\u062a\u0627\u0633\u062a",
+            "\u062f\u0627\u062f\u0647",
+            "\u062c\u062f\u0648\u0644",
+            "dataset",
+            "table",
+            "student_depression",
+        ]
+        explicit_positive_terms = [
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc \u062f\u0627\u0631\u062f",
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc \u062f\u0627\u0631\u0646\u062f",
+            "\u062f\u0627\u0631\u0627\u06cc \u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "\u0645\u0628\u062a\u0644\u0627 \u0628\u0647 \u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "\u0627\u0641\u0631\u0627\u062f \u0627\u0641\u0633\u0631\u062f\u0647",
+            "\u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646 \u0627\u0641\u0633\u0631\u062f\u0647",
+            "who are depressed",
+            "with depression",
+        ]
+        return any(term in norm for term in dataset_terms) and not any(
+            term in norm for term in explicit_positive_terms
+        )
+
     def resolve_for_column(self, text: str, column: str) -> list[ValueLink]:
         norm = self.normalizer.normalize_text(text).lower()
         links: list[ValueLink] = []
         negative_depression = self._has_negative_depression_context(norm)
+        dataset_only_depression = self._is_dataset_only_depression_context(norm)
 
         for alias, spec in sorted(self.MANUAL_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
             alias_norm = self.normalizer.normalize_text(alias).lower()
@@ -136,6 +161,11 @@ class ValueLinker:
                 # If the phrase is explicitly negative for depression, do not also emit the positive
                 # normalized alias "افسردگی" for depression_flag/depression_diagnosis.
                 if negative_depression and value == 1 and self._column_matches_alias(column, ["depression_flag", "depression_diagnosis"]):
+                    continue
+                if dataset_only_depression and value == 1 and (
+                    self._column_matches_alias(column, ["depression_flag", "depression_diagnosis"])
+                    or self._column_matches_alias(column, ["disorder"])
+                ):
                     continue
                 if self._value_exists(column, value):
                     links.append(ValueLink(column, alias, value, 0.96, "manual_alias", f"{alias} -> {value}"))

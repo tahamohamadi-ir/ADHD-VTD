@@ -141,7 +141,7 @@ def analyze_question_sql_consistency(question: str | None, sql: str | None) -> S
             )
         )
 
-    if _has_any(q, _GROUP_TERMS) and "group by" not in s:
+    if _has_any(q, _GROUP_TERMS) and not _looks_like_segmented_sql(s):
         issues.append(
             SqlConsistencyIssue(
                 code="QUESTION_SQL_MISSING_GROUPING",
@@ -265,6 +265,10 @@ def _asks_risk_average_profile(question: str) -> bool:
         and _has_any(question, _SLEEP_TERMS)
         and (_has_any(question, _ABOVE_TERMS) or _has_any(question, _BELOW_TERMS))
     )
+
+
+def _looks_like_segmented_sql(sql: str) -> bool:
+    return "group by" in sql or "partition by" in sql
 
 
 def _asks_comparative_question(question: str) -> bool:

@@ -279,7 +279,8 @@
           "type": "TEXT",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "جنسیت فرد"
         },
         {
           "cid": 3,
@@ -343,7 +344,9 @@
           "type": "INTEGER",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "نمره افسردگی",
+          "description_en": "Depression score"
         },
         {
           "cid": 11,
@@ -351,7 +354,9 @@
           "type": "INTEGER",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "نمره اضطراب",
+          "description_en": "Anxiety score"
         },
         {
           "cid": 12,
@@ -394,7 +399,8 @@
             "mental_health_risk"
           ]
         }
-      ]
+      ],
+      "description_fa": "اطلاعات عمومی سلامت روان — شامل نمرات اضطراب و افسردگی"
     },
     {
       "name": "student_depression",
@@ -423,7 +429,8 @@
           "type": "TEXT",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "جنسیت فرد"
         },
         {
           "cid": 3,
@@ -559,7 +566,9 @@
           "type": "INTEGER",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "وضعیت ابتلا به افسردگی (۱ یعنی دارد، ۰ یعنی ندارد)",
+          "description_en": "Depression flag"
         },
         {
           "cid": 20,
@@ -600,7 +609,8 @@
             "source_row_id"
           ]
         }
-      ]
+      ],
+      "description_fa": "داده‌های دانشجویان — نام جدول شامل depression است ولی تمام دانشجویان (سالم و افسرده) را شامل می‌شود"
     },
     {
       "name": "student_habits_performance",
@@ -637,7 +647,8 @@
           "type": "TEXT",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "جنسیت فرد"
         },
         {
           "cid": 4,
@@ -797,7 +808,8 @@
           "type": "TEXT",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "جنسیت فرد"
         },
         {
           "cid": 4,
@@ -853,7 +865,9 @@
           "type": "INTEGER",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "تشخیص ابتلا به اضطراب (۱ یعنی دارد، ۰ یعنی ندارد)",
+          "description_en": "Anxiety diagnosis"
         },
         {
           "cid": 11,
@@ -942,7 +956,8 @@
           "type": "TEXT",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "جنسیت فرد"
         },
         {
           "cid": 7,
@@ -982,7 +997,8 @@
           "type": "INTEGER",
           "notnull": false,
           "default_value": null,
-          "primary_key": false
+          "primary_key": false,
+          "description_fa": "وضعیت دریافت درمان برای مشکلات سلامت روان"
         },
         {
           "cid": 12,
@@ -1154,7 +1170,8 @@
             "survey_year"
           ]
         }
-      ]
+      ],
+      "description_fa": "نظرسنجی سلامت روان در محیط کار — ستون‌های age, work_environment, treatment, remote_work, و غیره"
     },
     {
       "name": "vw_country_prevalence_pivot",
@@ -1250,7 +1267,8 @@
           "type": "TEXT",
           "primary_key": false,
           "nullable": true,
-          "description": "Column gender from view vw_unified_individual_mental_health"
+          "description": "Column gender from view vw_unified_individual_mental_health",
+          "description_fa": "جنسیت فرد"
         },
         {
           "name": "country",
@@ -1278,7 +1296,9 @@
           "type": "INTEGER",
           "primary_key": false,
           "nullable": true,
-          "description": "Column depression_flag from view vw_unified_individual_mental_health"
+          "description": "Column depression_flag from view vw_unified_individual_mental_health",
+          "description_fa": "وضعیت ابتلا به افسردگی (۱ یعنی دارد، ۰ یعنی ندارد)",
+          "description_en": "Depression flag"
         },
         {
           "name": "anxiety_flag",
@@ -1320,14 +1340,18 @@
           "type": "INT",
           "primary_key": false,
           "nullable": true,
-          "description": "Column depression_score from view vw_unified_individual_mental_health"
+          "description": "Column depression_score from view vw_unified_individual_mental_health",
+          "description_fa": "نمره افسردگی",
+          "description_en": "Depression score"
         },
         {
           "name": "anxiety_score",
           "type": "INT",
           "primary_key": false,
           "nullable": true,
-          "description": "Column anxiety_score from view vw_unified_individual_mental_health"
+          "description": "Column anxiety_score from view vw_unified_individual_mental_health",
+          "description_fa": "نمره اضطراب",
+          "description_en": "Anxiety score"
         },
         {
           "name": "productivity_score",
@@ -1411,7 +1435,8 @@
           "type": "TEXT",
           "primary_key": false,
           "nullable": true,
-          "description": "Column gender from view vw_student_dashboard"
+          "description": "Column gender from view vw_student_dashboard",
+          "description_fa": "جنسیت فرد"
         },
         {
           "name": "city",
@@ -1432,7 +1457,9 @@
           "type": "INTEGER",
           "primary_key": false,
           "nullable": true,
-          "description": "Column depression_flag from view vw_student_dashboard"
+          "description": "Column depression_flag from view vw_student_dashboard",
+          "description_fa": "وضعیت ابتلا به افسردگی (۱ یعنی دارد، ۰ یعنی ندارد)",
+          "description_en": "Depression flag"
         },
         {
           "name": "academic_pressure",

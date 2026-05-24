@@ -58,6 +58,31 @@ _SLEEP_TERMS = ("sleep", "\u062e\u0648\u0627\u0628")
 _DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
 _DEPRESSION_TERMS = ("depression", "depressed", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc", "\u0627\u0641\u0633\u0631\u062f\u0647")
 _CGPA_TERMS = ("cgpa", "gpa")
+_MENTAL_HEALTH_GENERAL_TERMS = (
+    "mental health",
+    "\u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646",
+    "\u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646\u06cc",
+)
+_DISORDER_NAME_TERMS = (
+    "depression",
+    "anxiety",
+    "bipolar",
+    "schizophrenia",
+    "eating_disorder",
+    "eating disorder",
+    "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+    "\u0627\u0636\u0637\u0631\u0627\u0628",
+    "\u062f\u0648\u0642\u0637\u0628\u06cc",
+    "\u0627\u0633\u06a9\u06cc\u0632\u0648\u0641\u0631\u0646\u06cc",
+    "\u0627\u062e\u062a\u0644\u0627\u0644 \u062e\u0648\u0631\u062f\u0646",
+)
+_DISORDER_GROUP_TERMS = (
+    "each disorder",
+    "by disorder",
+    "\u0647\u0631 \u0627\u062e\u062a\u0644\u0627\u0644",
+    "\u0627\u0632 \u0647\u0631 \u0627\u062e\u062a\u0644\u0627\u0644",
+    "\u0628\u0647 \u062a\u0641\u06a9\u06cc\u06a9 \u0627\u062e\u062a\u0644\u0627\u0644",
+)
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -181,6 +206,17 @@ class PromptBuilder:
         schema_tables = set(schema)
         hints: list[str] = []
 
+        hints.append(
+            "If you use a CASE WHEN expression in the SELECT clause and also use GROUP BY, "
+            "you MUST repeat the entire CASE WHEN expression in the GROUP BY clause."
+        )
+        
+        if task_type in ("aggregation_query", "rate_query", "grouping_query") or _has_any(q, _RATE_TERMS) or _has_any(q, _AVERAGE_COMPARISON_TERMS) or 'sum' in q or 'avg' in q or 'min' in q or 'max' in q or 'count' in q:
+            hints.append(
+                "When calculating AVG, SUM, MIN, or MAX, always add a `WHERE column IS NOT NULL` "
+                "filter for the aggregated column unless you already have other WHERE conditions."
+            )
+
         if schema:
             hints.append(
                 "Do not copy table or column names from examples unless that exact "
@@ -262,6 +298,20 @@ class PromptBuilder:
                 "aggregation, and calculate value_latest - value_baseline as the "
                 "change."
             )
+
+        if "country_prevalence_long" in schema_tables:
+            if _has_any(q, _MENTAL_HEALTH_GENERAL_TERMS) and not _has_any(q, _DISORDER_NAME_TERMS):
+                hints.append(
+                    "In global prevalence data, generic 'mental health' is a topic label, "
+                    "not a value in the disorder column. Do not add a disorder filter unless "
+                    "the user names a specific disorder such as depression, anxiety, bipolar, "
+                    "schizophrenia, or eating disorder."
+                )
+            if _has_any(q, _DISORDER_GROUP_TERMS):
+                hints.append(
+                    "If the user asks for counts or summaries for each disorder, GROUP BY "
+                    "disorder and do not filter disorder to a made-up or single value."
+                )
 
         if _has_any(q, _QUANTILE_TERMS):
             hints.append(

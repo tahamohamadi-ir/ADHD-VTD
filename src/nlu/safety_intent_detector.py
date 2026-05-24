@@ -84,6 +84,8 @@ class SafetyIntentDetector:
 
         for phrase in self.PERSIAN_DANGEROUS:
             if phrase in norm:
+                if phrase in {"\u062d\u0630\u0641 \u06a9\u0646", "\u067e\u0627\u06a9 \u06a9\u0646"} and self._is_analytical_exclusion_request(norm):
+                    continue
                 matched.append(phrase)
                 reasons.append(f"Dangerous Persian operation phrase: {phrase}")
 
@@ -105,6 +107,55 @@ class SafetyIntentDetector:
             label = "prompt_injection" if any("Prompt" in r for r in reasons) else "unsafe_sql"
             return SafetyDecision(False, label, reasons, matched)
         return SafetyDecision(True, "safe", [], [])
+
+    def _is_analytical_exclusion_request(self, norm: str) -> bool:
+        """Allow natural-language filter/exclusion wording, not destructive deletes."""
+        exclusion_cues = [
+            "\u06a9\u0645 \u0646\u0645\u0648\u0646\u0647",
+            "\u06a9\u0645\u200c\u0646\u0645\u0648\u0646\u0647",
+            "\u0646\u0645\u0648\u0646\u0647 \u06a9\u0645",
+            "\u062d\u062f\u0627\u0642\u0644 \u0646\u0645\u0648\u0646\u0647",
+            "\u0628\u062f\u0648\u0646",
+            "\u0628\u0647 \u062c\u0632",
+            "\u0641\u06cc\u0644\u062a\u0631",
+            "exclude",
+            "excluding",
+            "filter out",
+            "low sample",
+            "low-sample",
+            "minimum sample",
+        ]
+        analytical_cues = [
+            "\u0646\u0631\u062e",
+            "\u062f\u0631\u0635\u062f",
+            "\u062a\u0639\u062f\u0627\u062f",
+            "\u0634\u0647\u0631",
+            "\u06a9\u0634\u0648\u0631",
+            "\u06af\u0631\u0648\u0647",
+            "\u0631\u062a\u0628\u0647",
+            "\u062a\u0648\u0632\u06cc\u0639",
+            "\u0645\u06cc\u0627\u0646\u06af\u06cc\u0646",
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "\u0627\u0636\u0637\u0631\u0627\u0628",
+            "rate",
+            "percent",
+            "count",
+            "rank",
+            "average",
+        ]
+        destructive_targets = [
+            "\u062c\u062f\u0648\u0644",
+            "\u062f\u06cc\u062a\u0627\u0628\u06cc\u0633",
+            "\u0633\u062a\u0648\u0646",
+            "\u062f\u0627\u062f\u0647 \u0647\u0627",
+            "table",
+            "database",
+            "column",
+            "rows",
+        ]
+        if any(target in norm for target in destructive_targets) and not any(cue in norm for cue in exclusion_cues[:4]):
+            return False
+        return any(cue in norm for cue in exclusion_cues) and any(cue in norm for cue in analytical_cues)
 
     def is_safe(self, text: str) -> bool:
         return self.detect(text).is_safe

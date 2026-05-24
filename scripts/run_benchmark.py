@@ -315,6 +315,7 @@ def agent_prediction(
     *,
     ablation_config: dict[str, bool] | None = None,
     exclude_self_retrieval: bool = False,
+    top_k: int = 5,
 ) -> dict[str, Any]:
     question = case_question(case)
     initial_state = VTDState(
@@ -322,6 +323,7 @@ def agent_prediction(
         raw_question=question,
         benchmark_case_id=str(case.get("id") or case.get("case_id") or ""),
         exclude_self_retrieval=exclude_self_retrieval,
+        retrieval_top_k=top_k,
         ablation_config=ablation_config or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
     )
 
@@ -706,6 +708,7 @@ def run(args: argparse.Namespace) -> Path:
                     executor,
                     ablation_config=ablation_config,
                     exclude_self_retrieval=exclude_self,
+                    top_k=args.top_k,
                 )
             except Exception as exc:
                 prediction = exception_prediction(

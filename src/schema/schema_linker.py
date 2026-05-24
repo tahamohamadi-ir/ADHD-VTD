@@ -68,6 +68,14 @@ class SchemaLinker:
         "cgpa": ["student_depression.cgpa_10", "university_student_mental_health.cgpa_mid"],
         "نمره امتحان": ["student_habits_performance.exam_score"],
         "exam score": ["student_habits_performance.exam_score"],
+        "\u0633\u0627\u0639\u062a \u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": ["student_depression.sleep_mid_hours"],
+        "\u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": ["student_depression.sleep_mid_hours"],
+        "\u0634\u0628\u06a9\u0647 \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": ["student_habits_performance.social_media_hours"],
+        "\u0634\u0628\u06a9\u0647\u200c\u0647\u0627\u06cc \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": ["student_habits_performance.social_media_hours"],
+        "social media": ["student_habits_performance.social_media_hours"],
+        "\u0631\u062a\u0628\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": ["student_habits_performance.mental_health_rating"],
+        "\u0646\u0645\u0631\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": ["student_habits_performance.mental_health_rating"],
+        "mental health rating": ["student_habits_performance.mental_health_rating"],
         "خواب": [
             "student_depression.sleep_mid_hours",
             "student_depression.sleep_duration_category",
@@ -443,6 +451,35 @@ class SchemaLinker:
                 matched_aliases.append(column.lower())
                 self._safe_add_column(columns, evidence, fq_column, "direct_column_name", 0.75)
 
+        if self._is_student_depression_dataset_context(normalized):
+            columns = [col for col in columns if col.startswith("student_depression.")]
+            evidence = [
+                item
+                for item in evidence
+                if item.get("type") != "column" or str(item.get("value", "")).startswith("student_depression.")
+            ]
+            if not columns:
+                for fq_column in (
+                    "student_depression.student_depression_id",
+                    "student_depression.age",
+                    "student_depression.depression_flag",
+                ):
+                    self._safe_add_column(columns, evidence, fq_column, "dataset_context:student_depression", 0.96)
+        elif self._is_general_mental_health_dataset_context(normalized):
+            columns = [col for col in columns if col.startswith("mental_health_general.")]
+            evidence = [
+                item
+                for item in evidence
+                if item.get("type") != "column" or str(item.get("value", "")).startswith("mental_health_general.")
+            ]
+            if not columns:
+                for fq_column in (
+                    "mental_health_general.general_row_id",
+                    "mental_health_general.depression_score",
+                    "mental_health_general.anxiety_score",
+                ):
+                    self._safe_add_column(columns, evidence, fq_column, "dataset_context:mental_health_general", 0.96)
+
         tables: list[str] = []
         for fq_column in columns:
             table = fq_column.split(".", 1)[0]
@@ -492,3 +529,51 @@ class SchemaLinker:
             evidence=evidence,
         )
 
+    def _is_student_depression_dataset_context(self, normalized: str) -> bool:
+        dataset_terms = (
+            "\u062f\u06cc\u062a\u0627\u0633\u062a",
+            "\u062f\u0627\u062f\u0647",
+            "\u062c\u062f\u0648\u0644",
+            "dataset",
+            "student_depression",
+        )
+        student_terms = (
+            "\u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646",
+            "\u062f\u0627\u0646\u0634\u062c\u0648",
+            "student",
+        )
+        depression_terms = (
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "depression",
+        )
+        return (
+            any(term in normalized for term in dataset_terms)
+            and any(term in normalized for term in student_terms)
+            and any(term in normalized for term in depression_terms)
+        )
+
+    def _is_general_mental_health_dataset_context(self, normalized: str) -> bool:
+        dataset_terms = (
+            "\u062f\u06cc\u062a\u0627\u0633\u062a",
+            "\u062f\u0627\u062f\u0647",
+            "\u062c\u062f\u0648\u0644",
+            "dataset",
+        )
+        general_terms = (
+            "\u0639\u0645\u0648\u0645\u06cc",
+            "general",
+            "mental_health_general",
+        )
+        mental_health_terms = (
+            "\u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646",
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "\u0627\u0636\u0637\u0631\u0627\u0628",
+            "mental health",
+            "depression",
+            "anxiety",
+        )
+        return (
+            any(term in normalized for term in dataset_terms)
+            and any(term in normalized for term in general_terms)
+            and any(term in normalized for term in mental_health_terms)
+        )

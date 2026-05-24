@@ -17,7 +17,7 @@ class AppSettings:
     default_model_path: str | None = os.getenv("VTD_DEFAULT_MODEL_PATH")
     sqlite_timeout_seconds: float = float(os.getenv("VTD_SQLITE_TIMEOUT", "10"))
     raw_retrieval_limit: int = int(os.getenv("VTD_RAW_RETRIEVAL_LIMIT", "100"))
-    max_retries: int = int(os.getenv("VTD_MAX_RETRIES", "3"))
+    max_retries: int = int(os.getenv("VTD_MAX_RETRIES", "5"))
     random_seed: int = int(os.getenv("VTD_RANDOM_SEED", "42"))
     llm_context_window: int = int(os.getenv("VTD_LLM_N_CTX", "4096"))
 
