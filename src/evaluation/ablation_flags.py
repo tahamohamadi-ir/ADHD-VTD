@@ -15,14 +15,17 @@ RUNTIME_ENFORCED_FLAGS = {
     "reliability_gate_review_consistency_failures",
     "multi_candidate_generation",
     "multi_candidate_adoption",
+    "deterministic_templates",
 }
 
 RUNTIME_LOCKED_FLAGS = {
+    "abstention": "Abstention/clarification behavior is part of the reliability policy and cannot be disabled by this runner.",
     "safety": "Safety cannot be disabled in benchmark execution.",
     "validation": "Read-only SQL validation cannot be disabled in benchmark execution.",
 }
 
 RUNTIME_PARAMETER_FLAGS = {
+    "max_retries",
     "retrieval_backend",
     "reranker",
 }

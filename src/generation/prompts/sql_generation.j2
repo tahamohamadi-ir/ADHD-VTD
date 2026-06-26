@@ -55,8 +55,8 @@ Use these runtime-derived hints to match the analytical shape requested by the u
 **Response**:
 ```json
 {
-  "thought_process": "1. Table: student_depression. 2. Column: depression_flag (binary 0/1). 3. No filter needed. 4. Formula: AVG(depression_flag) * 100.0 for percentage.",
-  "sql": "SELECT AVG(depression_flag) * 100.0 AS depression_rate_pct FROM student_depression;",
+  "thought_process": "1. Table: student_depression. 2. Column: depression_flag (binary 0/1). 3. No filter needed. 4. Formula: ROUND(AVG(depression_flag) * 100.0, 2) for percentage.",
+  "sql": "SELECT ROUND(AVG(depression_flag) * 100.0, 2) AS depression_rate_pct FROM student_depression;",
   "needs_clarification": false
 }
 ```
@@ -65,8 +65,8 @@ Use these runtime-derived hints to match the analytical shape requested by the u
 **Response**:
 ```json
 {
-  "thought_process": "1. Table: student_depression. 2. Column: academic_pressure. 3. Filter: gender = 'Female'. 4. Aggregation: AVG(academic_pressure).",
-  "sql": "SELECT AVG(academic_pressure) FROM student_depression WHERE gender = 'Female';",
+  "thought_process": "1. Table: student_depression. 2. Column: academic_pressure. 3. Filter: gender = 'Female'. 4. Aggregation: ROUND(AVG(academic_pressure), 2).",
+  "sql": "SELECT ROUND(AVG(academic_pressure), 2) AS avg_academic_pressure FROM student_depression WHERE gender = 'Female' AND academic_pressure IS NOT NULL;",
   "needs_clarification": false
 }
 ```

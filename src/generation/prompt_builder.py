@@ -210,6 +210,25 @@ class PromptBuilder:
             "If you use a CASE WHEN expression in the SELECT clause and also use GROUP BY, "
             "you MUST repeat the entire CASE WHEN expression in the GROUP BY clause."
         )
+
+        if qir.dimensions:
+            hints.append(
+                "The QIR Dimensions are required output grouping keys, not optional filters. "
+                "Include each requested dimension in SELECT and GROUP BY unless the user asks "
+                "for raw rows instead of an aggregate."
+            )
+        if qir.metrics:
+            hints.append(
+                "The QIR Metrics are the measurement columns. Use them in aggregate formulas "
+                "such as COUNT, AVG, SUM, rates, ranks, or gaps according to the question; do "
+                "not replace them with unrelated context columns from examples."
+            )
+        if qir.expected_result_shape == "table":
+            hints.append(
+                "The expected result shape is a table. Do not answer with one scalar COUNT or "
+                "AVG when the question asks for distribution, comparison, ranking, trend, or "
+                "grouped rate."
+            )
         
         if task_type in ("aggregation_query", "rate_query", "grouping_query") or _has_any(q, _RATE_TERMS) or _has_any(q, _AVERAGE_COMPARISON_TERMS) or 'sum' in q or 'avg' in q or 'min' in q or 'max' in q or 'count' in q:
             hints.append(

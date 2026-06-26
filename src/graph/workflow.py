@@ -69,6 +69,7 @@ def create_workflow():
         {
             "link_schema": "link_schema",
             "ask_clarification": "ask_clarification",
+            "answer_without_sql": "ask_clarification",
             "refuse_unsafe_sql": "refuse_unsafe_sql"
         }
     )

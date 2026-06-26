@@ -1,7 +1,7 @@
 # VTD-Edge Research-Grade Documentation Suite
 
-**Status:** Finalized documentation suite aligned with PARS-SQL / VTD-Edge v2.3 Execution-Ready proposal  
-**Last Updated:** 2026-05-19 (Phase 11 retrieval ablation and Phase 16 OpenRouter judge/agreement artifacts updated)
+**Status:** Paper 1 execution documentation suite, updated with artifact-backed B0/B1 status  
+**Last Updated:** 2026-06-26 (gold closeout, behavioral100, full bounded no-template run, retrieval, full positive400 ablation, full 400-case authoritative semantic judge)
 **Project:** VTD-Edge / ADHD-VTD Persian Text-to-SQL System  
 **Target:** Research-grade and edge-deployable, offline, privacy-preserving, Persian-first Text-to-SQL pipeline  
 **Primary Goal:** Build a measurable, reliable, and publishable local/edge NL2SQL system for mental-health and student-lifestyle analytics while keeping data private.  
@@ -50,7 +50,13 @@ Non-negotiable documentation principles:
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Dataset files, golden examples, few-shot bank, behavioral evaluation, human agreement, dataset card |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from current state to research-grade and SOTA-style local/edge Text-to-SQL |
 | `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Specification and current artifact-backed status for Phase 16: Semantic/business correctness evaluation using LLM-as-a-Judge, OpenRouter live pilots and judge agreement, separate from SQL execution correctness |
+| `PARS_SQL_PAPER1_IMPLEMENTATION_PLAN.md` | Current source of truth for Paper 1 execution status, completed artifacts, remaining work, and commands |
+| `PARS_SQL_PAPER1_RESULTS_SUMMARY.md` | Artifact-backed status summary for current Paper 1 evidence; not final until B1.3/B1.5 closeout |
+| `PARS_SQL_PAPER1_REPRODUCIBILITY.md` | Commands and artifact paths needed to reproduce current Paper 1 runs |
+| `DATASET_CARD.md` | Current dataset card for positive400 + behavioral100, including limitations and safety scope |
+| `paper/limitations.md` | Paper 1 limitations draft covering clinical scope, dataset limits, overfit risk, and reranker caveats |
 | `phases/PHASE_13_RELIABILITY_GATE.md` | Current Phase 13 reliability-gate contract, annotation-only benchmark wiring, anti-overfit policy, and verification commands |
+| `phases/PHASE_18_7_ZERO_SHOT_MASTERY.md` | Phase 18.7 plan for the final anti-overfit zero/few-shot push beyond 65%: template safety, schema gating, one-shot surgeon, validator fixes, vector/reranker ablations and reliability-gate verification |
 | `BENCHMARK_AND_TEST_GUIDE.md` | Practical guide for running tests, retrieval/gold/agent benchmarks, balanced sampling, reading artifacts, and debugging failures |
 | `VTD_Edge_PARS_SQL_Proposal_FINAL_v2_3_Execution_Ready_FA.docx` | Final implementation-first mini proposal / execution guide |
 | `requirements-vtd-edge-research.txt` | Suggested additional/updated Python dependencies for the research-grade version |
@@ -126,25 +132,16 @@ This rule prevents the project from drifting between product engineering and res
 
 ## 6. Immediate Next Action
 
-Do not start with the full LangGraph pipeline. Start with Phase 0:
+Phase 0 and the initial Paper 1 blocker fixes are no longer the next step. The current source of truth is:
 
 ```text
-1. Freeze schema and create schema_snapshot.json.
-2. Run 50 SQL-positive benchmark questions manually or with a validation script against the current DB.
-3. Fix gold SQL/schema misalignment before coding the LLM pipeline.
-4. Create README.md with Feature Decision Table.
-5. Create DATASET_CARD.md with data origin, synthetic/de-identified policy, and annotation status.
-6. Commit Phase 0 to GitHub before sending the project to any PhD supervisor.
+docs/PARS_SQL_PAPER1_IMPLEMENTATION_PLAN.md
 ```
 
-Then run Milestone 1 and Milestone 1.5:
+Current next actions for Paper 1:
 
 ```text
-Milestone 1:
-Small local model 1.5B/1.7B, 50 simple SQL-positive questions, no CAG.
-Target: >=40% EX@1 and >=70% Valid SQL Rate.
-
-Milestone 1.5:
-10 Finglish/typo + 5 Jalali-date + 5 unsafe questions.
-Target: correct normalization/routing/abstention before moving to CAG or Reflexion.
+1. Decide whether to build a clean paraphrase holdout for anti-overfit claims.
+2. Optionally human spot-check a sample of the 400 OpenRouter semantic/business judgments before final paper submission.
+3. Refresh `paper1_review_package_20260622` after any new holdout or judge-review artifacts.
 ```

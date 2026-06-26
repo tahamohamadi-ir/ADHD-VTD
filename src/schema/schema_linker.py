@@ -451,34 +451,47 @@ class SchemaLinker:
                 matched_aliases.append(column.lower())
                 self._safe_add_column(columns, evidence, fq_column, "direct_column_name", 0.75)
 
-        if self._is_student_depression_dataset_context(normalized):
-            columns = [col for col in columns if col.startswith("student_depression.")]
-            evidence = [
-                item
-                for item in evidence
-                if item.get("type") != "column" or str(item.get("value", "")).startswith("student_depression.")
-            ]
-            if not columns:
-                for fq_column in (
-                    "student_depression.student_depression_id",
-                    "student_depression.age",
-                    "student_depression.depression_flag",
-                ):
-                    self._safe_add_column(columns, evidence, fq_column, "dataset_context:student_depression", 0.96)
-        elif self._is_general_mental_health_dataset_context(normalized):
-            columns = [col for col in columns if col.startswith("mental_health_general.")]
-            evidence = [
-                item
-                for item in evidence
-                if item.get("type") != "column" or str(item.get("value", "")).startswith("mental_health_general.")
-            ]
-            if not columns:
-                for fq_column in (
-                    "mental_health_general.general_row_id",
-                    "mental_health_general.depression_score",
-                    "mental_health_general.anxiety_score",
-                ):
-                    self._safe_add_column(columns, evidence, fq_column, "dataset_context:mental_health_general", 0.96)
+        escape_hatch_words = [
+            "join",
+            "correlation",
+            "cross-dataset",
+            "gap",
+            "کنار هم",
+            "با شیوع جهانی",
+            "مقایسه با کشور",
+            "همبستگی",
+        ]
+        use_hard_gate = not any(word in normalized for word in escape_hatch_words)
+
+        def filter_columns_by_prefix(prefix: str):
+            if use_hard_gate:
+                nonlocal columns, evidence
+                columns = [col for col in columns if col.startswith(f"{prefix}.")]
+                evidence = [
+                    item
+                    for item in evidence
+                    if item.get("type") != "column" or str(item.get("value", "")).startswith(f"{prefix}.")
+                ]
+
+        if (
+            self._is_student_depression_dataset_context(normalized)
+            or self._is_student_depression_analysis_context(normalized)
+            or "دانشجویان افسردگی" in normalized
+        ):
+            filter_columns_by_prefix("student_depression")
+            self._safe_add_column(columns, evidence, "student_depression.student_depression_id", "hard_gate:student_depression", 0.96)
+        elif self._is_student_habits_context(normalized):
+            filter_columns_by_prefix("student_habits_performance")
+            self._safe_add_column(columns, evidence, "student_habits_performance.habit_id", "hard_gate:student_habits", 0.96)
+        elif self._is_university_mental_health_context(normalized):
+            filter_columns_by_prefix("university_student_mental_health")
+            self._safe_add_column(columns, evidence, "university_student_mental_health.student_id", "hard_gate:university", 0.96)
+        elif self._is_general_mental_health_dataset_context(normalized) or "دیتاست عمومی" in normalized:
+            filter_columns_by_prefix("mental_health_general")
+            self._safe_add_column(columns, evidence, "mental_health_general.general_row_id", "hard_gate:general", 0.96)
+        elif self._is_workplace_context(normalized):
+            filter_columns_by_prefix("workplace_mental_health_survey")
+            self._safe_add_column(columns, evidence, "workplace_mental_health_survey.survey_id", "hard_gate:workplace", 0.96)
 
         tables: list[str] = []
         for fq_column in columns:
@@ -552,12 +565,32 @@ class SchemaLinker:
             and any(term in normalized for term in depression_terms)
         )
 
+    def _is_student_depression_analysis_context(self, normalized: str) -> bool:
+        if self._is_university_mental_health_context(normalized) or self._is_general_mental_health_dataset_context(normalized):
+            return False
+        if "country_prevalence" in normalized or "\u0634\u06cc\u0648\u0639 \u062c\u0647\u0627\u0646\u06cc" in normalized:
+            return False
+        student_terms = (
+            "\u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646",
+            "\u062f\u0627\u0646\u0634\u062c\u0648",
+            "student",
+            "students",
+        )
+        depression_terms = (
+            "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+            "\u0627\u0641\u0633\u0631\u062f\u0647",
+            "depression",
+            "depressed",
+        )
+        return any(term in normalized for term in student_terms) and any(
+            term in normalized for term in depression_terms
+        )
+
     def _is_general_mental_health_dataset_context(self, normalized: str) -> bool:
         dataset_terms = (
             "\u062f\u06cc\u062a\u0627\u0633\u062a",
             "\u062f\u0627\u062f\u0647",
             "\u062c\u062f\u0648\u0644",
-            "dataset",
         )
         general_terms = (
             "\u0639\u0645\u0648\u0645\u06cc",
@@ -576,4 +609,46 @@ class SchemaLinker:
             any(term in normalized for term in dataset_terms)
             and any(term in normalized for term in general_terms)
             and any(term in normalized for term in mental_health_terms)
+        )
+
+    def _is_student_habits_context(self, normalized: str) -> bool:
+        return any(
+            term in normalized
+            for term in (
+                "habits",
+                "student_habits_performance",
+                "\u0639\u0627\u062f\u062a",
+                "\u0639\u0627\u062f\u062a\u0647\u0627",
+                "\u0639\u0627\u062f\u062a\u200c\u0647\u0627",
+                "\u0646\u0645\u0631\u0647 \u0627\u0645\u062a\u062d\u0627\u0646",
+                "\u0639\u0645\u0644\u06a9\u0631\u062f \u062a\u062d\u0635\u06cc\u0644\u06cc",
+            )
+        )
+
+    def _is_university_mental_health_context(self, normalized: str) -> bool:
+        return any(
+            term in normalized
+            for term in (
+                "university",
+                "university_student_mental_health",
+                "\u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+                "\u0646\u0638\u0631\u0633\u0646\u062c\u06cc \u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+                "\u0645\u062a\u0627\u0647\u0644 \u0645\u062c\u0631\u062f \u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+                "\u0645\u062a\u0623\u0647\u0644 \u0645\u062c\u0631\u062f \u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+                "\u0645\u062a\u0627\u0647\u0644 \u0648 \u0645\u062c\u0631\u062f \u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+                "\u0645\u062a\u0623\u0647\u0644 \u0648 \u0645\u062c\u0631\u062f \u062f\u0627\u0646\u0634\u06af\u0627\u0647\u06cc",
+            )
+        )
+
+    def _is_workplace_context(self, normalized: str) -> bool:
+        return any(
+            term in normalized
+            for term in (
+                "workplace",
+                "workplace_mental_health_survey",
+                "survey \u0645\u062d\u0644 \u06a9\u0627\u0631",
+                "\u0645\u062d\u06cc\u0637 \u06a9\u0627\u0631",
+                "\u0645\u062d\u06cc\u0637 \u06a9\u0627\u0631\u06cc",
+                "\u0646\u0638\u0631\u0633\u0646\u062c\u06cc \u0645\u062d\u06cc\u0637 \u06a9\u0627\u0631",
+            )
         )

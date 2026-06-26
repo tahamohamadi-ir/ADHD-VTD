@@ -545,7 +545,7 @@
     "category": "rate",
     "pattern": "group_rate_colloquial",
     "question_fa": "دسته‌های خواب از نظر نرخ افسردگی چه وضعی دارن؟",
-    "sql": "SELECT sleep_duration_category AS group_value, COUNT(*) AS n, SUM(depression_flag) AS positives, ROUND(100.0 * SUM(depression_flag) / COUNT(*), 2) AS rate_pct FROM student_depression WHERE sleep_duration_category IS NOT NULL GROUP BY sleep_duration_category  ORDER BY rate_pct DESC LIMIT 15;",
+    "sql": "SELECT sleep_duration_category AS group_value, COUNT(*) AS n, SUM(depression_flag) AS positives, ROUND(100.0 * SUM(depression_flag) / COUNT(*), 2) AS rate_pct, ROUND(AVG(cgpa_10),2) AS avg_cgpa_10 FROM student_depression WHERE sleep_duration_category IS NOT NULL GROUP BY sleep_duration_category  ORDER BY rate_pct DESC LIMIT 15;",
     "recommended_visual": "bar_chart",
     "storytelling_hint_fa": "نرخ را همراه تعداد نمونه نشان بده تا مقایسه گمراه‌کننده نشود.",
     "safe_sql": true,

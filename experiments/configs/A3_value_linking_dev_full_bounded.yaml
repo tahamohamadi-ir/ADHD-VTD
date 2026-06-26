@@ -1,0 +1,25 @@
+config_id: A3_value_linking_dev_full_bounded
+ablation_id: A3_value_linking_dev_full_bounded
+config_version: "paper1_ablation_dev_full_bounded_v1"
+mode: agent
+description: "Paper-1 full-dev bounded A3: NLU, schema linking, and value linking with CAG/reflexion disabled."
+dataset:
+  split: dev
+  sample_size: 0
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: false
+  reflexion: false
+  repair: false
+  validation: true
+  safety: true
+  deterministic_templates: false
+  max_retries: 1
+reporting:
+  result_status: ready_to_run
+  paper_scope: "full dev ablation, not full positive400"
+  limitation: "Value Recall@k needs reviewed labels; do not infer it from EX."

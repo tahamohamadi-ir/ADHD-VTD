@@ -20,6 +20,7 @@
 | Phase 11 | Ablation, Error Analysis, Research Metrics | In progress | [PHASE_11_ABLATION_ERROR_ANALYSIS.md](PHASE_11_ABLATION_ERROR_ANALYSIS.md) |
 | Phase 13 | Reliability Gate, Multi-Candidate, Abstention | In progress | [PHASE_13_RELIABILITY_GATE.md](PHASE_13_RELIABILITY_GATE.md) |
 | Phase 16 | Semantic Business Logic / LLM-as-a-Judge | In progress | [../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md](../11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md) |
+| Phase 18.7 | Zero-Shot Mastery / Final >65% Push | Planned | [PHASE_18_7_ZERO_SHOT_MASTERY.md](PHASE_18_7_ZERO_SHOT_MASTERY.md) |
 
 ## فازهای نیازمند سند مستقل
 

@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
+from src.core.dataset_types import BehavioralExample, DatasetPackageSummary, PositiveExample
+
 try:
     from src.config.paths import (
         PROJECT_ROOT,
@@ -170,6 +172,54 @@ def load_positive_400(path: str | Path | None = None) -> LoadedDataset:
     return load_dataset(p, kind="positive_400")
 
 
+def positive_example_from_case(case: dict[str, Any]) -> PositiveExample:
+    c = normalize_case(case)
+    sql = c.get("gold_sql") or c.get("sql")
+    if not sql:
+        raise ValueError(f"Case {c.get('id') or '<missing-id>'} is not SQL-positive: missing gold SQL.")
+    return PositiveExample(
+        id=str(c.get("id") or ""),
+        question_fa=str(c.get("question_fa") or c.get("question") or ""),
+        difficulty=str(c.get("difficulty") or "unknown"),
+        category=str(c.get("category") or "unknown"),
+        sql=str(sql),
+        expected_tables=list(c.get("expected_tables") or []),
+        expected_columns=list(c.get("expected_columns") or []),
+        expected_values=list(c.get("expected_values") or []),
+        expected_join_paths=list(c.get("expected_join_paths") or []),
+        recommended_visual=c.get("recommended_visual"),
+        safe_sql=bool(c.get("safe_sql", True)),
+        dialect=str(c.get("dialect") or "sqlite"),
+        metadata={k: v for k, v in c.items() if k not in {"sql", "gold_sql", "question", "question_fa"}},
+    )
+
+
+def behavioral_example_from_case(case: dict[str, Any]) -> BehavioralExample:
+    c = normalize_case(case)
+    utterance = c.get("user_utterance_fa") or c.get("question_fa") or c.get("question")
+    if not utterance:
+        raise ValueError(f"Behavioral case {c.get('id') or '<missing-id>'} is missing user utterance.")
+    return BehavioralExample(
+        id=str(c.get("id") or ""),
+        evaluation_type=str(c.get("evaluation_type") or c.get("category") or "unknown"),
+        user_utterance_fa=str(utterance),
+        should_generate_sql=bool(c.get("should_generate_sql")),
+        expected_action=str(c.get("expected_action") or "ask_clarification"),
+        expected_sql=c.get("expected_sql") or c.get("gold_sql"),
+        metadata={k: v for k, v in c.items() if k not in {"user_utterance_fa", "question", "question_fa"}},
+    )
+
+
+def load_positive_examples(path: str | Path) -> list[PositiveExample]:
+    dataset = load_dataset(path, kind="positive")
+    return [positive_example_from_case(case) for case in dataset.cases]
+
+
+def load_behavioral_examples(path: str | Path) -> list[BehavioralExample]:
+    dataset = load_dataset(path, kind="behavioral")
+    return [behavioral_example_from_case(case) for case in dataset.cases]
+
+
 def summarize_cases(cases: Iterable[dict[str, Any]]) -> dict[str, Any]:
     cases_list = list(cases)
     by_difficulty: dict[str, int] = {}
@@ -189,6 +239,17 @@ def summarize_cases(cases: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "by_difficulty": dict(sorted(by_difficulty.items())),
         "by_category": dict(sorted(by_category.items())),
     }
+
+
+def summarize_dataset_package(cases: Iterable[dict[str, Any]]) -> DatasetPackageSummary:
+    summary = summarize_cases(cases)
+    return DatasetPackageSummary(
+        total=int(summary["total"]),
+        sql_positive=int(summary["sql_positive"]),
+        behavioral=int(summary["non_sql_or_behavioral"]),
+        by_difficulty=dict(summary["by_difficulty"]),
+        by_category=dict(summary["by_category"]),
+    )
 
 
 def select_samples_per_level(

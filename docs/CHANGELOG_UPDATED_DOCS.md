@@ -18,6 +18,9 @@ This package contains corrected and completed documentation files aligned with t
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Added dataset maturity, audit rules, human agreement, dataset card, reliability labels |
 | `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Added v2.3 execution addendum, first-paper scope, supervisor/GitHub gate |
 | `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` | Updated to reflect Phase 16 successful semantic judgement using DeepSeek V4-Flash |
+| `phases/PHASE_18_7_ZERO_SHOT_MASTERY.md` | Added canonical Phase 18.7 anti-overfit plan for the final >65% zero/few-shot push |
+| `task.md` | Added Phase 18.7 canonical task list, acceptance criteria, anti-overfit rules and benchmark commands |
+| `DEVELOPMENT_ROADMAP.md` | Updated Phase 18 status and roadmap with the 61.25% baseline and stepwise 18.7 ablation plan |
 
 ## New Helper Files
 

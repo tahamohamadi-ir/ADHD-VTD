@@ -1,0 +1,24 @@
+config_id: A2_schema_linking_dev_full_bounded
+ablation_id: A2_schema_linking_dev_full_bounded
+config_version: "paper1_ablation_dev_full_bounded_v1"
+mode: agent
+description: "Paper-1 full-dev bounded A2: NLU plus schema linking, CAG/reflexion disabled."
+dataset:
+  split: dev
+  sample_size: 0
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  cag: false
+  reflexion: false
+  repair: false
+  validation: true
+  safety: true
+  deterministic_templates: false
+  max_retries: 1
+reporting:
+  result_status: ready_to_run
+  paper_scope: "full dev ablation, not full positive400"
+  implementation_note: "Schema-linking runtime support must be interpreted through stored module flags and traces."

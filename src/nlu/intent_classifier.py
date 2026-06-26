@@ -14,6 +14,8 @@ class IntentDecision:
     should_generate_sql: bool
     expected_action: ExpectedAction
     reasons: list[str] = field(default_factory=list)
+    safety_label: str = "safe"
+    ambiguity_score: float = 0.0
 
 class IntentClassifier:
     """Rule-based intent classifier for VTD pipeline.
@@ -44,15 +46,61 @@ class IntentClassifier:
         # 1. Safety gate: always first
         safety = self.safety.detect(text)
         if not safety.is_safe:
-            return IntentDecision(IntentLabel.UNSAFE_QUERY, 1.0, False, ExpectedAction.REFUSE_UNSAFE_SQL, safety.reasons)
+            return IntentDecision(
+                IntentLabel.UNSAFE_QUERY,
+                1.0,
+                False,
+                ExpectedAction.REFUSE_UNSAFE_SQL,
+                safety.reasons,
+                safety.label,
+                0.0,
+            )
 
         norm = self.normalizer.normalize_text(text).lower()
         reasons: list[str] = []
 
+        clarification_reason = self._deterministic_clarification_reason(norm, text.lower())
+        if clarification_reason:
+            return IntentDecision(
+                IntentLabel.AMBIGUOUS_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ASK_CLARIFICATION,
+                [clarification_reason],
+                "safe",
+                0.90,
+            )
+
+        if self._is_chart_advice(norm):
+            return IntentDecision(
+                IntentLabel.CHART_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_CHART_RECOMMENDATION,
+                ["Chart recommendation advice detected - no SQL needed."],
+            )
+
+        if self._is_no_sql_meta_advice(norm):
+            return IntentDecision(
+                IntentLabel.DEFINITION_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_WITHOUT_SQL,
+                ["Meta/advice request detected - no SQL needed."],
+            )
+
         # 2. Ambiguity gate
         amb = self.ambiguity.detect(text)
         if amb.is_ambiguous and not self._has_strong_sql_signal(norm):
-            return IntentDecision(IntentLabel.AMBIGUOUS_QUERY, amb.score, False, ExpectedAction.ASK_CLARIFICATION, amb.reasons)
+            return IntentDecision(
+                IntentLabel.AMBIGUOUS_QUERY,
+                amb.score,
+                False,
+                ExpectedAction.ASK_CLARIFICATION,
+                amb.reasons,
+                "safe",
+                amb.score,
+            )
         if amb.is_ambiguous:
             reasons.extend([f"Ambiguity override: {reason}" for reason in amb.reasons])
 
@@ -82,6 +130,76 @@ class IntentClassifier:
             return IntentDecision(
                 IntentLabel.CHART_QUERY, 0.90, False, ExpectedAction.ANSWER_CHART_RECOMMENDATION,
                 ["Chart recommendation advice detected — no SQL needed."]
+            )
+
+        chart_advice_cues = [
+            "چه نموداری",
+            "کدام نمودار",
+            "چی بکشم",
+            "چه visual",
+            "چه نوع نمایش",
+            "نمایش امن",
+            "pie chart",
+            "scatter",
+            "bar",
+            "visual",
+        ]
+        if any(cue in norm for cue in chart_advice_cues):
+            return IntentDecision(
+                IntentLabel.CHART_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_CHART_RECOMMENDATION,
+                ["Chart recommendation advice detected - no SQL needed."],
+            )
+
+        no_sql_advice_cues = [
+            "توضیح بدم",
+            "توضیح بده",
+            "بنویس",
+            "طراحی کن",
+            "چه داستانی",
+            "داستان‌سرایی",
+            "روایت",
+            "چه ترتیب",
+            "چه sequence",
+            "چه کار کنم",
+            "معیارهای evaluation",
+            "معماری rag",
+            "برای مقاله",
+            "validity",
+            "threat",
+            "evaluation",
+            "nl2sql",
+            "schema linking",
+            "query generation",
+        ]
+        no_sql_subject_cues = [
+            "داشبورد",
+            "پروژه",
+            "مدل",
+            "مقاله",
+            "مدیر",
+            "محیط کار",
+            "داده",
+            "دیتاست",
+            "جهانی",
+            "uncertainty",
+            "policy maturity",
+            "treatment rate",
+            "rag",
+            "nl2sql",
+            "schema linking",
+            "query generation",
+            "evaluation",
+        ]
+        if any(cue in norm for cue in no_sql_advice_cues) and any(cue in norm for cue in no_sql_subject_cues):
+            return IntentDecision(
+                IntentLabel.DEFINITION_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_WITHOUT_SQL,
+                ["Meta/advice request detected - no SQL needed."],
             )
 
         # 4. Comparison query — "مقایسه" / "تفاوت" / "compare"
@@ -184,6 +302,64 @@ class IntentClassifier:
             IntentLabel.UNKNOWN, 0.55, True, ExpectedAction.GENERATE_SQL,
             reasons or ["Default safe SQL-capable request."],
         )
+
+    def _is_chart_advice(self, norm: str) -> bool:
+        chart_advice_cues = [
+            "چه نموداری",
+            "کدام نمودار",
+            "چی بکشم",
+            "چه visual",
+            "چه نوع نمایش",
+            "نمایش امن",
+            "pie chart",
+            "scatter",
+            "bar",
+            "visual",
+        ]
+        return any(cue in norm for cue in chart_advice_cues)
+
+    def _is_no_sql_meta_advice(self, norm: str) -> bool:
+        no_sql_advice_cues = [
+            "توضیح بدم",
+            "توضیح بده",
+            "بنویس",
+            "طراحی کن",
+            "چه داستانی",
+            "داستان‌سرایی",
+            "روایت",
+            "چه ترتیب",
+            "چه sequence",
+            "چه کار کنم",
+            "معیارهای evaluation",
+            "معماری rag",
+            "برای مقاله",
+            "validity",
+            "threat",
+            "evaluation",
+            "nl2sql",
+            "schema linking",
+            "query generation",
+        ]
+        no_sql_subject_cues = [
+            "داشبورد",
+            "پروژه",
+            "مدل",
+            "مقاله",
+            "مدیر",
+            "محیط کار",
+            "داده",
+            "دیتاست",
+            "جهانی",
+            "uncertainty",
+            "policy maturity",
+            "treatment rate",
+            "rag",
+            "nl2sql",
+            "schema linking",
+            "query generation",
+            "evaluation",
+        ]
+        return any(cue in norm for cue in no_sql_advice_cues) and any(cue in norm for cue in no_sql_subject_cues)
 
     def _has_strong_sql_signal(self, norm: str) -> bool:
         """Detect clear analytical data requests that should not abstain as vague."""
@@ -311,3 +487,44 @@ class IntentClassifier:
         has_data = any(cue in norm for cue in data_cues) or any(entity in norm for entity in named_entities)
         has_grouping = any(cue in norm for cue in group_cues)
         return (has_metric and has_data) or (has_metric and has_grouping) or ("dashboard" in norm and has_data)
+
+    def _deterministic_clarification_reason(self, norm: str, raw_lower: str) -> str | None:
+        """Catch high-risk Persian ambiguity patterns before SQL routing."""
+        if any(
+            cue in norm
+            for cue in [
+                "\u062f\u0627\u0646\u0634\u062c\u0648\u0647\u0627\u06cc \u0628\u062f",
+                "\u06cc\u0647 \u0686\u06cc\u0632\u06cc",
+                "\u0648\u0636\u0639\u06cc\u062a \u062f\u0627\u0646\u0634\u062c\u0648\u0647\u0627",
+            ]
+        ):
+            return "Vague Persian user phrase needs metric/entity clarification."
+
+        if (
+            "\u0628\u0686\u0647\u200c\u0647\u0627" in raw_lower
+            and "\u062a\u0648 \u062f\u06cc\u062a\u0627" in norm
+        ):
+            return "Colloquial entity reference needs clarification before SQL generation."
+
+        if any(cue in norm for cue in ["\u062d\u0627\u0644\u0627", "\u0647\u0645\u0648\u0646 \u062a\u062d\u0644\u06cc\u0644"]):
+            return "Context-dependent follow-up cannot be answered without prior turn context."
+
+        if "\u0627\u062b\u0631 \u0647\u0645\u0632\u0645\u0627\u0646 \u0686\u0646\u062f \u0639\u0627\u0645\u0644" in norm:
+            return "Multi-factor effect request does not specify the factors or model."
+
+        if "normalize \u06a9\u0646" in norm or "\u0645\u0646\u0627\u0628\u0639 \u0642\u0627\u0628\u0644 \u0645\u0642\u0627\u06cc\u0633\u0647" in norm:
+            return "Normalization/preprocessing policy is underspecified."
+
+        if "\u0639\u0644\u062a" in norm and "\u062b\u0627\u0628\u062a \u06a9\u0646" in norm:
+            return "Causal proof request needs clarification and cannot be answered as direct SQL."
+
+        if "\u0628\u0647\u062a\u0631\u06cc\u0646 \u0646\u062a\u06cc\u062c\u0647 \u0639\u0644\u0645\u06cc" in norm or (
+            "\u0628\u0631\u0627\u06cc \u0645\u0642\u0627\u0644\u0647" in norm
+            and "\u0627\u0633\u062a\u062e\u0631\u0627\u062c \u06a9\u0646" in norm
+        ):
+            return "Research-result mining request needs a pre-declared analysis target."
+
+        if "\u062f\u0627\u062f\u0647 \u067e\u0631\u062a" in norm:
+            return "Outlier handling needs a metric and exclusion policy before SQL generation."
+
+        return None

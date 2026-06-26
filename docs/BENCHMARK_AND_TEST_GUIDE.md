@@ -426,3 +426,29 @@ results/data_quality/benchmark_leakage_cases.jsonl
 - `--sample` و `--samples-per-level` همزمان داده شده‌اند: فقط یکی را استفاده کنید.
 - artifact زیاد بزرگ شده: `--trace-level compact` prompt و raw response را از artifact نهایی حذف می‌کند؛ برای debug و paper evidence مقدار پیش‌فرض `--trace-level full` را نگه دارید.
 - EX پایین است ولی Valid SQL بالاست: احتمالاً semantic/business mismatch، schema linking یا prompt context مشکل دارد.
+
+## Deterministic Template Ablation Guard
+
+For anti-overfit review, inspect `generation_source` in `predictions.jsonl`.
+
+- `llm`: normal single-candidate AI generation path.
+- `llm_multi_candidate`: AI multi-candidate generation path.
+- `deterministic_template`: deterministic template path.
+
+Paper or product claims should be based on the AI generation path, not on large deterministic template packs.
+If `generation_source=deterministic_template` dominates a run, treat the run as a template ablation/debug artifact, not as generalization evidence.
+
+## Dataset Split Guard
+
+Current dataset relationships:
+
+- `positive400` equals `train + dev + test`.
+- `vtd_total_500_dataset_package` equals `positive400 + vtd_evaluation_special_100`.
+- `phase18_7b_failed154`, `phase18_7b_regressed5`, and `vtd_question_sql_140_colloquial_additions_validated` are subsets of `positive400`.
+
+Therefore:
+
+- use `train/dev/full400` for development and regression analysis;
+- use `behavior_dev/behavior_test` for action-level behavioral evaluation, not SQL EX-only reporting;
+- do not claim final anti-overfit/generalization from `full400`, `failed154`, `regressed5`, or `add140`;
+- create a fresh independent holdout/paraphrase set before final paper/product claims.

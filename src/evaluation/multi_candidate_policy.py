@@ -119,6 +119,11 @@ def _has_complexity_marker(record: dict[str, Any]) -> bool:
         return True
     if len(qir_dict.get("metrics") or []) > 1 or len(qir_dict.get("dimensions") or []) > 1:
         return True
+    if qir_dict.get("expected_result_shape") == "table" and (
+        len(qir_dict.get("dimensions") or []) >= 1
+        or len(qir_dict.get("metrics") or []) >= 1
+    ):
+        return True
 
     text = " ".join(
         str(record.get(key) or "")

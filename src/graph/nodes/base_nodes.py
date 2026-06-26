@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import uuid
 from typing import Any, Dict
@@ -7,6 +8,7 @@ from src.config.paths import MODELS_DIR
 from src.config.settings import SETTINGS
 from src.config import features
 from src.core.enums import IntentLabel
+from src.core.enums import ExpectedAction
 from src.core.query_ir import QueryIR
 from src.graph.state import VTDState, LinkedSchema, SQLAttempt
 from src.nlu.persian_normalizer import PersianNormalizer
@@ -26,6 +28,7 @@ from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.retrieval.self_overlap import filter_self_overlaps
 from src.sql_validation.validation_pipeline import ValidationPipeline
 from src.sql_validation.shape_validator import SQLShapeValidator
+from src.sql_validation.shape_rewriter import rewrite_analytical_shape
 from src.sql_validation.sql_rewriter import SQLRewriter
 from src.sql_validation.validation_result import ValidationResult
 from src.db.read_only_executor import ReadOnlyExecutor
@@ -47,6 +50,39 @@ from src.output.explanation_builder import build_explanation
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
 _DEFAULT_SQL_GENERATION_MAX_TOKENS = 512
+
+_UNKNOWN_COLUMN_ALIASES: tuple[dict[str, Any], ...] = (
+    {
+        "table": "student_depression",
+        "unknown": "diet_quality",
+        "replacement": "dietary_habits",
+        "terms": ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc"),
+    },
+    {
+        "table": "student_habits_performance",
+        "unknown": "dietary_habits",
+        "replacement": "diet_quality",
+        "terms": ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc"),
+    },
+    {
+        "table": "university_student_mental_health",
+        "unknown": "depression_flag",
+        "replacement": "depression_diagnosis",
+        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
+    },
+    {
+        "table": "student_depression",
+        "unknown": "depression_diagnosis",
+        "replacement": "depression_flag",
+        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
+    },
+    {
+        "table": "mental_health_general",
+        "unknown": "depression_flag",
+        "replacement": "depression_score",
+        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
+    },
+)
 
 
 def _default_generation_model_path() -> str:
@@ -81,6 +117,138 @@ def _with_retry_increment(state: VTDState, updates: Dict[str, Any]) -> Dict[str,
     updates["retry_count"] = min(state.retry_count + 1, state.max_retries)
     return updates
 
+
+def _with_single_retry_slot(state: VTDState, updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Leave exactly one retry for high-cost failures that still might be repairable."""
+    next_retry = min(state.retry_count + 1, state.max_retries)
+    if next_retry < state.max_retries:
+        next_retry = max(next_retry, state.max_retries - 1)
+    updates["retry_count"] = next_retry
+    return updates
+
+
+def _unknown_column_names(issues: list[Any]) -> list[str]:
+    names: list[str] = []
+    for issue in issues:
+        if getattr(issue, "code", "") != "UNKNOWN_COLUMN":
+            continue
+        message = str(getattr(issue, "message", ""))
+        match = re.search(r"Unknown (?:unqualified )?column: ([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)", message)
+        if match:
+            names.append(match.group(1).split(".")[-1])
+    return names
+
+
+def _sql_table_names(sql: str) -> set[str]:
+    return {
+        match.group(1)
+        for match in re.finditer(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", sql or "", flags=re.IGNORECASE)
+    }
+
+
+def _patch_column_name(sql: str, unknown: str, replacement: str) -> str:
+    return re.sub(rf"(?<![A-Za-z0-9_]){re.escape(unknown)}(?![A-Za-z0-9_])", replacement, sql)
+
+
+def _try_unknown_column_surgeon(
+    sql: str,
+    *,
+    question: str,
+    state: VTDState,
+    registry: SchemaRegistry,
+) -> tuple[str | None, ValidationResult | None, str]:
+    validator = ValidationPipeline(registry=registry)
+    initial = validator.validate(sql)
+    unknown_columns = _unknown_column_names(initial.issues)
+    if not unknown_columns:
+        return None, None, "surgeon_invoked=false"
+
+    tables = _sql_table_names(sql)
+    normalized_question = PersianNormalizer().normalize_text(question or "").lower()
+    for spec in _UNKNOWN_COLUMN_ALIASES:
+        table = str(spec["table"])
+        unknown = str(spec["unknown"])
+        replacement = str(spec["replacement"])
+        terms = tuple(str(term) for term in spec["terms"])
+        if unknown not in unknown_columns:
+            continue
+        if table not in tables:
+            continue
+        if not any(term in normalized_question for term in terms):
+            continue
+
+        patched_sql = _patch_column_name(sql, unknown, replacement)
+        if patched_sql == sql:
+            continue
+        patched_result = validator.validate(patched_sql)
+        if patched_result.ok:
+            shape_result = SQLShapeValidator().validate(
+                patched_result.normalized_sql or patched_sql,
+                question=state.raw_question,
+                qir=state.qir,
+                schema=state.schema_context,
+            )
+            if not shape_result.ok:
+                patched_result = ValidationResult(
+                    ok=False,
+                    issues=[*patched_result.issues, *shape_result.issues],
+                    normalized_sql=patched_result.normalized_sql,
+                )
+        if patched_result.ok:
+            return (
+                patched_result.normalized_sql or patched_sql,
+                patched_result,
+                f"surgeon_invoked=true; surgeon_patch_applied=true; surgeon_patch_validated=true; {unknown}->{replacement}",
+            )
+        return (
+            patched_sql,
+            patched_result,
+            f"surgeon_invoked=true; surgeon_patch_applied=true; surgeon_patch_validated=false; surgeon_fail_fast=true; {unknown}->{replacement}",
+        )
+
+    return None, None, "surgeon_invoked=true; surgeon_patch_applied=false; surgeon_deferred_to_single_retry=true"
+
+
+def _has_shape_errors(issues: list[Any]) -> bool:
+    return any(str(getattr(issue, "code", "")).startswith("ANALYTICAL_SHAPE_") for issue in issues)
+
+
+def _try_shape_surgeon(
+    sql: str,
+    *,
+    state: VTDState,
+    registry: SchemaRegistry,
+    issues: list[Any],
+) -> tuple[str | None, ValidationResult | None, str]:
+    rewrite = rewrite_analytical_shape(
+        sql,
+        question=state.raw_question,
+        qir=state.qir,
+        schema=state.schema_context,
+        issues=issues,
+    )
+    if not rewrite.rewritten or not rewrite.sql:
+        return None, None, rewrite.action
+
+    validator = ValidationPipeline(registry=registry)
+    patched_result = validator.validate(rewrite.sql)
+    patched_sql = patched_result.normalized_sql or rewrite.sql
+    if patched_result.ok:
+        shape_result = SQLShapeValidator().validate(
+            patched_sql,
+            question=state.raw_question,
+            qir=state.qir,
+            schema=state.schema_context,
+        )
+        if not shape_result.ok:
+            patched_result = ValidationResult(
+                ok=False,
+                issues=[*patched_result.issues, *shape_result.issues],
+                normalized_sql=patched_sql,
+            )
+    action = f"{rewrite.action}; shape_surgeon_patch_validated={str(patched_result.ok).lower()}"
+    return patched_sql, patched_result, action
+
 def initialize_trace(state: VTDState) -> Dict[str, Any]:
     """
     Initializes the execution trace with a unique ID and resets the retry counter.
@@ -91,7 +259,7 @@ def initialize_trace(state: VTDState) -> Dict[str, Any]:
     return {
         "trace_id": trace_id,
         "retry_count": 0,
-        "max_retries": SETTINGS.max_retries,
+        "max_retries": state.max_retries,
     }
 
 def normalize_input(state: VTDState) -> Dict[str, Any]:
@@ -126,7 +294,10 @@ def classify_intent(state: VTDState) -> Dict[str, Any]:
     return {
         "intent": decision.intent.value,
         "intent_confidence": decision.confidence,
-        "should_generate_sql": decision.should_generate_sql
+        "should_generate_sql": decision.should_generate_sql,
+        "safety_label": decision.safety_label,
+        "ambiguity_score": decision.ambiguity_score,
+        "needs_clarification": decision.expected_action == ExpectedAction.ASK_CLARIFICATION,
     }
 
 def build_qir(state: VTDState) -> Dict[str, Any]:
@@ -176,6 +347,9 @@ def link_schema(state: VTDState) -> Dict[str, Any]:
 
     linker = SchemaLinker()
     result = linker.link(state.normalized_question)
+    planner = QueryPlanner()
+    intent_enum = IntentLabel(state.intent) if state.intent else IntentLabel.AMBIGUOUS_QUERY
+    qir_obj = planner.build_qir(state.normalized_question, [], intent_enum, result)
 
     active_tables = set(result.tables)
     
@@ -194,8 +368,31 @@ def link_schema(state: VTDState) -> Dict[str, Any]:
             columns=result.columns,
             confidence=0.8
         ),
-        "schema_context": schema_context
+        "schema_context": schema_context,
+        "qir": qir_obj,
     }
+
+
+def _qir_retrieval_skeleton(state: VTDState) -> str:
+    qir = state.qir
+    qir_dict = qir.model_dump() if hasattr(qir, "model_dump") else (qir if isinstance(qir, dict) else {})
+    text = " ".join([state.raw_question or "", state.normalized_question or ""]).lower()
+    tags: list[str] = []
+    if qir_dict.get("expected_result_shape") == "table" or qir_dict.get("dimensions"):
+        tags.append("group")
+    task_type = str(qir_dict.get("task_type") or state.intent or "")
+    if "rate" in task_type or any(term in text for term in ("rate", "percent", "percentage", "\u0646\u0631\u062e", "\u062f\u0631\u0635\u062f")):
+        tags.extend(["count", "sum", "rate"])
+    if "ranking" in task_type or any(term in text for term in ("rank", "top", "\u0631\u062a\u0628\u0647", "\u0627\u0648\u0644", "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646")):
+        tags.extend(["order", "limit"])
+    if "trend" in task_type or any(term in text for term in ("trend", "time", "year", "\u0631\u0648\u0646\u062f", "\u0633\u0627\u0644")):
+        tags.append("group")
+    if any(term in text for term in ("dashboard", "\u062f\u0627\u0634\u0628\u0648\u0631\u062f", "gap", "\u0634\u06a9\u0627\u0641")):
+        tags.append("cte")
+    if any(term in text for term in ("quartile", "percentile", "ntile", "\u0686\u0647\u0627\u0631\u06a9", "\u0635\u062f\u06a9")):
+        tags.extend(["window", "rank"])
+    return " ".join(dict.fromkeys(tags))
+
 
 def retrieve_context(state: VTDState) -> Dict[str, Any]:
     """
@@ -210,6 +407,7 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         intent=state.intent,
         tables=linked_schema.tables,
         columns=linked_schema.columns,
+        skeleton=_qir_retrieval_skeleton(state),
     )
     # Ablation: if cag is disabled, return empty examples
     if not state.ablation_config.get("cag", True):
@@ -322,19 +520,26 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     if not state.prompt:
         return {"generated_sql": ""}
 
-    template_response = try_generate_template_sql(state.raw_question)
-    if template_response is not None:
-        return {
-            "generated_sql": template_response,
-            "raw_model_response": template_response,
-            "generation_latency_ms": 0,
-        }
+    if bool(state.ablation_config.get("deterministic_templates", False)):
+        template_response = try_generate_template_sql(state.raw_question)
+        if template_response is not None:
+            return {
+                "generated_sql": template_response,
+                "raw_model_response": template_response,
+                "generation_source": "deterministic_template",
+                "generation_latency_ms": 0,
+            }
         
     llm = _get_local_llm()
 
     policy = state.multi_candidate_policy if isinstance(state.multi_candidate_policy, dict) else {}
+    multi_candidate_generation_flag = (
+        bool(state.ablation_config["multi_candidate_generation"])
+        if "multi_candidate_generation" in state.ablation_config
+        else features.ENABLE_MULTI_CANDIDATE_GENERATION
+    )
     multi_candidate_enabled = (
-        (bool(state.ablation_config.get("multi_candidate_generation", False)) or features.ENABLE_MULTI_CANDIDATE_GENERATION)
+        multi_candidate_generation_flag
         and bool(policy.get("enabled"))
         and int(policy.get("candidate_count") or 1) > 1
         and _can_generate_extra_candidates(state)
@@ -353,6 +558,7 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     return {
         "generated_sql": response_text,
         "raw_model_response": response_text,
+        "generation_source": "llm",
         "generation_latency_ms": generation_latency_ms,
     }
 
@@ -409,7 +615,11 @@ def _generate_sql_candidates(state: VTDState, llm: LocalLLM, candidate_count: in
     primary_id = str(primary.get("candidate_id") or "candidate_1")
     selected_candidate_id = consistency_report.selected_candidate_id
     selected = _candidate_by_id(candidates, selected_candidate_id)
-    adoption_enabled = bool(state.ablation_config.get("multi_candidate_adoption", False)) or features.ENABLE_MULTI_CANDIDATE_GENERATION
+    adoption_enabled = (
+        bool(state.ablation_config["multi_candidate_adoption"])
+        if "multi_candidate_adoption" in state.ablation_config
+        else False
+    )
     adopted_candidate_id = (
         str(selected_candidate_id)
         if adoption_enabled and consistency_report.passed and selected is not None and _candidate_is_viable(selected)
@@ -423,6 +633,7 @@ def _generate_sql_candidates(state: VTDState, llm: LocalLLM, candidate_count: in
     return {
         "generated_sql": selected_raw,
         "raw_model_response": selected_raw,
+        "generation_source": "llm_multi_candidate",
         "generation_latency_ms": generation_latency_ms,
         "candidate_sqls": candidates,
         "selected_candidate_id": adopted_candidate_id,
@@ -525,11 +736,19 @@ def parse_llm_output(state: VTDState) -> Dict[str, Any]:
     Extracts the SQL query and explanation from the LLM's JSON response.
     """
     if not state.generated_sql:
-        return {"validation_errors": [{"type": "PARSE_ERROR", "message": "Empty LLM output"}]}
+        return {
+            "generated_sql": None,
+            "parsed_payload": None,
+            "validation_errors": [{"type": "OUTPUT_PARSE_ERROR", "message": "Empty LLM output"}],
+        }
         
     parsed = OutputParser.extract_json(state.generated_sql)
     if not parsed:
-        return {"validation_errors": [{"type": "PARSE_ERROR", "message": "Invalid JSON format"}]}
+        return {
+            "generated_sql": None,
+            "parsed_payload": None,
+            "validation_errors": [{"type": "OUTPUT_PARSE_ERROR", "message": "Invalid JSON format"}],
+        }
     
     return {
         "generated_sql": parsed.get("sql"),
@@ -544,9 +763,31 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     Records the attempt for the retry logic.
     """
     if not state.generated_sql:
+        existing_errors = list(state.validation_errors or [])
+        validation_errors = existing_errors or [{"type": "VALIDATION_ERROR", "message": "No SQL to validate"}]
+        attempt = SQLAttempt(
+            iteration=state.retry_count,
+            prompt=state.prompt,
+            raw_model_response=state.raw_model_response,
+            generation_latency_ms=state.generation_latency_ms,
+            parsed_payload=state.parsed_payload,
+            sql=None,
+            parsed=bool(state.parsed_payload),
+            validation_passed=False,
+            validation_errors=validation_errors,
+            error_type=str(validation_errors[0].get("type") or "VALIDATION_ERROR") if validation_errors else "VALIDATION_ERROR",
+            error_message=", ".join(
+                str(error.get("message", error)) if isinstance(error, dict) else str(error)
+                for error in validation_errors
+            ),
+        )
         return _with_retry_increment(
             state,
-            {"validation_errors": [{"type": "VALIDATION_ERROR", "message": "No SQL to validate"}]},
+            {
+                "attempts": state.attempts + [attempt],
+                "validation_errors": validation_errors,
+                "generated_sql": None,
+            },
         )
         
     registry = SchemaRegistry()
@@ -557,6 +798,24 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     )
     result = validator.validate(question_rewritten_sql)
     validated_sql = result.normalized_sql or state.generated_sql
+    surgeon_action: str | None = None
+    surgeon_fail_fast = False
+    surgeon_single_retry = False
+    shape_single_retry = False
+    if not result.ok and _unknown_column_names(result.issues):
+        patched_sql, patched_result, surgeon_action = _try_unknown_column_surgeon(
+            validated_sql,
+            question=state.raw_question,
+            state=state,
+            registry=registry,
+        )
+        if patched_result is not None:
+            result = patched_result
+            validated_sql = patched_result.normalized_sql or patched_sql or validated_sql
+            surgeon_fail_fast = not patched_result.ok
+        else:
+            surgeon_single_retry = True
+
     if result.ok:
         shape_result = SQLShapeValidator().validate(
             validated_sql,
@@ -570,6 +829,19 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
                 issues=[*result.issues, *shape_result.issues],
                 normalized_sql=result.normalized_sql,
             )
+            patched_sql, patched_result, shape_action = _try_shape_surgeon(
+                validated_sql,
+                state=state,
+                registry=registry,
+                issues=shape_result.issues,
+            )
+            surgeon_action = "; ".join([part for part in (surgeon_action, shape_action) if part])
+            if patched_result is not None:
+                result = patched_result
+                validated_sql = patched_result.normalized_sql or patched_sql or validated_sql
+                shape_single_retry = not patched_result.ok
+            else:
+                shape_single_retry = True
     validation_errors = [{"message": str(i)} for i in result.issues] if not result.ok else []
     
     attempt = SQLAttempt(
@@ -582,7 +854,15 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
         parsed=bool(state.parsed_payload),
         validation_passed=result.ok,
         validation_errors=validation_errors,
-        error_message=", ".join([str(i) for i in result.issues]) if not result.ok else None
+        error_message=", ".join([str(i) for i in result.issues]) if not result.ok else None,
+        repair_action=(
+            "shape_surgeon"
+            if surgeon_action and "shape_surgeon_patch_applied=true" in surgeon_action
+            else "schema_surgeon"
+            if surgeon_action and "patch_applied=true" in surgeon_action
+            else None
+        ),
+        repair_plan=surgeon_action,
     )
     
     updates = {
@@ -590,6 +870,13 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
         "validation_errors": validation_errors,
     }
     if not result.ok:
+        if surgeon_fail_fast:
+            updates["retry_count"] = state.max_retries
+            return updates
+        if surgeon_single_retry:
+            return _with_single_retry_slot(state, updates)
+        if shape_single_retry or _has_shape_errors(result.issues):
+            return _with_single_retry_slot(state, updates)
         return _with_retry_increment(state, updates)
     updates["generated_sql"] = validated_sql
     return updates

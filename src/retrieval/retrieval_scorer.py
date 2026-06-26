@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import re
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,36 @@ def skeleton_match_score(query_skeleton: str | None, candidate_skeleton: str | N
     return len(q_tokens & c_tokens) / len(q_tokens)
 
 
+def infer_sql_skeleton(sql: str | None) -> str:
+    text = " ".join((sql or "").lower().replace("\n", " ").split())
+    if not text:
+        return ""
+    tags: list[str] = []
+    if text.startswith("with ") or " with " in text:
+        tags.append("cte")
+    if re.search(r"\bgroup\s+by\b", text):
+        tags.append("group")
+    if re.search(r"\border\s+by\b", text):
+        tags.append("order")
+    if re.search(r"\blimit\b", text):
+        tags.append("limit")
+    if re.search(r"\bover\s*\(", text):
+        tags.append("window")
+    if "case when" in text:
+        tags.append("case")
+    if re.search(r"\bcount\s*\(", text):
+        tags.append("count")
+    if re.search(r"\bavg\s*\(", text):
+        tags.append("avg")
+    if re.search(r"\bsum\s*\(", text):
+        tags.append("sum")
+    if "100" in text and ("/ count" in text or "avg(" in text):
+        tags.append("rate")
+    if re.search(r"\brank\s*\(", text) or re.search(r"\bntile\s*\(", text):
+        tags.append("rank")
+    return " ".join(tags)
+
+
 class RetrievalScorer:
     def __init__(self, weights: RetrievalWeights | None = None) -> None:
         self.weights = weights or RetrievalWeights()
@@ -101,7 +132,7 @@ class RetrievalScorer:
         candidate_tables = [str(v) for v in record.get("tables", [])]
         candidate_columns = [str(v) for v in record.get("columns", [])]
         candidate_intent = record.get("intent")
-        candidate_skeleton = record.get("skeleton") or record.get("sql_skeleton")
+        candidate_skeleton = record.get("skeleton") or record.get("sql_skeleton") or infer_sql_skeleton(record.get("sql"))
 
         schema_overlap = max(
             overlap_score(query.tables, candidate_tables),

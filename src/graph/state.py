@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Literal
 from pydantic import BaseModel, Field
 
+from src.config.settings import SETTINGS
+
 class SQLAttempt(BaseModel):
     iteration: int
     prompt_id: str | None = None
@@ -86,11 +88,12 @@ class VTDState(BaseModel):
 
     generated_sql: str | None = None
     raw_model_response: str | None = None
+    generation_source: str | None = None
     generation_latency_ms: int | None = None
     parsed_payload: dict[str, Any] | None = None
     attempts: list[SQLAttempt] = Field(default_factory=list)
     retry_count: int = 0
-    max_retries: int = 3
+    max_retries: int = Field(default_factory=lambda: SETTINGS.max_retries)
 
     validation_errors: list[dict[str, Any]] = Field(default_factory=list)
     execution_result: list[dict[str, Any]] | None = None
@@ -114,5 +117,6 @@ class VTDState(BaseModel):
     ablation_config: dict[str, bool] = Field(default_factory=lambda: {
         "reflexion": True,
         "cag": True,
-        "nlu": True
+        "nlu": True,
+        "deterministic_templates": False,
     })

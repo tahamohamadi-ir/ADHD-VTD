@@ -1,0 +1,27 @@
+config_id: A4_cag_examples_positive400_bounded
+ablation_id: A4_cag_examples_positive400_bounded
+config_version: "paper1_ablation_positive400_bounded_v1"
+mode: agent
+description: "Paper-1 positive400 bounded A4: NLU, schema/value linking, and CAG examples with self-overlap exclusion."
+dataset:
+  split: positive400
+  sample_size: 0
+retrieval:
+  top_k: 5
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  reflexion: false
+  repair: false
+  validation: true
+  safety: true
+  deterministic_templates: false
+  max_retries: 1
+reporting:
+  result_status: ready_to_run
+  paper_scope: "full positive400 ablation"
+  anti_leakage: "Keep exclude_self=true for full positive400."

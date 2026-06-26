@@ -1,0 +1,23 @@
+config_id: A0_direct_schema_only_positive400_bounded
+ablation_id: A0_direct_schema_only_positive400_bounded
+config_version: "paper1_ablation_positive400_bounded_v1"
+mode: agent
+description: "Paper-1 positive400 bounded A0 baseline: direct local LLM, NLU/CAG/reflexion disabled."
+dataset:
+  split: positive400
+  sample_size: 0
+exclude_self: true
+trace_level: compact
+features:
+  nlu: false
+  cag: false
+  reflexion: false
+  repair: false
+  validation: true
+  safety: true
+  deterministic_templates: false
+  max_retries: 1
+reporting:
+  result_status: ready_to_run
+  paper_scope: "full positive400 ablation"
+  anti_overfit: "Do not tune prompts or validators to individual IDs before running this config."

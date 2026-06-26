@@ -26,11 +26,18 @@ from src.evaluation.dataset_loader import (
     write_jsonl,
 )
 from src.evaluation.ablation_flags import ablation_runtime_contract, normalize_feature_flags
+from src.evaluation.action_normalizer import (
+    SQL_POSITIVE_ACTIONS,
+    actions_match,
+    normalize_actual_action,
+    normalize_expected_action,
+)
 from src.evaluation.error_analyzer import analyze_errors
 from src.evaluation.metrics import add_bootstrap_cis, aggregate_basic_metrics, latency_summary
 from src.evaluation.reliability_metrics import reliability_score
 from src.evaluation.reliability_gate import evaluate_reliability_gate
 from src.evaluation.sql_consistency_critic import analyze_question_sql_consistency
+from src.evaluation.trace_adapter import validate_benchmark_trace_contract
 from src.evaluation.report_generator import write_benchmark_markdown_report
 from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
@@ -44,8 +51,6 @@ from src.graph.state import VTDState
 import uuid
 import yaml
 
-
-SQL_POSITIVE_ACTIONS = {"generate_sql", "generate_sql_with_caveat"}
 
 DATASET_ALIASES = {
     "dev": QUESTIONS_DIR / "dev" / "dev.json",
@@ -147,6 +152,7 @@ def retrieval_prediction(
     top_k: int,
     exclude_self: bool = False,
     use_reranker: bool = False,
+    reranker_name: str | None = None,
 ) -> dict[str, Any]:
     expected_tables, expected_columns = infer_sql_references(case.get("gold_sql") or case.get("sql"))
     expected_intent = case.get("intent") or case.get("expected_intent")
@@ -202,6 +208,13 @@ def retrieval_prediction(
         "exclude_self_retrieval": exclude_self,
         "self_overlap_removed": len(removed_ids),
         "self_overlap_removed_ids": removed_ids,
+        "retrieval_reranker": reranker_name if use_reranker else None,
+        "retrieval_reranker_backend": "identity" if use_reranker else None,
+        "retrieval_reranker_warning": (
+            "model_backed_reranker_not_implemented_identity_placeholder_used"
+            if use_reranker and reranker_name not in {None, "identity"}
+            else None
+        ),
     }
 
 
@@ -243,7 +256,8 @@ def classify_agent_error(
     execution_correct: bool,
     final_state: dict[str, Any],
 ) -> str | None:
-    if expected_action in SQL_POSITIVE_ACTIONS:
+    expected_action_normalized = normalize_expected_action(expected_action)
+    if expected_action_normalized in SQL_POSITIVE_ACTIONS:
         if not generated_sql:
             return "MISSING_GENERATED_SQL"
         if not valid_sql:
@@ -255,7 +269,7 @@ def classify_agent_error(
             return "EXECUTION_ERROR"
         return None
 
-    if expected_action != actual_action:
+    if not actions_match(expected_action_normalized, actual_action, generated_sql=generated_sql):
         return "ACTION_MISMATCH"
     return None
 
@@ -275,11 +289,21 @@ def exception_prediction(
     exclude_self_retrieval: bool = False,
 ) -> dict[str, Any]:
     gold_sql = case.get("gold_sql") or case.get("sql")
+    expected_action = case.get("expected_action") or "generate_sql"
+    expected_action_normalized = normalize_expected_action(
+        expected_action,
+        should_generate_sql=case.get("should_generate_sql"),
+    )
+    actual_action = "fail_gracefully"
+    actual_action_normalized = normalize_actual_action(actual_action)
+    action_correct = actions_match(expected_action_normalized, actual_action)
     return {
-        "actual_action": "fail_gracefully",
+        "actual_action": actual_action,
+        "actual_action_normalized": actual_action_normalized,
+        "expected_action_normalized": expected_action_normalized,
         "mode": "agent",
         "ok": False,
-        "action_correct": None if (case.get("expected_action") or "generate_sql") in SQL_POSITIVE_ACTIONS else False,
+        "action_correct": action_correct,
         "execution_correct": False,
         "semantic_business_correct": None,
         "valid_sql": False,
@@ -298,6 +322,10 @@ def exception_prediction(
         "retry_count": None,
         "validation_issues": [],
         "execution_error": None,
+        "execution_passed": False,
+        "max_retries": None,
+        "final_answer": None,
+        "trace_id": None,
         "latency_ms": latency_ms,
         "result_hash": None,
         "gold_result_hash": None,
@@ -316,6 +344,7 @@ def agent_prediction(
     ablation_config: dict[str, bool] | None = None,
     exclude_self_retrieval: bool = False,
     top_k: int = 5,
+    max_retries_override: int | None = None,
 ) -> dict[str, Any]:
     question = case_question(case)
     initial_state = VTDState(
@@ -324,6 +353,7 @@ def agent_prediction(
         benchmark_case_id=str(case.get("id") or case.get("case_id") or ""),
         exclude_self_retrieval=exclude_self_retrieval,
         retrieval_top_k=top_k,
+        max_retries=SETTINGS.max_retries if max_retries_override is None else max_retries_override,
         ablation_config=ablation_config or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
     )
 
@@ -339,6 +369,10 @@ def agent_prediction(
     generated_sql = final_state_dict.get("generated_sql")
     gold_sql = case.get("gold_sql") or case.get("sql")
     expected_action = case.get("expected_action") or "generate_sql"
+    expected_action_normalized = normalize_expected_action(
+        expected_action,
+        should_generate_sql=case.get("should_generate_sql"),
+    )
     actual_action = "generate_sql"
     
     # Determine actual_action from state
@@ -362,7 +396,10 @@ def agent_prediction(
     result_hash = None
     gold_hash = None
     
-    if expected_action in SQL_POSITIVE_ACTIONS:
+    actual_action_normalized = normalize_actual_action(actual_action, generated_sql=generated_sql)
+    action_correct = actions_match(expected_action_normalized, actual_action, generated_sql=generated_sql)
+
+    if expected_action_normalized in SQL_POSITIVE_ACTIONS:
         if generated_sql and gold_sql:
             comparison = executor.compare_results(generated_sql, gold_sql)
             execution_correct = bool(comparison.get("match"))
@@ -372,22 +409,13 @@ def agent_prediction(
         else:
             ok = False
     else:
-        # Behavioral evaluation
-        # For now, simple action matching. 
-        # expected_action can be safety_refusal, ambiguity_clarification, etc.
-        # Mapping to actual_action
-        if expected_action == "safety_refusal" and actual_action == "ask_clarification":
-            ok = True # Clarification node often handles both in current base_nodes
-        elif expected_action == "ambiguity_clarification" and actual_action == "ask_clarification":
-            ok = True
-        elif expected_action == actual_action:
-            ok = True
+        ok = action_correct
 
     for attempt in attempts:
         attempt.setdefault("gold_result_hash", gold_hash)
 
     error = None if ok else classify_agent_error(
-        expected_action=expected_action,
+        expected_action=expected_action_normalized,
         actual_action=actual_action,
         generated_sql=generated_sql,
         gold_sql=gold_sql,
@@ -398,17 +426,25 @@ def agent_prediction(
 
     prediction = {
         "actual_action": actual_action,
+        "actual_action_normalized": actual_action_normalized,
+        "expected_action_normalized": expected_action_normalized,
         "mode": "agent",
         "ok": ok,
-        "action_correct": ok if expected_action not in SQL_POSITIVE_ACTIONS else None,
+        "action_correct": action_correct,
         "execution_correct": execution_correct,
         "semantic_business_correct": None,
         "valid_sql": valid_sql,
         "normalized_question": final_state_dict.get("normalized_question"),
         "generated_sql": generated_sql,
+        "generation_source": final_state_dict.get("generation_source"),
         "gold_sql": gold_sql,
         "explanation": final_state_dict.get("explanation"),
         "intent": final_state_dict.get("intent"),
+        "intent_confidence": final_state_dict.get("intent_confidence"),
+        "should_generate_sql": final_state_dict.get("should_generate_sql"),
+        "safety_label": final_state_dict.get("safety_label"),
+        "ambiguity_score": final_state_dict.get("ambiguity_score"),
+        "needs_clarification": final_state_dict.get("needs_clarification"),
         "qir": final_state_dict.get("qir"),
         "linked_schema": final_state_dict.get("linked_schema"),
         "value_links": final_state_dict.get("value_links", {}),
@@ -420,6 +456,10 @@ def agent_prediction(
         "retry_count": final_state_dict.get("retry_count"),
         "validation_issues": final_state_dict.get("validation_errors", []),
         "execution_error": final_state_dict.get("execution_error"),
+        "execution_passed": final_state_dict.get("execution_result") is not None and not final_state_dict.get("execution_error"),
+        "max_retries": final_state_dict.get("max_retries"),
+        "final_answer": final_state_dict.get("final_answer"),
+        "trace_id": final_state_dict.get("trace_id"),
         "latency_ms": latency_ms,
         "result_hash": result_hash,
         "gold_result_hash": gold_hash,
@@ -560,9 +600,11 @@ def write_partial_artifacts(output_dir: Path, prefix: str, records: list[dict[st
         for record in output_records
         if not (record.get("ok") or record.get("execution_correct") or record.get("result_match"))
     ]
+    attempts = flatten_attempts(output_records)
+    validate_benchmark_trace_contract(output_records, attempts, default_ablation_id="partial")
     write_jsonl(output_dir / f"{prefix}_partial_predictions.jsonl", output_records)
     write_jsonl(output_dir / f"{prefix}_partial_failures.jsonl", failures)
-    write_jsonl(output_dir / f"{prefix}_partial_attempts.jsonl", flatten_attempts(output_records))
+    write_jsonl(output_dir / f"{prefix}_partial_attempts.jsonl", attempts)
 
 
 def build_output_dir(config_id: str, stamp: str, output_dir: str | None = None) -> Path:
@@ -624,6 +666,7 @@ def run(args: argparse.Namespace) -> Path:
         "reflexion": True,
         "multi_candidate_generation": True,
         "multi_candidate_adoption": True,
+        "deterministic_templates": False,
         "reliability_gate": False,
         "llm_judge": False,
     }
@@ -632,6 +675,7 @@ def run(args: argparse.Namespace) -> Path:
         ablation_config["llm_judge"] = True
     ablation_contract = ablation_runtime_contract(ablation_config)
     enabled_modules, disabled_modules = split_module_flags(ablation_config)
+    max_retries_override = getattr(args, "max_retries_override", None)
     
     config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}_{ablation_id}"
     output_dir = build_output_dir(config_id, stamp, args.output_dir)
@@ -668,8 +712,11 @@ def run(args: argparse.Namespace) -> Path:
     if args.mode == "retrieval":
         retrieval_backend_arg = getattr(args, "retrieval_backend", None)
         retrieval_backend_mode = retrieval_backend_arg or ("hybrid" if args.use_vector else "bm25")
-        use_reranker = retrieval_backend_mode == "hybrid_rerank"
-        retriever_mode = "hybrid" if use_reranker else retrieval_backend_mode
+        requested_reranker = getattr(args, "reranker", None)
+        if retrieval_backend_mode == "hybrid_rerank" and not requested_reranker:
+            requested_reranker = "identity"
+        use_reranker = bool(requested_reranker and requested_reranker != "none")
+        retriever_mode = "hybrid" if retrieval_backend_mode == "hybrid_rerank" else retrieval_backend_mode
         retriever = HybridRetriever(retrieval_mode=retriever_mode)
         for index, case in enumerate(cases, start=1):
             record = dict(
@@ -680,6 +727,7 @@ def run(args: argparse.Namespace) -> Path:
                     top_k=args.top_k,
                     exclude_self=exclude_self,
                     use_reranker=use_reranker,
+                    reranker_name=requested_reranker,
                 ),
             )
             records.append(record)
@@ -709,6 +757,7 @@ def run(args: argparse.Namespace) -> Path:
                     ablation_config=ablation_config,
                     exclude_self_retrieval=exclude_self,
                     top_k=args.top_k,
+                    max_retries_override=max_retries_override,
                 )
             except Exception as exc:
                 prediction = exception_prediction(
@@ -733,6 +782,8 @@ def run(args: argparse.Namespace) -> Path:
     difficulty_counts = dataset_summary.get("by_difficulty", {})
     self_overlap_removed_total = sum(int(record.get("self_overlap_removed") or 0) for record in records)
     retrieval_backend = getattr(args, "retrieval_backend", None) or ("hybrid" if args.use_vector else "bm25")
+    requested_reranker = getattr(args, "reranker", None)
+    effective_reranker = requested_reranker or ("identity" if retrieval_backend == "hybrid_rerank" else None)
     config = {
         "config_id": config_id,
         "mode": args.mode,
@@ -747,8 +798,15 @@ def run(args: argparse.Namespace) -> Path:
         "top_k": args.top_k,
         "use_vector": args.use_vector,
         "retrieval_backend": retrieval_backend,
-        "retrieval_reranker": "identity" if retrieval_backend == "hybrid_rerank" else None,
-        "max_retries": SETTINGS.max_retries,
+        "retrieval_reranker": effective_reranker if effective_reranker != "none" else None,
+        "retrieval_reranker_backend": "identity" if effective_reranker and effective_reranker != "none" else None,
+        "retrieval_reranker_warning": (
+            "model_backed_reranker_not_implemented_identity_placeholder_used"
+            if effective_reranker not in {None, "none", "identity"}
+            else None
+        ),
+        "max_retries": SETTINGS.max_retries if max_retries_override is None else max_retries_override,
+        "max_retries_source": "settings" if max_retries_override is None else "config",
         "llm_context_window": SETTINGS.llm_context_window,
         "prompt_template": {
             "generation": "src/generation/prompts/sql_generation.j2",
@@ -835,16 +893,23 @@ def run(args: argparse.Namespace) -> Path:
         for record in output_records
         if not (record.get("ok") or record.get("execution_correct") or record.get("result_match"))
     ]
+    output_attempts = flatten_attempts(output_records) if args.mode == "agent" else []
+    trace_contract_summary = validate_benchmark_trace_contract(
+        output_records,
+        output_attempts,
+        default_ablation_id=ablation_id,
+    )
+    summary["trace_contract"] = {
+        **trace_contract_summary,
+        "validated": True,
+    }
 
     write_json(artifact_paths["config"], config)
     write_jsonl(artifact_paths["predictions"], output_records)
     write_jsonl(artifact_paths["failures"], output_failures)
     
     # Write attempts trace for agent mode
-    if args.mode == "agent":
-        write_jsonl(artifact_paths["attempts"], flatten_attempts(output_records))
-    else:
-        write_jsonl(artifact_paths["attempts"], [])
+    write_jsonl(artifact_paths["attempts"], output_attempts)
 
     write_json(artifact_paths["summary_json"], summary)
     if args.mode == "retrieval":
@@ -911,6 +976,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Retrieval backend for retrieval-mode ablations. hybrid_rerank uses the current identity reranker.",
     )
     parser.add_argument(
+        "--reranker",
+        choices=("none", "identity", "bge-reranker-base", "bge-reranker-v2-m3"),
+        default=None,
+        help=(
+            "Optional retrieval reranker. Current runtime has an identity placeholder; "
+            "model-backed choices are recorded with a warning until implemented."
+        ),
+    )
+    parser.add_argument(
         "--exclude-self",
         action="store_true",
         help="Remove retrieved examples that match the evaluated case by base id or normalized question.",
@@ -960,6 +1034,21 @@ def load_config_yaml(path: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+def parse_max_retries_override(features: dict[str, Any] | None) -> int | None:
+    if not features or "max_retries" not in features:
+        return None
+    value = features["max_retries"]
+    if isinstance(value, bool):
+        raise ValueError("features.max_retries must be a non-negative integer, not a boolean.")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("features.max_retries must be a non-negative integer.") from exc
+    if parsed < 0:
+        raise ValueError("features.max_retries must be a non-negative integer.")
+    return parsed
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -980,10 +1069,7 @@ def main() -> None:
         if "features" in yaml_data:
             feat = yaml_data["features"]
             args.ablation_config = normalize_feature_flags(feat)
-            if "max_retries" in feat:
-                # We can't easily change SETTINGS at runtime globally for all modules
-                # but we can pass it to agent_prediction if we modify it.
-                pass
+            args.max_retries_override = parse_max_retries_override(feat)
         if "config_id" in yaml_data:
             args.config_id = yaml_data["config_id"]
         if "ablation_id" in yaml_data:
@@ -1005,6 +1091,8 @@ def main() -> None:
             if "backend" in retrieval:
                 args.retrieval_backend = str(retrieval["backend"])
                 args.use_vector = args.retrieval_backend in {"vector", "hybrid", "hybrid_rerank"}
+            if "reranker" in retrieval:
+                args.reranker = str(retrieval["reranker"])
 
     if args.sample == 0:
         args.sample = None

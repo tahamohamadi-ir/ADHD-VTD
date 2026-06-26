@@ -1,0 +1,111 @@
+{
+  "project": "VTD Health Intelligent Dashboard NL2SQL Dataset",
+  "version": "1.2-merged-400-validated-phase18_7b_regressed5",
+  "dialect": "sqlite",
+  "database_file": "vtd_health_research_v1.db",
+  "schema_file": "vtd_health_research_schema.sql",
+  "total_examples": 5,
+  "difficulty_counts": {
+    "easy": 2,
+    "medium": 3
+  },
+  "intended_use": [
+    "RAG retrieval examples",
+    "few-shot prompting",
+    "NL2SQL evaluation",
+    "synthetic fine-tuning seed data"
+  ],
+  "warning_fa": "این داده‌ها پژوهشی/آموزشی هستند و نباید برای تصمیم‌گیری پزشکی فردی استفاده شوند.",
+  "validation_summary": {
+    "validated_against_database": "vtd_health_research_v1.db",
+    "validation_date": "2026-05-10",
+    "total_examples": 400,
+    "difficulty_counts": {
+      "easy": 100,
+      "medium": 100,
+      "hard": 100,
+      "complex": 100
+    },
+    "execution_errors_in_new_additions": 0,
+    "unsafe_sql_in_new_additions": 0,
+    "empty_result_queries_in_new_additions": 0,
+    "duplicate_questions_exact_or_normalized_total": 0,
+    "duplicate_sql_exact_or_normalized_total": 0,
+    "new_additions_min_rows": 1,
+    "new_additions_max_rows": 1,
+    "new_additions_median_rows": 1.0,
+    "new_additions_max_execution_seconds": 0.1354
+  },
+  "notes_fa": "۲۶۰ نمونه قبلی + ۱۴۰ نمونه جدید محاوره‌ای، بدون تکرار exact/normalized در سؤال و SQL.",
+  "source_dataset": "data\\questions\\full\\vtd_question_sql_400_merged_validated.json",
+  "source_artifact": "results\\benchmark\\20260525_021842_agent_positive400_qwen2-5-coder-7b_phase18_7b_one_shot_surgeon_failfast_full400",
+  "selection_note": "Cases that were ok=true in the 61.25% baseline and ok=false in phase18_7b; use as a regression smoke.",
+  "category_counts": {
+    "top_n": 1,
+    "analysis": 2,
+    "simple": 1,
+    "performance": 1
+  },
+  "examples": [
+    {
+      "id": "VTD-051",
+      "difficulty": "easy",
+      "category": "top_n",
+      "pattern": "top_n_group_count",
+      "question_fa": "۱۰ شهر اول با بیشترین تعداد دانشجو در دیتاست افسردگی کدام‌اند؟",
+      "sql": "SELECT city, COUNT(*) AS count FROM student_depression WHERE city IS NOT NULL GROUP BY city ORDER BY count DESC LIMIT 10;",
+      "recommended_visual": "bar",
+      "storytelling_hint_fa": "",
+      "safe_sql": true,
+      "dialect": "sqlite"
+    },
+    {
+      "id": "VTD-079",
+      "difficulty": "medium",
+      "category": "analysis",
+      "pattern": "percentage_by_group",
+      "question_fa": "درمان‌جویی در دیتاست عمومی بر اساس سطح ریسک چگونه است؟",
+      "sql": "SELECT mental_health_risk, COUNT(*) AS total, SUM(seeks_treatment) AS treatment_seekers, ROUND(100.0 * SUM(seeks_treatment) / COUNT(*), 2) AS treatment_rate_pct FROM mental_health_general GROUP BY mental_health_risk ORDER BY treatment_rate_pct DESC;",
+      "recommended_visual": "bar",
+      "storytelling_hint_fa": "",
+      "safe_sql": true,
+      "dialect": "sqlite"
+    },
+    {
+      "id": "VTD-124",
+      "difficulty": "medium",
+      "category": "analysis",
+      "pattern": "workplace_treatment_by_gender",
+      "question_fa": "درمان‌جویی در نظرسنجی محیط کار به تفکیک جنسیت نرمال‌شده چقدر است؟",
+      "sql": "SELECT gender, COUNT(*) AS total, SUM(treatment) AS treatment_count, ROUND(100.0 * SUM(treatment) / COUNT(*), 2) AS treatment_rate_pct FROM workplace_mental_health_survey GROUP BY gender ORDER BY treatment_rate_pct DESC;",
+      "recommended_visual": "bar",
+      "storytelling_hint_fa": "",
+      "safe_sql": true,
+      "dialect": "sqlite"
+    },
+    {
+      "id": "VTD-276",
+      "difficulty": "easy",
+      "category": "simple",
+      "pattern": "colloquial_simple",
+      "question_fa": "کیفیت اینترنت بچه‌ها چه توزیعی داره؟",
+      "sql": "SELECT internet_quality, COUNT(*) AS n_students FROM student_habits_performance GROUP BY internet_quality ORDER BY n_students DESC;",
+      "recommended_visual": "bar_chart",
+      "storytelling_hint_fa": "شروع روایت با شاخص ساده و قابل فهم.",
+      "safe_sql": true,
+      "dialect": "sqlite"
+    },
+    {
+      "id": "VTD-303",
+      "difficulty": "medium",
+      "category": "performance",
+      "pattern": "group_performance_colloquial",
+      "question_fa": "کیفیت رژیم غذایی تو دیتاست عادت‌ها با نمره امتحان چه نسبتی داره؟",
+      "sql": "SELECT diet_quality AS group_value, COUNT(*) AS n, ROUND(AVG(exam_score),2) AS avg_exam_score, ROUND(AVG(mental_health_rating),2) AS avg_mental_health_rating, ROUND(AVG(sleep_hours),2) AS avg_sleep_hours FROM student_habits_performance GROUP BY diet_quality ORDER BY avg_exam_score DESC;",
+      "recommended_visual": "bar_chart",
+      "storytelling_hint_fa": "عملکرد و سلامت روان را در یک نمای مقایسه‌ای نشان بده.",
+      "safe_sql": true,
+      "dialect": "sqlite"
+    }
+  ]
+}

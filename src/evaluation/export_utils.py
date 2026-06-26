@@ -24,8 +24,8 @@ def export_benchmark_csvs(records: List[Dict[str, Any]], summary: Dict[str, Any]
     # 3. error_taxonomy.csv
     err_path = output_dir / f"{name_prefix}error_taxonomy.csv"
     err_data = summary.get("error_analysis", {}).get("by_error", {})
-    if err_data:
-        pd.DataFrame([{"error_type": k, "count": v} for k, v in err_data.items()]).to_csv(err_path, index=False, encoding="utf-8-sig")
+    err_rows = [{"error_type": k, "count": v} for k, v in err_data.items()]
+    pd.DataFrame(err_rows, columns=["error_type", "count"]).to_csv(err_path, index=False, encoding="utf-8-sig")
 
 def generate_paper_tables(summary: Dict[str, Any], output_path: Path):
     """Generate paper-ready markdown tables."""

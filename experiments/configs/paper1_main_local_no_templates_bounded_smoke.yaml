@@ -1,0 +1,30 @@
+config_id: paper1_main_local_no_templates_bounded_smoke
+ablation_id: paper1_main_local_no_templates_bounded_smoke
+config_version: "paper1_b1_3_bounded_v1"
+mode: agent
+description: "Smoke version of the Paper-1 bounded local no-template agent run."
+dataset:
+  split: positive400
+  sample_size: 10
+retrieval:
+  top_k: 5
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  abstention: true
+  multi_candidate_generation: true
+  multi_candidate_adoption: true
+  deterministic_templates: false
+  reliability_gate: false
+  llm_judge: false
+  max_retries: 1
+reporting:
+  result_status: smoke_config
+  full_run_config: "experiments/configs/paper1_main_local_no_templates_bounded.yaml"

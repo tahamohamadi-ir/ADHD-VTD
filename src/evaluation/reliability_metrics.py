@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from src.evaluation.action_normalizer import did_abstain_for_action, should_abstain_for_action
 from src.evaluation.metrics import MetricResult, safe_div
 
 
@@ -40,19 +41,18 @@ class ReliabilityScoreResult:
 
 
 def should_abstain(record: dict[str, Any]) -> bool:
-    expected_action = str(record.get("expected_action", ""))
     if record.get("should_abstain") is True:
         return True
-    if record.get("should_generate_sql") is False:
-        return True
-    return expected_action.startswith(("ask_", "refuse"))
+    return should_abstain_for_action(
+        record.get("expected_action"),
+        should_generate_sql=record.get("should_generate_sql"),
+    )
 
 
 def did_abstain(record: dict[str, Any]) -> bool:
-    actual_action = str(record.get("actual_action", ""))
     if record.get("abstained") is True:
         return True
-    return actual_action.startswith(("ask_", "refuse"))
+    return did_abstain_for_action(record.get("actual_action"))
 
 
 def is_sql_correct(record: dict[str, Any]) -> bool:
