@@ -32,11 +32,51 @@ class SQLSafetyValidator:
     """
 
     FORBIDDEN = {
-        "insert", "update", "delete", "drop", "alter", "create", "truncate", "replace", "merge",
-        "attach", "detach", "pragma", "vacuum", "reindex", "exec", "execute", "call",
+        "insert",
+        "update",
+        "delete",
+        "drop",
+        "alter",
+        "create",
+        "truncate",
+        "replace",
+        "merge",
+        "attach",
+        "detach",
+        "pragma",
+        "vacuum",
+        "reindex",
+        "exec",
+        "execute",
+        "call",
     }
+    IDENTIFIER_COLUMN_NAMES = {
+        "id",
+        "student_id",
+        "email",
+        "phone",
+        "phone_number",
+        "address",
+    }
+    IDENTIFIER_SUFFIXES = ("_id",)
+    SENSITIVE_COLUMN_TERMS = (
+        "suicid",
+        "depression",
+        "anxiety",
+        "stress",
+        "risk",
+        "diagnosis",
+        "treatment",
+        "mental_health",
+        "family_history",
+    )
 
-    def __init__(self, allow_select_star: bool = False, require_limit_for_raw: bool = True, default_limit: int = 100) -> None:
+    def __init__(
+        self,
+        allow_select_star: bool = False,
+        require_limit_for_raw: bool = True,
+        default_limit: int = 100,
+    ) -> None:
         self.allow_select_star = allow_select_star
         self.require_limit_for_raw = require_limit_for_raw
         self.default_limit = default_limit
@@ -75,7 +115,9 @@ class SQLSafetyValidator:
             return True
 
         # SELECT table.* is typically represented as an exp.Column with Star as `this`.
-        if isinstance(projection, exp.Column) and isinstance(getattr(projection, "this", None), exp.Star):
+        if isinstance(projection, exp.Column) and isinstance(
+            getattr(projection, "this", None), exp.Star
+        ):
             return True
 
         # SELECT * AS alias, or SELECT table.* AS alias. Do not inspect generic
@@ -107,6 +149,87 @@ class SQLSafetyValidator:
                 return True
         return False
 
+    def _top_level_select(self, parsed: Any) -> Any:
+        if exp is None or parsed is None:
+            return None
+        return parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
+
+    def _projection_column_names(self, projection: Any) -> set[str]:
+        if exp is None:
+            return set()
+        return {
+            str(column.name).lower() for column in projection.find_all(exp.Column) if column.name
+        }
+
+    def _projection_is_aggregate(self, projection: Any) -> bool:
+        if exp is None:
+            return False
+        return any(
+            isinstance(node, (exp.Count, exp.Sum, exp.Avg, exp.Min, exp.Max))
+            for node in projection.walk()
+        )
+
+    def _select_has_aggregate(self, select_expr: Any) -> bool:
+        if exp is None or select_expr is None:
+            return False
+        return any(
+            isinstance(node, (exp.Count, exp.Sum, exp.Avg, exp.Min, exp.Max))
+            for node in select_expr.walk()
+        )
+
+    def _select_has_group_by(self, select_expr: Any) -> bool:
+        return bool(select_expr is not None and select_expr.args.get("group"))
+
+    def _is_identifier_column(self, column_name: str) -> bool:
+        name = column_name.lower()
+        return name in self.IDENTIFIER_COLUMN_NAMES or name.endswith(self.IDENTIFIER_SUFFIXES)
+
+    def _is_sensitive_column(self, column_name: str) -> bool:
+        name = column_name.lower()
+        return any(term in name for term in self.SENSITIVE_COLUMN_TERMS)
+
+    def _privacy_projection_issues(self, parsed: Any) -> list[ValidationIssue]:
+        if sqlglot is None or exp is None or parsed is None:
+            return []
+
+        select_expr = self._top_level_select(parsed)
+        if select_expr is None:
+            return []
+
+        grouped_or_aggregated = self._select_has_group_by(
+            select_expr
+        ) or self._select_has_aggregate(select_expr)
+        identifier_columns: set[str] = set()
+        sensitive_row_columns: set[str] = set()
+
+        for projection in getattr(select_expr, "expressions", []) or []:
+            if self._projection_is_aggregate(projection):
+                continue
+            for column_name in self._projection_column_names(projection):
+                if self._is_identifier_column(column_name):
+                    identifier_columns.add(column_name)
+                elif self._is_sensitive_column(column_name) and not grouped_or_aggregated:
+                    sensitive_row_columns.add(column_name)
+
+        issues: list[ValidationIssue] = []
+        if identifier_columns:
+            issues.append(
+                ValidationIssue(
+                    "PRIVACY_IDENTIFIER_PROJECTION",
+                    "User-visible SQL must not project identifiers: "
+                    + ", ".join(sorted(identifier_columns)),
+                )
+            )
+        if sensitive_row_columns:
+            issues.append(
+                ValidationIssue(
+                    "PRIVACY_SENSITIVE_ROW_LEVEL",
+                    "Sensitive mental-health fields must be returned only as aggregate analysis, not row-level columns: "
+                    + ", ".join(sorted(sensitive_row_columns)),
+                )
+            )
+        return issues
+
     def validate(self, sql: str) -> ValidationResult:
         s = self._strip_sql(sql)
         issues: list[ValidationIssue] = []
@@ -115,18 +238,26 @@ class SQLSafetyValidator:
 
         # Multiple statement check: semicolon inside remaining SQL is disallowed.
         if ";" in s:
-            issues.append(ValidationIssue("MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed."))
+            issues.append(
+                ValidationIssue("MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed.")
+            )
 
         lower = s.lower()
         if "--" in lower or "/*" in lower or "*/" in lower:
-            issues.append(ValidationIssue("SQL_COMMENT", "SQL comments are not allowed in generated queries."))
+            issues.append(
+                ValidationIssue("SQL_COMMENT", "SQL comments are not allowed in generated queries.")
+            )
 
         for keyword in self.FORBIDDEN:
             if re.search(rf"\b{keyword}\b", lower):
-                issues.append(ValidationIssue("FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}"))
+                issues.append(
+                    ValidationIssue("FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}")
+                )
 
         if not re.match(r"^\s*(select|with)\b", lower):
-            issues.append(ValidationIssue("NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed."))
+            issues.append(
+                ValidationIssue("NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed.")
+            )
 
         parsed = None
         if sqlglot is not None:
@@ -135,11 +266,18 @@ class SQLSafetyValidator:
                 if parsed is None:
                     issues.append(ValidationIssue("PARSE_ERROR", "sqlglot could not parse SQL."))
                 elif not (isinstance(parsed, exp.Select) or parsed.find(exp.Select)):
-                    issues.append(ValidationIssue("NOT_SELECT_AST", "Parsed SQL is not a SELECT query."))
+                    issues.append(
+                        ValidationIssue("NOT_SELECT_AST", "Parsed SQL is not a SELECT query.")
+                    )
             except Exception as exc:
                 issues.append(ValidationIssue("PARSE_ERROR", f"SQL parse failed: {exc}"))
 
         if self._top_level_select_has_star(parsed, s):
-            issues.append(ValidationIssue("SELECT_STAR", "Top-level SELECT * is not allowed for privacy/safety reasons."))
+            issues.append(
+                ValidationIssue(
+                    "SELECT_STAR", "Top-level SELECT * is not allowed for privacy/safety reasons."
+                )
+            )
+        issues.extend(self._privacy_projection_issues(parsed))
 
         return ValidationResult(not issues, issues, s)

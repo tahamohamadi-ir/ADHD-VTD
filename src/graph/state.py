@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from src.config.settings import SETTINGS
 
+
 class SQLAttempt(BaseModel):
     iteration: int
     prompt_id: str | None = None
@@ -28,6 +29,7 @@ class SQLAttempt(BaseModel):
     semantic_business_reason: str | None = None
     generation_latency_ms: int | None = None
     latency_ms: int | None = None
+
 
 class LinkedSchema(BaseModel):
     tables: list[str] = Field(default_factory=list)
@@ -56,6 +58,7 @@ class ReliabilityState(BaseModel):
 
 
 from src.core.query_ir import QueryIR
+
 
 class VTDState(BaseModel):
     trace_id: str
@@ -104,6 +107,7 @@ class VTDState(BaseModel):
     selected_candidate_id: str | None = None
     candidate_consistency: dict[str, Any] | None = None
     candidate_consistency_report: dict[str, Any] | None = None
+    candidate_verification: dict[str, Any] | None = None
     reliability_decision: dict[str, Any] | None = None
     multi_candidate_policy: dict[str, Any] | None = None
     reliability: ReliabilityState | None = None
@@ -112,11 +116,16 @@ class VTDState(BaseModel):
     explanation: str | None = None
     actual_action: str | None = None
     benchmark_record: dict[str, Any] | None = None
-    
+
     # Ablation configuration for research studies
-    ablation_config: dict[str, bool] = Field(default_factory=lambda: {
-        "reflexion": True,
-        "cag": True,
-        "nlu": True,
-        "deterministic_templates": False,
-    })
+    ablation_config: dict[str, bool] = Field(
+        default_factory=lambda: {
+            "reflexion": True,
+            "cag": True,
+            "nlu": True,
+            "multi_candidate_generation": False,
+            "multi_candidate_adoption": False,
+            "multi_candidate_verifier": True,
+            "deterministic_templates": False,
+        }
+    )

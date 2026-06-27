@@ -56,7 +56,12 @@ _FAMILY_HISTORY_TERMS = (
 _MATRIX_TERMS = ("matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633")
 _SLEEP_TERMS = ("sleep", "\u062e\u0648\u0627\u0628")
 _DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
-_DEPRESSION_TERMS = ("depression", "depressed", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc", "\u0627\u0641\u0633\u0631\u062f\u0647")
+_DEPRESSION_TERMS = (
+    "depression",
+    "depressed",
+    "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc",
+    "\u0627\u0641\u0633\u0631\u062f\u0647",
+)
 _CGPA_TERMS = ("cgpa", "gpa")
 _MENTAL_HEALTH_GENERAL_TERMS = (
     "mental health",
@@ -83,6 +88,27 @@ _DISORDER_GROUP_TERMS = (
     "\u0627\u0632 \u0647\u0631 \u0627\u062e\u062a\u0644\u0627\u0644",
     "\u0628\u0647 \u062a\u0641\u06a9\u06cc\u06a9 \u0627\u062e\u062a\u0644\u0627\u0644",
 )
+_GROUPING_TERMS = (
+    "distribution",
+    "breakdown",
+    "group by",
+    " by ",
+    "based on",
+    "per ",
+    "category",
+    "categories",
+    "compare",
+    "comparison",
+    "\u062a\u0648\u0632\u06cc\u0639",
+    "\u0628\u0647 \u062a\u0641\u06a9\u06cc\u06a9",
+    "\u0628\u0631 \u0627\u0633\u0627\u0633",
+    "\u062f\u0633\u062a\u0647",
+    "\u06af\u0631\u0648\u0647",
+    "\u0645\u0642\u0627\u06cc\u0633\u0647",
+    "\u0647\u0631 ",
+)
+_SCALAR_TASK_TYPES = {"count_query", "aggregation_query", "rate_query"}
+_GROUPED_TASK_TYPES = {"grouping_query", "comparison_query"}
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -115,9 +141,7 @@ class PromptBuilder:
 
     def __init__(self, templates_dir: str | Path = "src/generation/prompts") -> None:
         self.env = Environment(
-            loader=FileSystemLoader(str(templates_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True
+            loader=FileSystemLoader(str(templates_dir)), trim_blocks=True, lstrip_blocks=True
         )
 
     def build_sql_generation_prompt(
@@ -126,22 +150,31 @@ class PromptBuilder:
         qir: QueryIR,
         schema: dict[str, Any],
         value_links: dict[str, str] | None = None,
-        few_shot: list[dict[str, Any]] | None = None
+        few_shot: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Builds the main SQL generation prompt.
         """
         if few_shot:
             for ex in few_shot:
-                if "thought_process" not in ex or not ex["thought_process"] or ex["thought_process"] == "Generating query for user request.":
+                if (
+                    "thought_process" not in ex
+                    or not ex["thought_process"]
+                    or ex["thought_process"] == "Generating query for user request."
+                ):
                     ex["thought_process"] = self._generate_synthetic_thought(ex.get("sql", ""))
                 # If skeleton is missing, we could try to extract it, but usually it is pre-populated in golden examples.
                 # Since golden_examples doesn't have it, we'll auto-generate a pseudo-skeleton if missing.
                 if "sql_skeleton" not in ex:
-                    ex["sql_skeleton"] = re.sub(r'([A-Za-z0-9_]+\.[A-Za-z0-9_]+|[A-Za-z0-9_]+) (?:=|<|>|<=|>=|LIKE) (?:\'([^\']+)\'|\d+)', r'\1 = {value}', ex.get("sql", ""))
+                    ex["sql_skeleton"] = re.sub(
+                        r"([A-Za-z0-9_]+\.[A-Za-z0-9_]+|[A-Za-z0-9_]+) (?:=|<|>|<=|>=|LIKE) (?:\'([^\']+)\'|\d+)",
+                        r"\1 = {value}",
+                        ex.get("sql", ""),
+                    )
 
-        template = self.env.get_template("sql_generation.j2")
-        
+        template_name = self._select_sql_generation_template(question, qir)
+        template = self.env.get_template(template_name)
+
         # Serialize QIR to dict for easier templating if needed, but jinja can access properties
         return template.render(
             question=question,
@@ -150,28 +183,69 @@ class PromptBuilder:
             value_links=value_links or {},
             few_shot=few_shot or [],
             analysis_hints=self._build_analysis_hints(question, qir, schema),
+            prompt_template_name=template_name,
         )
 
+    def _select_sql_generation_template(self, question: str, qir: QueryIR) -> str:
+        if self._looks_grouped(question, qir):
+            return "sql_generation_grouped.j2"
+        if self._looks_scalar(question, qir):
+            return "sql_generation_scalar.j2"
+        return "sql_generation.j2"
+
+    def _looks_grouped(self, question: str, qir: QueryIR) -> bool:
+        q = (question or "").lower()
+        task_type = str(qir.task_type or "").lower()
+        expected_shape = str(qir.expected_result_shape or "").lower()
+        return (
+            expected_shape == "table"
+            or bool(qir.dimensions)
+            or task_type in _GROUPED_TASK_TYPES
+            or _has_any(q, _GROUPING_TERMS)
+            or _has_any(q, _DISORDER_GROUP_TERMS)
+        )
+
+    def _looks_scalar(self, question: str, qir: QueryIR) -> bool:
+        q = (question or "").lower()
+        task_type = str(qir.task_type or "").lower()
+        expected_shape = str(qir.expected_result_shape or "").lower()
+        if qir.dimensions:
+            return False
+        if expected_shape in {"scalar", "single_value", "single_value_metric", "number", "kpi"}:
+            return True
+        if task_type == "count_query":
+            return True
+        if task_type in _SCALAR_TASK_TYPES:
+            non_scalar_cues = (
+                _has_any(q, _DASHBOARD_TERMS)
+                or _has_any(q, _MATRIX_TERMS)
+                or _has_any(q, _CHANGE_TERMS)
+                or _has_any(q, _QUANTILE_TERMS)
+                or (_has_any(q, _RISK_TERMS) and _has_any(q, _AVERAGE_COMPARISON_TERMS))
+            )
+            return not non_scalar_cues
+        return False
+
     def _generate_synthetic_thought(self, sql: str) -> str:
-        tables = re.findall(r'FROM\s+([a-zA-Z0-9_]+)', sql, re.IGNORECASE)
-        joins = re.findall(r'JOIN\s+([a-zA-Z0-9_]+)', sql, re.IGNORECASE)
+        tables = re.findall(r"FROM\s+([a-zA-Z0-9_]+)", sql, re.IGNORECASE)
+        joins = re.findall(r"JOIN\s+([a-zA-Z0-9_]+)", sql, re.IGNORECASE)
         all_tables = list(set(tables + joins))
-        
-        has_groupby = 'GROUP BY' in sql.upper()
-        has_limit = 'LIMIT' in sql.upper()
-        
+
+        has_groupby = "GROUP BY" in sql.upper()
+        has_limit = "LIMIT" in sql.upper()
+
         thought = f"1. Identify main tables: {', '.join(all_tables) if all_tables else 'Unknown'}. "
-        
+
         if has_groupby:
             thought += "2. Query requires grouping (GROUP BY) to summarize metrics. "
         else:
             thought += "2. Query is a simple filter or global aggregation. "
-            
-        if 'WHERE' in sql.upper():
+
+        if "WHERE" in sql.upper():
             thought += "3. Apply specific filters in WHERE clause. "
-            
+
         thought += "4. Format output columns according to analysis shape hints."
-        
+
         return thought
 
     def build_repair_prompt(
@@ -182,7 +256,7 @@ class PromptBuilder:
         value_links: dict[str, str],
         previous_sql: str,
         validation_errors: str,
-        critic_feedback: str | None = None
+        critic_feedback: str | None = None,
     ) -> str:
         template = self.env.get_template("sql_repair.j2")
         return template.render(
@@ -192,7 +266,7 @@ class PromptBuilder:
             value_links=value_links,
             previous_sql=previous_sql,
             validation_errors=validation_errors,
-            critic_feedback=critic_feedback
+            critic_feedback=critic_feedback,
         )
 
     def _build_analysis_hints(
@@ -229,8 +303,17 @@ class PromptBuilder:
                 "AVG when the question asks for distribution, comparison, ranking, trend, or "
                 "grouped rate."
             )
-        
-        if task_type in ("aggregation_query", "rate_query", "grouping_query") or _has_any(q, _RATE_TERMS) or _has_any(q, _AVERAGE_COMPARISON_TERMS) or 'sum' in q or 'avg' in q or 'min' in q or 'max' in q or 'count' in q:
+
+        if (
+            task_type in ("aggregation_query", "rate_query", "grouping_query")
+            or _has_any(q, _RATE_TERMS)
+            or _has_any(q, _AVERAGE_COMPARISON_TERMS)
+            or "sum" in q
+            or "avg" in q
+            or "min" in q
+            or "max" in q
+            or "count" in q
+        ):
             hints.append(
                 "When calculating AVG, SUM, MIN, or MAX, always add a `WHERE column IS NOT NULL` "
                 "filter for the aggregated column unless you already have other WHERE conditions."
@@ -283,7 +366,12 @@ class PromptBuilder:
             and _has_any(q, _DIET_TERMS)
             and _has_any(q, _DEPRESSION_TERMS)
             and _has_any(q, _CGPA_TERMS)
-            and {"sleep_duration_category", "dietary_habits", "depression_flag", "cgpa_10"}.issubset(student_cols)
+            and {
+                "sleep_duration_category",
+                "dietary_habits",
+                "depression_flag",
+                "cgpa_10",
+            }.issubset(student_cols)
         ):
             hints.append(
                 "For student_depression sleep/diet matrix questions about depression "
@@ -296,7 +384,9 @@ class PromptBuilder:
                 "or diet_quality unless those exact columns are in student_depression."
             )
 
-        if task_type in {"grouping_query", "comparison_query", "trend_query"} or _has_any(q, _DASHBOARD_TERMS):
+        if task_type in {"grouping_query", "comparison_query", "trend_query"} or _has_any(
+            q, _DASHBOARD_TERMS
+        ):
             hints.append(
                 "For dashboard, storytelling, grouping, or comparison requests, "
                 "do not collapse the answer to a single scalar. Return a compact "

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 RUNTIME_ENFORCED_FLAGS = {
     "nlu",
     "schema_linking",
@@ -15,6 +14,7 @@ RUNTIME_ENFORCED_FLAGS = {
     "reliability_gate_review_consistency_failures",
     "multi_candidate_generation",
     "multi_candidate_adoption",
+    "multi_candidate_verifier",
     "deterministic_templates",
 }
 

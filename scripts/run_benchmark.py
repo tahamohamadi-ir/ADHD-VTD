@@ -51,7 +51,6 @@ from src.graph.state import VTDState
 import uuid
 import yaml
 
-
 DATASET_ALIASES = {
     "dev": QUESTIONS_DIR / "dev" / "dev.json",
     "test": QUESTIONS_DIR / "test" / "test.json",
@@ -110,7 +109,9 @@ def sha256_file(path: Path) -> str | None:
 
 
 def sha256_jsonable(value: Any) -> str:
-    payload = json.dumps(to_jsonable(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    payload = json.dumps(
+        to_jsonable(value), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -142,7 +143,9 @@ def infer_sql_references(sql: str | None) -> tuple[list[str], list[str]]:
 
 
 def case_question(case: dict[str, Any]) -> str:
-    return str(case.get("question") or case.get("question_fa") or case.get("user_utterance_fa") or "")
+    return str(
+        case.get("question") or case.get("question_fa") or case.get("user_utterance_fa") or ""
+    )
 
 
 def retrieval_prediction(
@@ -154,7 +157,9 @@ def retrieval_prediction(
     use_reranker: bool = False,
     reranker_name: str | None = None,
 ) -> dict[str, Any]:
-    expected_tables, expected_columns = infer_sql_references(case.get("gold_sql") or case.get("sql"))
+    expected_tables, expected_columns = infer_sql_references(
+        case.get("gold_sql") or case.get("sql")
+    )
     expected_intent = case.get("intent") or case.get("expected_intent")
     expected_skeleton = case.get("skeleton") or case.get("expected_skeleton")
     query = RetrievalQuery(
@@ -166,7 +171,9 @@ def retrieval_prediction(
     )
     started = time.perf_counter()
     retrieval_top_k = max(top_k * 5, top_k) if exclude_self else top_k
-    retrieved = retriever.retrieve(query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2))
+    retrieved = retriever.retrieve(
+        query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2)
+    )
     removed_ids: list[str] = []
     if exclude_self:
         retrieved, removed_ids = filter_self_overlaps(
@@ -191,7 +198,9 @@ def retrieval_prediction(
         retrieved_columns.update(str(value).lower() for value in record.get("columns", []))
 
     has_expected_schema = bool(expected_table_set or expected_column_set)
-    schema_hit = bool((expected_table_set & retrieved_tables) or (expected_column_set & retrieved_columns))
+    schema_hit = bool(
+        (expected_table_set & retrieved_tables) or (expected_column_set & retrieved_columns)
+    )
     ok = schema_hit if has_expected_schema else bool(retrieved_dicts)
     return {
         "actual_action": "retrieve_context",
@@ -242,7 +251,13 @@ def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[st
         "gold_sql": gold_sql,
         "result_hash": comparison.get("generated_hash"),
         "gold_result_hash": comparison.get("gold_hash"),
-        "error": None if ok else comparison.get("generated_error") or comparison.get("gold_error") or "RESULT_MISMATCH",
+        "error": (
+            None
+            if ok
+            else comparison.get("generated_error")
+            or comparison.get("gold_error")
+            or "RESULT_MISMATCH"
+        ),
     }
 
 
@@ -354,7 +369,8 @@ def agent_prediction(
         exclude_self_retrieval=exclude_self_retrieval,
         retrieval_top_k=top_k,
         max_retries=SETTINGS.max_retries if max_retries_override is None else max_retries_override,
-        ablation_config=ablation_config or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
+        ablation_config=ablation_config
+        or VTDState(trace_id="tmp", raw_question="tmp").ablation_config,
     )
 
     started = time.perf_counter()
@@ -363,8 +379,11 @@ def agent_prediction(
     latency_ms = int((time.perf_counter() - started) * 1000)
 
     # Extract attempts for trace
-    attempts = [a.model_dump() if hasattr(a, 'model_dump') else a for a in final_state_dict.get("attempts", [])]
-    
+    attempts = [
+        a.model_dump() if hasattr(a, "model_dump") else a
+        for a in final_state_dict.get("attempts", [])
+    ]
+
     # Basic prediction info
     generated_sql = final_state_dict.get("generated_sql")
     gold_sql = case.get("gold_sql") or case.get("sql")
@@ -374,7 +393,7 @@ def agent_prediction(
         should_generate_sql=case.get("should_generate_sql"),
     )
     actual_action = "generate_sql"
-    
+
     # Determine actual_action from state
     if final_state_dict.get("actual_action"):
         actual_action = final_state_dict["actual_action"]
@@ -395,9 +414,11 @@ def agent_prediction(
     valid_sql = bool(generated_sql) and not bool(final_state_dict.get("validation_errors"))
     result_hash = None
     gold_hash = None
-    
+
     actual_action_normalized = normalize_actual_action(actual_action, generated_sql=generated_sql)
-    action_correct = actions_match(expected_action_normalized, actual_action, generated_sql=generated_sql)
+    action_correct = actions_match(
+        expected_action_normalized, actual_action, generated_sql=generated_sql
+    )
 
     if expected_action_normalized in SQL_POSITIVE_ACTIONS:
         if generated_sql and gold_sql:
@@ -414,14 +435,18 @@ def agent_prediction(
     for attempt in attempts:
         attempt.setdefault("gold_result_hash", gold_hash)
 
-    error = None if ok else classify_agent_error(
-        expected_action=expected_action_normalized,
-        actual_action=actual_action,
-        generated_sql=generated_sql,
-        gold_sql=gold_sql,
-        valid_sql=valid_sql,
-        execution_correct=execution_correct,
-        final_state=final_state_dict,
+    error = (
+        None
+        if ok
+        else classify_agent_error(
+            expected_action=expected_action_normalized,
+            actual_action=actual_action,
+            generated_sql=generated_sql,
+            gold_sql=gold_sql,
+            valid_sql=valid_sql,
+            execution_correct=execution_correct,
+            final_state=final_state_dict,
+        )
     )
 
     prediction = {
@@ -456,7 +481,8 @@ def agent_prediction(
         "retry_count": final_state_dict.get("retry_count"),
         "validation_issues": final_state_dict.get("validation_errors", []),
         "execution_error": final_state_dict.get("execution_error"),
-        "execution_passed": final_state_dict.get("execution_result") is not None and not final_state_dict.get("execution_error"),
+        "execution_passed": final_state_dict.get("execution_result") is not None
+        and not final_state_dict.get("execution_error"),
         "max_retries": final_state_dict.get("max_retries"),
         "final_answer": final_state_dict.get("final_answer"),
         "trace_id": final_state_dict.get("trace_id"),
@@ -467,10 +493,20 @@ def agent_prediction(
         "candidate_sqls": final_state_dict.get("candidate_sqls", []),
         "selected_candidate_id": final_state_dict.get("selected_candidate_id"),
         "candidate_consistency": final_state_dict.get("candidate_consistency"),
+        "candidate_verification": final_state_dict.get("candidate_verification"),
         "multi_candidate_policy": final_state_dict.get("multi_candidate_policy"),
-        "multi_candidate_generation_enabled": bool((ablation_config or {}).get("multi_candidate_generation", False)),
-        "multi_candidate_adoption_enabled": bool((ablation_config or {}).get("multi_candidate_adoption", False)),
-        "reliability_gate_review_consistency_failures": bool((ablation_config or {}).get("reliability_gate_review_consistency_failures", False)),
+        "multi_candidate_generation_enabled": bool(
+            (ablation_config or {}).get("multi_candidate_generation", False)
+        ),
+        "multi_candidate_adoption_enabled": bool(
+            (ablation_config or {}).get("multi_candidate_adoption", False)
+        ),
+        "multi_candidate_verifier_enabled": bool(
+            (ablation_config or {}).get("multi_candidate_verifier", True)
+        ),
+        "reliability_gate_review_consistency_failures": bool(
+            (ablation_config or {}).get("reliability_gate_review_consistency_failures", False)
+        ),
         "reliability": final_state_dict.get("reliability"),
         "error": error,
     }
@@ -526,7 +562,9 @@ def _metric_value(summary: dict[str, Any], key: str) -> Any:
     return None
 
 
-def print_terminal_summary(summary: dict[str, Any], output_dir: Path, failures: list[dict[str, Any]]) -> None:
+def print_terminal_summary(
+    summary: dict[str, Any], output_dir: Path, failures: list[dict[str, Any]]
+) -> None:
     latency = summary.get("latency", {})
     reliability = summary.get("reliability", {})
     unsafe_sql = reliability.get("unsafe_sql") if isinstance(reliability, dict) else None
@@ -564,11 +602,13 @@ def flatten_attempts(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for record in records:
         case_id = record.get("id") or record.get("case_id")
         for i, attempt in enumerate(record.get("attempts", [])):
-            attempts_trace.append({
-                "case_id": case_id,
-                "attempt_index": i,
-                **attempt,
-            })
+            attempts_trace.append(
+                {
+                    "case_id": case_id,
+                    "attempt_index": i,
+                    **attempt,
+                }
+            )
     return attempts_trace
 
 
@@ -587,13 +627,17 @@ def compact_trace_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]
     return compacted
 
 
-def records_for_trace_level(records: list[dict[str, Any]], trace_level: str) -> list[dict[str, Any]]:
+def records_for_trace_level(
+    records: list[dict[str, Any]], trace_level: str
+) -> list[dict[str, Any]]:
     if trace_level == "compact":
         return compact_trace_records(records)
     return records
 
 
-def write_partial_artifacts(output_dir: Path, prefix: str, records: list[dict[str, Any]], *, trace_level: str = "full") -> None:
+def write_partial_artifacts(
+    output_dir: Path, prefix: str, records: list[dict[str, Any]], *, trace_level: str = "full"
+) -> None:
     output_records = records_for_trace_level(records, trace_level)
     failures = [
         record
@@ -649,7 +693,7 @@ def run(args: argparse.Namespace) -> Path:
     else:
         cases = dataset.cases[: args.sample] if args.sample else dataset.cases
         selection_policy = "first_n" if args.sample else "all"
-    
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_slug = get_model_slug()
     model_name = get_model_name()
@@ -666,6 +710,7 @@ def run(args: argparse.Namespace) -> Path:
         "reflexion": True,
         "multi_candidate_generation": True,
         "multi_candidate_adoption": True,
+        "multi_candidate_verifier": True,
         "deterministic_templates": False,
         "reliability_gate": False,
         "llm_judge": False,
@@ -676,7 +721,7 @@ def run(args: argparse.Namespace) -> Path:
     ablation_contract = ablation_runtime_contract(ablation_config)
     enabled_modules, disabled_modules = split_module_flags(ablation_config)
     max_retries_override = getattr(args, "max_retries_override", None)
-    
+
     config_id = args.config_id or f"{args.mode}_{args.dataset}_{model_slug}_{ablation_id}"
     output_dir = build_output_dir(config_id, stamp, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -716,7 +761,9 @@ def run(args: argparse.Namespace) -> Path:
         if retrieval_backend_mode == "hybrid_rerank" and not requested_reranker:
             requested_reranker = "identity"
         use_reranker = bool(requested_reranker and requested_reranker != "none")
-        retriever_mode = "hybrid" if retrieval_backend_mode == "hybrid_rerank" else retrieval_backend_mode
+        retriever_mode = (
+            "hybrid" if retrieval_backend_mode == "hybrid_rerank" else retrieval_backend_mode
+        )
         retriever = HybridRetriever(retrieval_mode=retriever_mode)
         for index, case in enumerate(cases, start=1):
             record = dict(
@@ -780,10 +827,16 @@ def run(args: argparse.Namespace) -> Path:
     ]
     dataset_summary = summarize_cases(cases)
     difficulty_counts = dataset_summary.get("by_difficulty", {})
-    self_overlap_removed_total = sum(int(record.get("self_overlap_removed") or 0) for record in records)
-    retrieval_backend = getattr(args, "retrieval_backend", None) or ("hybrid" if args.use_vector else "bm25")
+    self_overlap_removed_total = sum(
+        int(record.get("self_overlap_removed") or 0) for record in records
+    )
+    retrieval_backend = getattr(args, "retrieval_backend", None) or (
+        "hybrid" if args.use_vector else "bm25"
+    )
     requested_reranker = getattr(args, "reranker", None)
-    effective_reranker = requested_reranker or ("identity" if retrieval_backend == "hybrid_rerank" else None)
+    effective_reranker = requested_reranker or (
+        "identity" if retrieval_backend == "hybrid_rerank" else None
+    )
     config = {
         "config_id": config_id,
         "mode": args.mode,
@@ -799,13 +852,17 @@ def run(args: argparse.Namespace) -> Path:
         "use_vector": args.use_vector,
         "retrieval_backend": retrieval_backend,
         "retrieval_reranker": effective_reranker if effective_reranker != "none" else None,
-        "retrieval_reranker_backend": "identity" if effective_reranker and effective_reranker != "none" else None,
+        "retrieval_reranker_backend": (
+            "identity" if effective_reranker and effective_reranker != "none" else None
+        ),
         "retrieval_reranker_warning": (
             "model_backed_reranker_not_implemented_identity_placeholder_used"
             if effective_reranker not in {None, "none", "identity"}
             else None
         ),
-        "max_retries": SETTINGS.max_retries if max_retries_override is None else max_retries_override,
+        "max_retries": (
+            SETTINGS.max_retries if max_retries_override is None else max_retries_override
+        ),
         "max_retries_source": "settings" if max_retries_override is None else "config",
         "llm_context_window": SETTINGS.llm_context_window,
         "prompt_template": {
@@ -907,7 +964,7 @@ def run(args: argparse.Namespace) -> Path:
     write_json(artifact_paths["config"], config)
     write_jsonl(artifact_paths["predictions"], output_records)
     write_jsonl(artifact_paths["failures"], output_failures)
-    
+
     # Write attempts trace for agent mode
     write_jsonl(artifact_paths["attempts"], output_attempts)
 
@@ -946,11 +1003,11 @@ def run(args: argparse.Namespace) -> Path:
             "authoritative": False,
         }
         write_json(artifact_paths["summary_json"], summary)
-    
+
     # Export CSVs and Paper Tables
     export_benchmark_csvs(records, summary, output_dir, prefix=prefix)
     generate_paper_tables(summary, artifact_paths["paper_tables_md"])
-    
+
     write_benchmark_markdown_report(summary, artifact_paths["summary_md"])
     print_terminal_summary(summary, output_dir, failures)
     return output_dir
@@ -966,9 +1023,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--path", help="Custom dataset JSON path. Overrides --dataset path.")
     parser.add_argument("--sample", type=int, help="Evaluate the first N cases. Use 0 for all.")
-    parser.add_argument("--samples-per-level", type=int, help="Evaluate N cases from each difficulty level.")
-    parser.add_argument("--top-k", type=int, default=5, help="Number of examples to retrieve (default: 5).")
-    parser.add_argument("--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode.")
+    parser.add_argument(
+        "--samples-per-level", type=int, help="Evaluate N cases from each difficulty level."
+    )
+    parser.add_argument(
+        "--top-k", type=int, default=5, help="Number of examples to retrieve (default: 5)."
+    )
+    parser.add_argument(
+        "--use-vector", action="store_true", help="Enable vector fallback store in retrieval mode."
+    )
     parser.add_argument(
         "--retrieval-backend",
         choices=("bm25", "vector", "hybrid", "hybrid_rerank"),
@@ -996,19 +1059,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use full prompt/raw-response trace or compact artifacts without large prompt/raw fields.",
     )
     parser.add_argument("--config-id", help="Stable identifier used in the output directory name.")
-    parser.add_argument("--ablation-id", help="Ablation identifier included in output names and summaries.")
+    parser.add_argument(
+        "--ablation-id", help="Ablation identifier included in output names and summaries."
+    )
     parser.add_argument("--output-dir", help="Explicit artifact directory.")
     parser.add_argument("--config", help="Path to a benchmark YAML config file.")
-    parser.add_argument("--seed", type=int, default=SETTINGS.random_seed, help="Random seed for deterministic metric resampling.")
-    parser.add_argument("--bootstrap-iterations", type=int, default=1000, help="Bootstrap iterations for confidence intervals.")
-    parser.add_argument("--use-judge", action="store_true", help="Generate judgment artifacts after the benchmark run.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=SETTINGS.random_seed,
+        help="Random seed for deterministic metric resampling.",
+    )
+    parser.add_argument(
+        "--bootstrap-iterations",
+        type=int,
+        default=1000,
+        help="Bootstrap iterations for confidence intervals.",
+    )
+    parser.add_argument(
+        "--use-judge",
+        action="store_true",
+        help="Generate judgment artifacts after the benchmark run.",
+    )
     parser.add_argument(
         "--judge-provider",
         choices=("mock", "openrouter"),
         default="mock",
         help="Judge provider. openrouter requires OPENROUTER_API_KEY.",
     )
-    parser.add_argument("--judge-sample-size", type=int, help="Limit selected predictions sent to the judge.")
+    parser.add_argument(
+        "--judge-sample-size", type=int, help="Limit selected predictions sent to the judge."
+    )
     parser.add_argument(
         "--judge-model",
         help="Judge model id. For OpenRouter, use ids such as qwen/qwen3.6-plus.",
@@ -1063,9 +1144,12 @@ def main() -> None:
             # handle dataset object or string
             ds = yaml_data["dataset"]
             if isinstance(ds, dict):
-                if "split" in ds: args.dataset = ds["split"]
-                if "source" in ds: args.path = ds["source"]
-                if "sample_size" in ds: args.sample = ds["sample_size"]
+                if "split" in ds:
+                    args.dataset = ds["split"]
+                if "source" in ds:
+                    args.path = ds["source"]
+                if "sample_size" in ds:
+                    args.sample = ds["sample_size"]
         if "features" in yaml_data:
             feat = yaml_data["features"]
             args.ablation_config = normalize_feature_flags(feat)
