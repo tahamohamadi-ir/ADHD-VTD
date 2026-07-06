@@ -70,6 +70,11 @@ class SQLSafetyValidator:
         "mental_health",
         "family_history",
     )
+    PUBLIC_AGGREGATE_SOURCE_TABLES = {
+        "country_prevalence_long",
+        "country_prevalence_wide",
+        "vw_country_prevalence_pivot",
+    }
 
     def __init__(
         self,
@@ -126,7 +131,9 @@ class SQLSafetyValidator:
             inner = getattr(projection, "this", None)
             if isinstance(inner, exp.Star):
                 return True
-            if isinstance(inner, exp.Column) and isinstance(getattr(inner, "this", None), exp.Star):
+            if isinstance(inner, exp.Column) and isinstance(
+                getattr(inner, "this", None), exp.Star
+            ):
                 return True
 
         return False
@@ -140,7 +147,9 @@ class SQLSafetyValidator:
         # sqlglot parses WITH ... SELECT as an exp.Select whose expressions are
         # the final output projection. CTE body projections should not be used
         # for the top-level privacy decision.
-        select_expr = parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
+        select_expr = (
+            parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
+        )
         if select_expr is None:
             return False
 
@@ -158,7 +167,9 @@ class SQLSafetyValidator:
         if exp is None:
             return set()
         return {
-            str(column.name).lower() for column in projection.find_all(exp.Column) if column.name
+            str(column.name).lower()
+            for column in projection.find_all(exp.Column)
+            if column.name
         }
 
     def _projection_is_aggregate(self, projection: Any) -> bool:
@@ -180,13 +191,79 @@ class SQLSafetyValidator:
     def _select_has_group_by(self, select_expr: Any) -> bool:
         return bool(select_expr is not None and select_expr.args.get("group"))
 
+    def _select_has_limit(self, select_expr: Any) -> bool:
+        return bool(select_expr is not None and select_expr.args.get("limit"))
+
     def _is_identifier_column(self, column_name: str) -> bool:
         name = column_name.lower()
-        return name in self.IDENTIFIER_COLUMN_NAMES or name.endswith(self.IDENTIFIER_SUFFIXES)
+        return name in self.IDENTIFIER_COLUMN_NAMES or name.endswith(
+            self.IDENTIFIER_SUFFIXES
+        )
 
     def _is_sensitive_column(self, column_name: str) -> bool:
         name = column_name.lower()
         return any(term in name for term in self.SENSITIVE_COLUMN_TERMS)
+
+    def _source_table_names(self, parsed: Any) -> set[str]:
+        if exp is None or parsed is None:
+            return set()
+        cte_names = {
+            str(cte.alias).lower() for cte in parsed.find_all(exp.CTE) if cte.alias
+        }
+        table_names: set[str] = set()
+        for table in parsed.find_all(exp.Table):
+            name = str(table.name).lower()
+            if name and name not in cte_names:
+                table_names.add(name)
+        return table_names
+
+    def _reads_only_public_aggregate_sources(self, parsed: Any) -> bool:
+        source_tables = self._source_table_names(parsed)
+        return bool(source_tables) and source_tables.issubset(
+            self.PUBLIC_AGGREGATE_SOURCE_TABLES
+        )
+
+    def _raw_row_limit_issues(self, parsed: Any, sql: str) -> list[ValidationIssue]:
+        if not self.require_limit_for_raw:
+            return []
+        if sqlglot is None or exp is None or parsed is None:
+            return self._raw_row_limit_issues_fallback(sql)
+
+        select_expr = self._top_level_select(parsed)
+        if select_expr is None:
+            return []
+        if self._reads_only_public_aggregate_sources(parsed):
+            return []
+        if (
+            self._select_has_group_by(select_expr)
+            or self._select_has_aggregate(select_expr)
+            or self._select_has_limit(select_expr)
+        ):
+            return []
+
+        return [
+            ValidationIssue(
+                "RAW_ROW_LIMIT_REQUIRED",
+                "Raw row-level SQL must include LIMIT before execution.",
+            )
+        ]
+
+    def _raw_row_limit_issues_fallback(self, sql: str) -> list[ValidationIssue]:
+        lower = sql.lower()
+        if not lower.startswith("select"):
+            return []
+        if (
+            re.search(r"\blimit\b", lower)
+            or re.search(r"\bgroup\s+by\b", lower)
+            or re.search(r"\b(count|sum|avg|min|max)\s*\(", lower)
+        ):
+            return []
+        return [
+            ValidationIssue(
+                "RAW_ROW_LIMIT_REQUIRED",
+                "Raw row-level SQL must include LIMIT before execution.",
+            )
+        ]
 
     def _privacy_projection_issues(self, parsed: Any) -> list[ValidationIssue]:
         if sqlglot is None or exp is None or parsed is None:
@@ -196,6 +273,7 @@ class SQLSafetyValidator:
         if select_expr is None:
             return []
 
+        public_aggregate_sources = self._reads_only_public_aggregate_sources(parsed)
         grouped_or_aggregated = self._select_has_group_by(
             select_expr
         ) or self._select_has_aggregate(select_expr)
@@ -208,7 +286,11 @@ class SQLSafetyValidator:
             for column_name in self._projection_column_names(projection):
                 if self._is_identifier_column(column_name):
                     identifier_columns.add(column_name)
-                elif self._is_sensitive_column(column_name) and not grouped_or_aggregated:
+                elif (
+                    self._is_sensitive_column(column_name)
+                    and not grouped_or_aggregated
+                    and not public_aggregate_sources
+                ):
                     sensitive_row_columns.add(column_name)
 
         issues: list[ValidationIssue] = []
@@ -239,24 +321,32 @@ class SQLSafetyValidator:
         # Multiple statement check: semicolon inside remaining SQL is disallowed.
         if ";" in s:
             issues.append(
-                ValidationIssue("MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed.")
+                ValidationIssue(
+                    "MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed."
+                )
             )
 
         lower = s.lower()
         if "--" in lower or "/*" in lower or "*/" in lower:
             issues.append(
-                ValidationIssue("SQL_COMMENT", "SQL comments are not allowed in generated queries.")
+                ValidationIssue(
+                    "SQL_COMMENT", "SQL comments are not allowed in generated queries."
+                )
             )
 
         for keyword in self.FORBIDDEN:
             if re.search(rf"\b{keyword}\b", lower):
                 issues.append(
-                    ValidationIssue("FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}")
+                    ValidationIssue(
+                        "FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}"
+                    )
                 )
 
         if not re.match(r"^\s*(select|with)\b", lower):
             issues.append(
-                ValidationIssue("NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed.")
+                ValidationIssue(
+                    "NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed."
+                )
             )
 
         parsed = None
@@ -264,20 +354,28 @@ class SQLSafetyValidator:
             try:
                 parsed = sqlglot.parse_one(s, read="sqlite")
                 if parsed is None:
-                    issues.append(ValidationIssue("PARSE_ERROR", "sqlglot could not parse SQL."))
+                    issues.append(
+                        ValidationIssue("PARSE_ERROR", "sqlglot could not parse SQL.")
+                    )
                 elif not (isinstance(parsed, exp.Select) or parsed.find(exp.Select)):
                     issues.append(
-                        ValidationIssue("NOT_SELECT_AST", "Parsed SQL is not a SELECT query.")
+                        ValidationIssue(
+                            "NOT_SELECT_AST", "Parsed SQL is not a SELECT query."
+                        )
                     )
             except Exception as exc:
-                issues.append(ValidationIssue("PARSE_ERROR", f"SQL parse failed: {exc}"))
+                issues.append(
+                    ValidationIssue("PARSE_ERROR", f"SQL parse failed: {exc}")
+                )
 
         if self._top_level_select_has_star(parsed, s):
             issues.append(
                 ValidationIssue(
-                    "SELECT_STAR", "Top-level SELECT * is not allowed for privacy/safety reasons."
+                    "SELECT_STAR",
+                    "Top-level SELECT * is not allowed for privacy/safety reasons.",
                 )
             )
+        issues.extend(self._raw_row_limit_issues(parsed, s))
         issues.extend(self._privacy_projection_issues(parsed))
 
         return ValidationResult(not issues, issues, s)

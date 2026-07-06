@@ -1,0 +1,48 @@
+config_id: phase7_promptdiverse_shadow_spl15_runtime_guarded_diagnostic
+ablation_id: phase7_promptdiverse_shadow_spl15_runtime_guarded_diagnostic
+config_version: "phase7_candidate_diagnostic_v2_runtime_guarded"
+mode: agent
+description: "Positive400 samples-per-level=15 prompt-diverse multi-candidate shadow diagnostic with runtime-only trigger allowlist. Candidate adoption remains disabled."
+dataset:
+  split: positive400
+sampling:
+  samples_per_level: 15
+exclude_self: true
+trace_level: compact
+retrieval:
+  top_k: 5
+  backend: bm25
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: false
+  reflexion: false
+  safety: true
+  reliability_gate: true
+  multi_candidate_generation: true
+  multi_candidate_verifier: true
+  multi_candidate_adoption: false
+  multi_candidate_allowed_triggers:
+    - complex_intent
+    - validation_failed
+    - missing_generated_sql
+    - execution_failed
+  multi_candidate_blocked_triggers:
+    - difficulty_hint
+    - complex_category
+    - low_intent_confidence
+  multi_candidate_extra_generation_budget_ms: 60000
+  deterministic_templates: false
+  llm_judge: false
+  max_retries: 0
+reporting:
+  result_status: diagnostic_only_not_paper_result
+  comparison_pair: phase7_promptdiverse_adopt_spl15_runtime_guarded_diagnostic
+  paper_metric_allowed: false
+  metric_family: sql_positive_diagnostic
+  anti_overfit: "Runtime trigger allowlist is predeclared and aggregate-only. Do not tune prompts, validators, retrieval, candidate scoring, or selection rules to selected case IDs."
+  no_gold_leakage: "Candidate selection and review package validation must not use gold SQL, execution-correct labels, semantic labels, strict labels, or benchmark mismatch labels."
+  human_review: "Deferred to the final review stage; this config does not create semantic/business evidence."

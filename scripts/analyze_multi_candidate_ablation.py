@@ -23,6 +23,24 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--baseline-dual-policy-dir", type=Path)
     parser.add_argument("--adaptive-dual-policy-dir", type=Path)
+    parser.add_argument(
+        "--max-latency-p95-delta-ms",
+        type=float,
+        help=(
+            "Optional aggregate benchmark latency budget. If adaptive p95 "
+            "latency exceeds baseline p95 by more than this many ms, "
+            "acceptance is blocked."
+        ),
+    )
+    parser.add_argument(
+        "--max-latency-mean-delta-ms",
+        type=float,
+        help=(
+            "Optional aggregate benchmark latency budget. If adaptive mean "
+            "latency exceeds baseline mean by more than this many ms, "
+            "acceptance is blocked."
+        ),
+    )
     args = parser.parse_args()
 
     paths = compare_multi_candidate_ablation(
@@ -31,6 +49,8 @@ def main() -> None:
         output_dir=args.output_dir,
         baseline_dual_policy_dir=args.baseline_dual_policy_dir,
         adaptive_dual_policy_dir=args.adaptive_dual_policy_dir,
+        max_latency_p95_delta_ms=args.max_latency_p95_delta_ms,
+        max_latency_mean_delta_ms=args.max_latency_mean_delta_ms,
     )
     print(f"project_root={PROJECT_ROOT}")
     for key, path in paths.items():

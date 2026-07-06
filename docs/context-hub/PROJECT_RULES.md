@@ -25,6 +25,8 @@ The contribution is:
 3. Behavioral evaluation beyond strict execution.
 4. Safety, privacy, and read-only execution.
 5. Artifact-backed reproducibility and ablation.
+6. Metric-family separation: SQL-positive, behavioral, and semantic/business
+   evidence use different denominators and are reported separately.
 
 ## Current known weaknesses
 
@@ -36,6 +38,8 @@ The agent must not hide these weaknesses:
 - CAG/examples are the strongest driver in ablation,
 - schema/value linking need component-level evaluation,
 - human validation is needed for stronger publication claims.
+- These weakness categories use different denominators and are reported
+  separately.
 
 ## Engineering priority
 

@@ -1,6 +1,6 @@
 # Paper 1 Limitations Draft
 
-Last updated: 2026-06-26
+Last updated: 2026-07-01
 
 ## Clinical Scope
 
@@ -25,6 +25,7 @@ PARS-SQL is not a diagnostic, treatment, triage, or clinical decision system. Th
 - The 5-case and 10-case no-template smokes verify runtime only and must not be reported as main performance.
 - A legacy full-run attempt was stopped after `9/400` cases because `max_retries=5` led to long repair/reflexion loops on failing cases. The follow-up full run should use the bounded config with `max_retries=1`.
 - Behavioral SQL-positive robustness cases currently show weak execution correctness, especially typo/Finglish/cross-source cases.
+- The `positive400` SQL-positive metrics and behavioral robustness subset use different denominators and must be reported separately.
 
 ## Retrieval and Reranking
 

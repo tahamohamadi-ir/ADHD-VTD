@@ -69,6 +69,16 @@ Must include ORDER BY.
 Must include LIMIT if top-N is specified.
 Must define ranking metric.
 If ranking metric is missing, ask clarification.
+Validator guard:
+
+- `ANALYTICAL_SHAPE_MISSING_RANKING_ORDER_BY`
+- `ANALYTICAL_SHAPE_MISSING_RANKING_LIMIT`
+
+Prompt routing guard:
+
+- `ranking_query` must use the generic SQL generation prompt with ranking hints, not the grouped prompt.
+- If a ranking query asks for top/highest/lowest/best/worst/most/least without an explicit N, the prompt should steer to `LIMIT 15`.
+
 4. TIMESERIES
 
 Question asks for trend/change over time.
@@ -98,6 +108,17 @@ Must include LIMIT.
 Must not expose sensitive individual information.
 SELECT * is forbidden.
 Prefer aggregate alternative for sensitive mental-health fields.
+Validator guard:
+
+- `ANALYTICAL_SHAPE_MISSING_RAW_ROW_LIMIT`
+- `ANALYTICAL_SHAPE_RAW_ROWS_SHOULD_NOT_GROUP`
+
+Prompt routing guard:
+
+- `raw_retrieval_query` must use the generic SQL generation prompt with raw-row hints, not the grouped prompt.
+- Raw-row prompt hints must require explicit columns, forbid `SELECT *`, and steer to `LIMIT 100` unless a smaller limit is requested.
+- Metadata overview templates that project rows, such as `dim_source`, must also stay bounded with `LIMIT 100`; do not special-case them into unbounded raw output.
+
 7. CLARIFICATION
 
 Use when:
@@ -384,10 +405,10 @@ modify data to confirm a hypothesis.
 
 ---
 
-# 6. Benchmark protocol: `docs/context-hub/BENCHMARK_PROTOCOL.md`
+# 6. Benchmark and artifact protocol: `docs/context-hub/ARTIFACT_RULES.md`
 
 ```md
-# Benchmark Protocol
+# Benchmark And Artifact Protocol
 
 ## Dataset separation
 
@@ -400,12 +421,15 @@ Used for strict SQL execution metrics.
 Metrics:
 
 - EX
+- conservative EX
 - valid SQL rate
 - result hash match
 - missing SQL rate
 - execution error rate
-- semantic/business correctness
 - latency
+
+Semantic/business correctness is a separate evaluation family and must not be
+combined with strict EX.
 
 ### Behavioral
 

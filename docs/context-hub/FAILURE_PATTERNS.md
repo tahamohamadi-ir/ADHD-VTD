@@ -1,5 +1,79 @@
 # Failure Patterns
 
+## Canonical Error Taxonomy (2026-07-05)
+
+Use this taxonomy for development triage, benchmark summaries, and risk
+tracking. Do not merge these families into one score. SQL-positive execution,
+behavioral expected-action, semantic/business judge, safety/privacy, latency,
+and artifact-governance outcomes have different denominators and must be
+reported separately.
+
+### SQL-Positive Execution Errors
+
+| Code | Meaning | Typical owner | Required guard |
+|---|---|---|---|
+| `MISSING_SQL` | The model produced no executable SQL for a SQL-positive case. | generation, parser | output parser test, conservative denominator |
+| `INVALID_SQL` | SQL failed syntax or structural validation. | generation, sql_validation | syntax/schema validator regression |
+| `UNSAFE_SQL` | SQL violates read-only or privacy rules. | sql_validation, db | safety validator and read-only executor tests |
+| `RESULT_MISMATCH` | SQL executes but result differs from gold result. | generation, schema, validation | artifact summary and failure taxonomy |
+| `WRONG_SHAPE` | Scalar/grouped/ranking/timeseries/matrix shape does not match the user request. | query-shape router, prompts, shape validator | query-shape contract tests |
+| `WRONG_DOMAIN` | The query uses the wrong table/domain. | NLU, schema linking | domain routing and schema graph tests |
+| `WRONG_FILTER` | SQL adds, omits, or changes a filter not requested by the user. | prompts, value linking | hidden-filter and value-linking tests |
+| `WRONG_AGGREGATION` | Aggregate function or denominator is wrong. | prompts, metrics definitions, shape validator | metric-definition and aggregate tests |
+| `WRONG_JOIN` | Join is unsupported or cross-domain without a schema-graph edge. | join validator | schema graph and join validator tests |
+| `UNBOUNDED_RAW_PROJECTION` | SQL returns raw rows without an explicit LIMIT, including metadata overview templates. | generation, sql_validation | raw-row safety tests and template regression tests |
+
+### Behavioral Evaluation Errors
+
+| Code | Meaning | Required guard |
+|---|---|---|
+| `WRONG_ACTION` | The system chose the wrong expected action: answer, clarify, refuse, or abstain. | action normalizer and behavioral metrics tests |
+| `MISSED_CLARIFICATION` | Ambiguous input was answered instead of clarified. | ambiguity routing tests |
+| `MISSED_REFUSAL` | Unsafe/sensitive row-level request was not refused. | safety/privacy tests |
+| `OVER_REFUSAL` | Safe aggregate request was refused unnecessarily. | behavioral regression tests |
+
+Behavioral cases are not strict execution-accuracy cases. Behavioral and
+SQL-positive metric families have different denominators and must be reported
+separately. Never put behavioral expected-action rows in the SQL-positive EX
+denominator.
+
+### Semantic/Business Judge Errors
+
+| Code | Meaning | Required guard |
+|---|---|---|
+| `BUSINESS_INCORRECT` | Generated SQL does not answer the user's business question. | semantic/business judge or human review |
+| `STRICT_REFERENCE_INCORRECT` | Generated SQL does not match the reference/gold expectation under strict policy. | strict judge policy |
+| `ADJUDICATION_REQUIRED` | Authoritative judges disagree. | human review or predeclared third-judge protocol |
+| `PROVIDER_ERROR` | Judge provider call failed. | rerun or replace with predeclared provider |
+| `PROVIDER_PARSE_ERROR` | Judge response could not be parsed as an authoritative label. | parser hardening, targeted rerun, merge policy |
+
+Provider errors and provider parse errors are provider-state outcomes, not
+correctness labels. Do not infer semantic/business correctness from them.
+
+### Candidate and Adaptive-Policy Diagnostics
+
+| Code | Meaning | Required guard |
+|---|---|---|
+| `CANDIDATE_SELECTION_UNPROVEN` | Candidate adoption has diagnostic evidence only. | promotion registry and release gate |
+| `CANDIDATE_DIVERSITY_LOW` | Candidates are too similar to provide useful verifier signal. | aggregate diversity summary |
+| `LATENCY_BUDGET_EXCEEDED` | Candidate/adaptive mode violates explicit p95 or mean latency budget. | aggregate latency diagnostics |
+| `GOLD_LEAKAGE_RISK` | Candidate scoring or review package includes gold SQL, case labels, or correctness fields. | no-gold-leakage tests and release gate |
+
+Candidate diagnostics may support engineering triage. They do not create paper
+metrics until the corresponding artifacts are authoritative and promoted.
+
+### Artifact and Reporting Errors
+
+| Code | Meaning | Required guard |
+|---|---|---|
+| `ARTIFACT_INCOMPLETE` | Missing config, predictions, summary, manifest, hash, or model metadata. | artifact verifier |
+| `PROMOTION_BLOCKED` | Artifact is diagnostic, pending review, smoke, shadow, SPL, failed, or otherwise not paper-final. | promotion registry |
+| `METRIC_FAMILY_MIXED` | SQL-positive, behavioral, semantic/business, or latency metrics are combined incorrectly instead of being reported separately with different denominators. | release-gate doc scan |
+| `STALE_REFERENCE` | Docs or prompts point to removed/renamed paths or obsolete flags. | release-gate stale-reference checks |
+
+Paper-facing results must be regenerated from verified artifacts. Do not edit
+final tables or metrics by hand.
+
 ## Known major failure classes
 
 ### 1. Scalar question converted to grouped analysis
@@ -80,6 +154,7 @@ Fix:
 domain classifier,
 schema linker role labels,
 glossary routing.
+
 6. Forbidden synthetic join
 
 Model joins tables without graph edge.
@@ -89,9 +164,11 @@ Fix:
 join validator,
 schema graph context,
 clarification if multi-domain.
-7. Behavioral SQL-positive noisy cases fail
+
+7. Noisy robustness SQL-positive cases fail
 
 Typo/Finglish/multi-turn SQL-positive cases currently need stronger normalization, context handling, and paraphrase retrieval.
+Behavioral action metrics and SQL-positive robustness use different denominators and must be reported separately.
 
 Fix:
 
@@ -99,6 +176,29 @@ colloquial mapper,
 Finglish aliases,
 term expansion,
 route-specific prompts.
+
+8. Unbounded raw or metadata projection
+
+User asks for a list or overview of records.
+
+Bad:
+
+SELECT source_name, file_name, row_count
+FROM dim_source
+ORDER BY row_count DESC;
+
+Good:
+
+SELECT source_name, file_name, row_count
+FROM dim_source
+ORDER BY row_count DESC
+LIMIT 100;
+
+Fix:
+
+raw-row safety validator,
+template regression test,
+prompt hint requiring explicit columns and LIMIT.
 
 
 ---

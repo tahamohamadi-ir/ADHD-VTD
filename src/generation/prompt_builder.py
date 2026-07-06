@@ -55,7 +55,12 @@ _FAMILY_HISTORY_TERMS = (
 )
 _MATRIX_TERMS = ("matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633")
 _SLEEP_TERMS = ("sleep", "\u062e\u0648\u0627\u0628")
-_DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
+_DIET_TERMS = (
+    "diet",
+    "dietary",
+    "\u0631\u0698\u06cc\u0645",
+    "\u063a\u0630\u0627\u06cc\u06cc",
+)
 _DEPRESSION_TERMS = (
     "depression",
     "depressed",
@@ -109,6 +114,38 @@ _GROUPING_TERMS = (
 )
 _SCALAR_TASK_TYPES = {"count_query", "aggregation_query", "rate_query"}
 _GROUPED_TASK_TYPES = {"grouping_query", "comparison_query"}
+_GENERIC_SHAPE_TASK_TYPES = {"ranking_query", "raw_retrieval_query"}
+_RANKING_TERMS = (
+    "rank",
+    "ranking",
+    "top",
+    "highest",
+    "lowest",
+    "best",
+    "worst",
+    "most",
+    "least",
+    "\u0631\u062a\u0628\u0647",
+    "\u0628\u0631\u062a\u0631",
+    "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646",
+    "\u06a9\u0645\u062a\u0631\u06cc\u0646",
+    "\u0628\u0627\u0644\u0627\u062a\u0631\u06cc\u0646",
+    "\u067e\u0627\u06cc\u06cc\u0646\u200c\u062a\u0631\u06cc\u0646",
+)
+_TOP_N_TERMS = (
+    "top",
+    "highest",
+    "lowest",
+    "best",
+    "worst",
+    "most",
+    "least",
+    "\u0628\u0631\u062a\u0631",
+    "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646",
+    "\u06a9\u0645\u062a\u0631\u06cc\u0646",
+    "\u0628\u0627\u0644\u0627\u062a\u0631\u06cc\u0646",
+    "\u067e\u0627\u06cc\u06cc\u0646\u200c\u062a\u0631\u06cc\u0646",
+)
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -141,7 +178,9 @@ class PromptBuilder:
 
     def __init__(self, templates_dir: str | Path = "src/generation/prompts") -> None:
         self.env = Environment(
-            loader=FileSystemLoader(str(templates_dir)), trim_blocks=True, lstrip_blocks=True
+            loader=FileSystemLoader(str(templates_dir)),
+            trim_blocks=True,
+            lstrip_blocks=True,
         )
 
     def build_sql_generation_prompt(
@@ -162,7 +201,9 @@ class PromptBuilder:
                     or not ex["thought_process"]
                     or ex["thought_process"] == "Generating query for user request."
                 ):
-                    ex["thought_process"] = self._generate_synthetic_thought(ex.get("sql", ""))
+                    ex["thought_process"] = self._generate_synthetic_thought(
+                        ex.get("sql", "")
+                    )
                 # If skeleton is missing, we could try to extract it, but usually it is pre-populated in golden examples.
                 # Since golden_examples doesn't have it, we'll auto-generate a pseudo-skeleton if missing.
                 if "sql_skeleton" not in ex:
@@ -187,6 +228,13 @@ class PromptBuilder:
         )
 
     def _select_sql_generation_template(self, question: str, qir: QueryIR) -> str:
+        task_type = str(qir.task_type or "").lower()
+        expected_shape = str(qir.expected_result_shape or "").lower()
+        if task_type in _GENERIC_SHAPE_TASK_TYPES or expected_shape in {
+            "ranking",
+            "raw_rows",
+        }:
+            return "sql_generation.j2"
         if self._looks_grouped(question, qir):
             return "sql_generation_grouped.j2"
         if self._looks_scalar(question, qir):
@@ -211,7 +259,13 @@ class PromptBuilder:
         expected_shape = str(qir.expected_result_shape or "").lower()
         if qir.dimensions:
             return False
-        if expected_shape in {"scalar", "single_value", "single_value_metric", "number", "kpi"}:
+        if expected_shape in {
+            "scalar",
+            "single_value",
+            "single_value_metric",
+            "number",
+            "kpi",
+        }:
             return True
         if task_type == "count_query":
             return True
@@ -232,7 +286,6 @@ class PromptBuilder:
         all_tables = list(set(tables + joins))
 
         has_groupby = "GROUP BY" in sql.upper()
-        has_limit = "LIMIT" in sql.upper()
 
         thought = f"1. Identify main tables: {', '.join(all_tables) if all_tables else 'Unknown'}. "
 
@@ -304,6 +357,31 @@ class PromptBuilder:
                 "grouped rate."
             )
 
+        expected_shape = str(qir.expected_result_shape or "").lower()
+        asks_ranking = (
+            task_type == "ranking_query"
+            or expected_shape == "ranking"
+            or _has_any(q, _RANKING_TERMS)
+        )
+        if asks_ranking:
+            hints.append(
+                "For ranking questions, define the ranking metric explicitly, include "
+                "ORDER BY on that metric, and return the ranked dimension plus the metric. "
+                "If the user asks for top/highest/lowest/best/worst/most/least, include "
+                "LIMIT for the requested top-N slice; use LIMIT 15 when no N is specified."
+            )
+
+        asks_raw_rows = (
+            task_type == "raw_retrieval_query" or expected_shape == "raw_rows"
+        )
+        if asks_raw_rows:
+            hints.append(
+                "For raw row/list requests, select only explicit non-identifier columns, "
+                "never use SELECT *, and include LIMIT 100 unless the user requests a "
+                "smaller limit. For sensitive mental-health or personal-information rows, "
+                "prefer clarification/refusal or an aggregate summary instead of row-level output."
+            )
+
         if (
             task_type in ("aggregation_query", "rate_query", "grouping_query")
             or _has_any(q, _RATE_TERMS)
@@ -353,7 +431,10 @@ class PromptBuilder:
             hints.append(rate_hint)
 
         student_cols = _table_columns(schema, "student_depression")
-        if _has_any(q, _FAMILY_HISTORY_TERMS) and "family_history_mental_illness" in student_cols:
+        if (
+            _has_any(q, _FAMILY_HISTORY_TERMS)
+            and "family_history_mental_illness" in student_cols
+        ):
             hints.append(
                 "For family-history questions over student_depression, use "
                 "family_history_mental_illness. Do not use family_history unless "
@@ -384,9 +465,11 @@ class PromptBuilder:
                 "or diet_quality unless those exact columns are in student_depression."
             )
 
-        if task_type in {"grouping_query", "comparison_query", "trend_query"} or _has_any(
-            q, _DASHBOARD_TERMS
-        ):
+        if task_type in {
+            "grouping_query",
+            "comparison_query",
+            "trend_query",
+        } or _has_any(q, _DASHBOARD_TERMS):
             hints.append(
                 "For dashboard, storytelling, grouping, or comparison requests, "
                 "do not collapse the answer to a single scalar. Return a compact "
@@ -409,7 +492,9 @@ class PromptBuilder:
             )
 
         if "country_prevalence_long" in schema_tables:
-            if _has_any(q, _MENTAL_HEALTH_GENERAL_TERMS) and not _has_any(q, _DISORDER_NAME_TERMS):
+            if _has_any(q, _MENTAL_HEALTH_GENERAL_TERMS) and not _has_any(
+                q, _DISORDER_NAME_TERMS
+            ):
                 hints.append(
                     "In global prevalence data, generic 'mental health' is a topic label, "
                     "not a value in the disorder column. Do not add a disorder filter unless "
@@ -442,7 +527,9 @@ class PromptBuilder:
                 "explicit threshold."
             )
             general_cols = _table_columns(schema, "mental_health_general")
-            if {"stress_level", "sleep_hours", "mental_health_risk"}.issubset(general_cols):
+            if {"stress_level", "sleep_hours", "mental_health_risk"}.issubset(
+                general_cols
+            ):
                 risk_hint += (
                     " For mental_health_general, include "
                     "ROUND(AVG(stress_level), 2) AS avg_stress and "

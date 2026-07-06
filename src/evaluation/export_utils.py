@@ -3,10 +3,17 @@ import pandas as pd
 from pathlib import Path
 from typing import Any, List, Dict
 
-def export_benchmark_csvs(records: List[Dict[str, Any]], summary: Dict[str, Any], output_dir: Path, *, prefix: str | None = None):
+
+def export_benchmark_csvs(
+    records: List[Dict[str, Any]],
+    summary: Dict[str, Any],
+    output_dir: Path,
+    *,
+    prefix: str | None = None,
+):
     """Export benchmark results to CSV for external analysis."""
     name_prefix = f"{prefix}_" if prefix else ""
-    
+
     # 1. benchmark_results.csv (Flattened predictions)
     results_path = output_dir / f"{name_prefix}benchmark_results.csv"
     df_results = pd.DataFrame(records)
@@ -25,7 +32,10 @@ def export_benchmark_csvs(records: List[Dict[str, Any]], summary: Dict[str, Any]
     err_path = output_dir / f"{name_prefix}error_taxonomy.csv"
     err_data = summary.get("error_analysis", {}).get("by_error", {})
     err_rows = [{"error_type": k, "count": v} for k, v in err_data.items()]
-    pd.DataFrame(err_rows, columns=["error_type", "count"]).to_csv(err_path, index=False, encoding="utf-8-sig")
+    pd.DataFrame(err_rows, columns=["error_type", "count"]).to_csv(
+        err_path, index=False, encoding="utf-8-sig"
+    )
+
 
 def generate_paper_tables(summary: Dict[str, Any], output_path: Path):
     """Generate paper-ready markdown tables."""
@@ -36,11 +46,43 @@ def generate_paper_tables(summary: Dict[str, Any], output_path: Path):
         lines.append("")
         lines.append("| Field | Value |")
         lines.append("|---|---|")
-        for key in ("model_name", "model_slug", "ablation_id", "enabled_modules", "disabled_modules", "dataset", "selection_policy"):
+        for key in (
+            "model_name",
+            "model_slug",
+            "ablation_id",
+            "enabled_modules",
+            "disabled_modules",
+            "dataset",
+            "dataset_path",
+            "dataset_hash",
+            "selected_cases_hash",
+            "selection_policy",
+            "git_commit",
+            "started_at",
+            "finished_at",
+        ):
             if key in config:
                 lines.append(f"| {key} | {config.get(key)} |")
         lines.append("")
-    
+
+    artifacts = summary.get("artifacts", {})
+    if artifacts:
+        lines.append("## Artifact Provenance")
+        lines.append("")
+        lines.append("| Artifact | Path |")
+        lines.append("|---|---|")
+        for key in (
+            "config",
+            "summary_json",
+            "predictions",
+            "failures",
+            "benchmark_results_csv",
+            "manifest",
+        ):
+            if key in artifacts:
+                lines.append(f"| {key} | {artifacts.get(key)} |")
+        lines.append("")
+
     # Table 1: Core Performance
     lines.append("## Table 1: End-to-End Performance")
     lines.append("")

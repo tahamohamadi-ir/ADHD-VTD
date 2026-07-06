@@ -1,4 +1,4 @@
-# 10 - Full Development Roadmap: From Zero to State-of-the-Art
+# 10 - Full Development Roadmap: From Zero to Research-Grade
 
 **Status:** Updated with v2.3 execution gates, Milestone 1.5, and first-paper scope  
 **Version:** v2.3 Execution-Ready alignment  
@@ -7,8 +7,12 @@
 
 **Project:** ADHD-VTD / VTD-Edge / PARS-SQL  
 **Goal:** Build a Persian-first, privacy-preserving, research-grade Text-to-SQL system for mental-health / student-lifestyle analytics.  
-**Target quality:** From working MVP → publishable research system → state-of-the-art-style local/edge NL2SQL framework.  
+**Target quality:** From working MVP → publishable research system → modern best-practice local/edge NL2SQL framework.
 **Architecture style:** Compiler-like, graph-orchestrated, schema-grounded, retrieval-augmented, self-correcting Text-to-SQL.
+
+Paper table provenance guard: generated paper tables must include
+`dataset_hash`, `selected_cases_hash`, and artifact provenance such as config,
+predictions, summary, benchmark CSV, or manifest paths.
 
 ---
 
@@ -92,7 +96,7 @@ Phase 10  Benchmark runner and evaluation framework
 Phase 11  Ablation, error analysis, and research metrics
 Phase 12  Output, chart recommendation, and data storytelling
 Phase 13  Optimization, robustness, and edge-readiness
-Phase 14  State-of-the-art upgrades (Bootstrap CI, Multi-candidate)
+Phase 14  Modern best-practice upgrades (Bootstrap CI, Multi-candidate)
 Phase 15  Research packaging, paper, GitHub, and PhD portfolio
 Phase 16  Semantic Business Logic (LLM-as-a-Judge)
 ```
@@ -122,7 +126,7 @@ Update `docs/00_INDEX.md` to include:
 ```markdown
 | `08_PROJECT_STRUCTURE_AND_FILE_MAP.md` | Canonical folder structure, module responsibilities, and path conventions |
 | `09_DATASET_AND_EVALUATION_FILES_GUIDE.md` | Dataset files, golden examples, few-shot bank, behavioral evaluation, and benchmark usage |
-| `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from MVP to state-of-the-art system |
+| `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md` | Full phased roadmap from MVP to research-grade system |
 ```
 
 ### 0.2 Mark old docs as legacy
@@ -1754,11 +1758,11 @@ Robustness report generated
 
 ---
 
-# Phase 14 - State-of-the-Art Upgrades
+# Phase 14 - Modern Best-Practice Upgrades
 
 ## Goal
 
-Move from research-grade to SOTA-style architecture.
+Move from research-grade to modern best-practice architecture.
 
 This does not necessarily mean beating all global benchmarks. It means adopting the strongest patterns from modern Text-to-SQL systems and making them work in a Persian, privacy-preserving, local setting.
 
@@ -1935,7 +1939,7 @@ benchmark-driven
 [ ] reranker training data
 [ ] optional LoRA/fine-tuning experiment
 [ ] interactive clarification loop
-[ ] SOTA comparison report
+[ ] modern baseline comparison report
 ```
 
 ## Acceptance Criteria
@@ -1985,13 +1989,15 @@ unreviewed clinical claims
 
 ### 15.2 Reproducibility script
 
-Create:
+Canonical implementation target:
 
 ```text
-scripts/reproduce_paper_results.py
+scripts/verify_artifact.py
+scripts/package_dual_policy_evidence.py
+docs/PARS_SQL_PAPER1_REPRODUCIBILITY.md
 ```
 
-It should run:
+The release/reproducibility flow should run:
 
 ```text
 schema validation
@@ -2127,7 +2133,7 @@ schema linking metrics
 full trace logging
 ```
 
-## Must-Have for SOTA-Style
+## Must-Have for Modern Best-Practice Target
 
 ```text
 multi-candidate generation
@@ -2171,9 +2177,9 @@ Persian user question
 
 ---
 
-# Definition of State-of-the-Art for This Project
+# Definition of Modern Best-Practice Target for This Project
 
-The project can be considered SOTA-style when it satisfies all of these:
+The project can be considered modern-best-practice-style when it satisfies all of these:
 
 ```text
 [ ] End-to-end EX is measured on full 500+ benchmark.

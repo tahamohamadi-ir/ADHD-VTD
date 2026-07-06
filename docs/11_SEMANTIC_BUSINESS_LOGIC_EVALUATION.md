@@ -3,6 +3,56 @@
 **Status:** Phase 16 in progress - deterministic mock provider, OpenRouter provider, standalone artifact judge, `run_benchmark.py --use-judge` integration, live Qwen/DeepSeek pilots, canonical all-failure reruns, judge-agreement reporting, conservative consensus, redaction policy, and semantic policy v1 are implemented; local judge, v1 reruns, and larger review remain open  
 **Dependency:** Phase 10 must first store complete prompt/response/SQL/result traces.
 
+## Current Final Review and Adjudication Protocol (2026-07-05)
+
+This protocol governs the current retry3 judge artifacts and the next
+non-human-to-human handoff. It is separate from strict SQL-positive execution
+accuracy and from behavioral expected-action evaluation.
+
+### Current Artifact State
+
+- The SPL15 runtime-guarded shadow/adoption artifacts are diagnostic-only.
+- DeepSeek retry3 branches have been merged into the existing DeepSeek merged
+  artifacts with `scripts\merge_judge_artifacts.py --duplicate-policy
+  prefer-authoritative`.
+- The merged DeepSeek retry3 artifacts validate as authoritative for the
+  affected branches.
+- Remaining retry3 dual-policy incompleteness is caused by judge disagreement,
+  not provider parse errors.
+- Qwen-vs-DeepSeek disagreement rows must be reported as
+  `ADJUDICATION_REQUIRED` until resolved by a human reviewer or a predeclared
+  third-judge protocol.
+
+### Review Rules
+
+1. Do not convert provider errors, provider parse errors, or judge disagreement
+   into correctness labels.
+2. Do not use diagnostic SPL artifacts as final semantic/business evidence.
+3. Do not tune prompts, validators, or candidate-selection rules to individual
+   disputed case IDs.
+4. Keep semantic-user-question policy and strict-reference policy separate.
+5. Keep all semantic/business results separate from strict execution accuracy.
+6. Human review is the final-stage resolver for remaining disagreements unless
+   a third-judge protocol is declared before rerun.
+
+### Minimum Human Review Package
+
+For each adjudicated row, provide reviewers with:
+
+- case ID,
+- user question,
+- generated SQL after redaction rules,
+- sanitized execution result preview when allowed,
+- semantic-user-question label candidates,
+- strict-reference label candidates,
+- judge model identities and policies,
+- disagreement reason if available,
+- final human label and reviewer identifier.
+
+Do not include hidden gold labels in candidate-selection prompts or verifier
+inputs. Gold/reference information may be shown only in the explicit human
+adjudication workflow where it is documented as review context.
+
 ## 1. Rationale
 
 Execution Accuracy (EX) measures if the SQL returns the same result set as the gold query. However, in complex clinical and mental health domains:
@@ -10,7 +60,7 @@ Execution Accuracy (EX) measures if the SQL returns the same result set as the g
 2. A query might be "technically correct" (executes) but "conceptually wrong" (e.g., uses the wrong metric for anxiety).
 3. The generated explanation might contradict the SQL logic.
 
-To achieve **State-of-the-Art (SOTA)** research quality, we introduce an LLM-as-a-Judge layer.
+To support research-grade evidence quality, we introduce an LLM-as-a-Judge layer.
 
 This layer is intentionally separate from standard benchmark execution:
 
@@ -35,6 +85,10 @@ For paper reporting, Phase 16 now supports two explicit judge policies:
 | Strict reference | `--judge-policy strict` | The generated SQL must satisfy the stricter reference/gold output contract, including reference-required filters, grouping, ordering, thresholds, and output shape. |
 
 These should be reported as separate columns, for example `semantic_user_question_correct` and `strict_reference_correct`. Do not mix the two into one metric.
+
+Paper table provenance note: any paper-facing table generated from these
+artifacts must include `dataset_hash`, `selected_cases_hash`, and artifact
+provenance paths for the benchmark, judgment, consensus, or dual-policy source.
 
 ## 2. Methodology
 
@@ -311,7 +365,7 @@ Interpretation:
 - The scaffold proves the judgment artifact contract can be generated from real benchmark outputs.
 - It does **not** claim semantic/business correctness for valid result mismatches.
 - `VTD-141` and `VTD-300` remain `requires_semantic_review`.
-- This is an anti-fake guard, not a replacement for a SOTA online/local judge or human review.
+- This is an anti-fake guard, not a replacement for a research-grade online/local judge or human review; scaffold checks and semantic/business correctness are reported separately.
 
 Integrated runner smoke:
 

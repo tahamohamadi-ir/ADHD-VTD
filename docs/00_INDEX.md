@@ -1,7 +1,7 @@
 # VTD-Edge Research-Grade Documentation Suite
 
 **Status:** Paper 1 execution documentation suite, updated with artifact-backed B0/B1 status  
-**Last Updated:** 2026-06-26 (gold closeout, behavioral100, full bounded no-template run, retrieval, full positive400 ablation, full 400-case authoritative semantic judge)
+**Last Updated:** 2026-07-01 (gold closeout, behavioral100, full bounded no-template run, retrieval, full positive400 ablation, full 400-case authoritative semantic judge; metric families are reported separately)
 **Project:** VTD-Edge / ADHD-VTD Persian Text-to-SQL System  
 **Target:** Research-grade and edge-deployable, offline, privacy-preserving, Persian-first Text-to-SQL pipeline  
 **Primary Goal:** Build a measurable, reliable, and publishable local/edge NL2SQL system for mental-health and student-lifestyle analytics while keeping data private.  
@@ -141,7 +141,14 @@ docs/PARS_SQL_PAPER1_IMPLEMENTATION_PLAN.md
 Current next actions for Paper 1:
 
 ```text
-1. Decide whether to build a clean paraphrase holdout for anti-overfit claims.
-2. Optionally human spot-check a sample of the 400 OpenRouter semantic/business judgments before final paper submission.
-3. Refresh `paper1_review_package_20260622` after any new holdout or judge-review artifacts.
+1. Follow the 2026-07-05 final development plan in
+   `docs/PARS_SQL_PAPER1_IMPLEMENTATION_PLAN.md`.
+2. Use `docs/07_IMPLEMENTATION_ROADMAP_AND_REQUIREMENTS.md` for the phased
+   technical roadmap and task ordering.
+3. Use `docs/context-hub/FAILURE_PATTERNS.md` for error taxonomy before any
+   accuracy-improvement patch.
+4. Keep remaining Qwen-vs-DeepSeek disagreements for final human adjudication;
+   do not promote diagnostic SPL artifacts or edit final paper metrics.
+5. Run the release gate after any artifact, risk, or paper-facing documentation
+   change.
 ```

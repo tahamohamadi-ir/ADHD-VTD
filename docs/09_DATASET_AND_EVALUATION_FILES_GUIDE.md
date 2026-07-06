@@ -158,6 +158,8 @@ data/questions/full/vtd_total_500_dataset_package.json
 - 500 total items.
 - 400 SQL-positive examples.
 - 100 behavioral evaluation examples.
+- SQL-positive and behavioral examples have different denominators and are
+  reported separately.
 
 **Use this file for:**
 
@@ -505,6 +507,7 @@ multi_turn without context → ask clarification
 Wrong.
 The total package has both SQL-positive and behavioral examples.
 Many behavioral examples intentionally should not generate SQL.
+SQL-positive EX and behavioral expected-action metrics have different denominators and are reported separately.
 
 ### Mistake 2: Using the whole 400-example file as few-shot context
 
@@ -575,6 +578,7 @@ Minimum checks:
 5. No hallucinated table or column exists in gold SQL.
 6. Every behavioral item has `expected_action`.
 7. If `should_generate_sql = false`, then `expected_sql` should usually be null.
+8. SQL-positive and behavioral validation outcomes have different denominators and are reported separately.
 8. If `should_generate_sql = true`, then `expected_sql` should not be null.
 9. `recommended_visual` should be compatible with result shape.
 10. All IDs should be unique.
@@ -624,6 +628,7 @@ For paper results, keep the test split fixed and do not tune prompts on it.
 **Task:** Persian NL2SQL and behavioral routing for health-dashboard analytics  
 **Database:** SQLite, `vtd_health_research_v1.db`  
 **Domain:** student lifestyle, mental health, workplace mental health, global prevalence data  
+**Metric family policy:** SQL-positive and behavioral metrics have different denominators and are reported separately.
 **Main benchmark size:** 500 items  
 **SQL-positive examples:** 400  
 **Behavioral evaluation examples:** 100  
@@ -664,6 +669,10 @@ This file complements `06_EVALUATION_ABLATION_AND_PAPER_PLAN.md` by documenting 
 | Behavior-audited | expected actions verified | routing/safety evaluation |
 | Second-reviewed | reviewed by human 2 or independent judge | paper tables |
 | Paper-ready | audited + reviewed + documented limitations | publication |
+
+Paper table provenance guard: generated paper tables must include
+`dataset_hash`, `selected_cases_hash`, and artifact provenance such as config,
+predictions, summary, benchmark CSV, or manifest paths.
 
 ### 15.2 50-Question Phase 0 Audit
 
@@ -741,3 +750,4 @@ license or sharing policy
 ### 15.6 Do Not Treat 500 Items as 500 SQL Tasks
 
 The total package contains SQL-positive and behavioral items. Behavioral items often must not generate SQL. Evaluation must distinguish EX from Reliability Score.
+These metric families have different denominators and are reported separately.

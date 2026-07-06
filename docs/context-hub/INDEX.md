@@ -26,8 +26,8 @@ Open:
 
 Open:
 
-- `docs/context-hub/BENCHMARK_PROTOCOL.md`
 - `docs/context-hub/ARTIFACT_RULES.md`
+- `docs/BENCHMARK_AND_TEST_GUIDE.md` only if command-level detail is needed
 - `src/evaluation/metrics.py`
 - `src/evaluation/action_normalizer.py`
 - `scripts/run_benchmark.py`
@@ -37,8 +37,11 @@ Open:
 Open:
 
 - `docs/context-hub/ARTIFACT_RULES.md`
+- `scripts/check_release_readiness.py`
 - `scripts/verify_artifact.py`
-- `scripts/make_paper_tables.py`
+- `scripts/package_dual_policy_evidence.py` when semantic/business evidence is in scope
+- `scripts/judge_benchmark_artifact.py` when judge artifact evidence is in scope
+- `scripts/plan_dual_policy_judge_ablation.py` when judge ablation planning is in scope
 - latest manifest file
 
 ## Persian NLU/schema-linking task
@@ -56,11 +59,26 @@ Open:
 
 Open:
 
-- `docs/context-hub/BENCHMARK_PROTOCOL.md`
 - `docs/context-hub/ARTIFACT_RULES.md`
 - `docs/context-hub/FAILURE_PATTERNS.md`
+- `docs/Risks.md`
 - latest `paper_tables.md`
 - latest artifact manifest
+
+## Final development / risk cleanup planning task
+
+Open:
+
+- `docs/PARS_SQL_PAPER1_IMPLEMENTATION_PLAN.md`
+- `docs/07_IMPLEMENTATION_ROADMAP_AND_REQUIREMENTS.md`
+- `docs/context-hub/FAILURE_PATTERNS.md`
+- `docs/context-hub/ARTIFACT_RULES.md`
+- `docs/Risks.md`
+- `docs/11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md` when judge evidence,
+  disagreement, or human adjudication is in scope
+
+Do not open benchmark prediction files unless a specific artifact check or
+failure investigation requires them.
 
 ## Rule
 

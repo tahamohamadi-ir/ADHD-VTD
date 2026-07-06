@@ -42,7 +42,7 @@ Current canonical dataset package:
 Total: 500 items
 ```
 
-The 400 SQL-positive examples are used for SQL generation evaluation. The 100 behavioral examples test ambiguity, out-of-schema behavior, no-SQL behavior, adversarial prompts, typo/Finglish, multi-turn behavior, chart selection, and storytelling.
+The 400 SQL-positive examples are used for SQL generation evaluation. The 100 behavioral examples test ambiguity, out-of-schema behavior, no-SQL behavior, adversarial prompts, typo/Finglish, multi-turn behavior, chart selection, and storytelling. SQL-positive and behavioral metrics have different denominators and must be reported separately.
 
 Required fields for SQL-positive examples:
 

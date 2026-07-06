@@ -16,6 +16,126 @@ docs/06_EVALUATION_ABLATION_AND_PAPER_PLAN.md
 docs/07_IMPLEMENTATION_ROADMAP_AND_REQUIREMENTS.md
 ```
 
+## Current Final Development Plan (2026-07-05)
+
+This section is the current implementation plan derived from the
+PARS-SQL Developer and Research Playbook. It is a planning and governance
+section only: it does not modify datasets, final paper metrics, benchmark
+results, or paper tables.
+
+### Problem Statement
+
+PARS-SQL is a Persian-aware, local/private, reliability-first Text-to-SQL
+framework for mental-health and student-lifestyle analytics. The remaining
+engineering problem is not merely "generate more SQL"; it is to preserve a
+safe, auditable, reproducible pipeline while improving accuracy and reducing
+open risks without overfitting to diagnostic artifacts.
+
+The system must continue to enforce read-only SQL execution, no destructive SQL,
+no synthetic cross-domain joins outside `data/schema/schema_graph.json`,
+aggregate-first handling for sensitive data, and strict separation between
+SQL-positive, behavioral, and semantic/business evaluation families; these
+families have different denominators and must be reported separately.
+
+### Current State
+
+- Non-human actionable cleanup for Phase 1-7 diagnostics is complete enough for
+  the current release gate: the latest full gate with retry3 judge artifacts
+  passed with `actionable_open_risks=0`.
+- The SPL15 prompt-diverse shadow/adoption pair remains diagnostic-only and must
+  not be promoted to final paper metrics.
+- DeepSeek retry3 judge artifacts are merged into authoritative DeepSeek
+  branches; provider parse errors are no longer the active blocker for those
+  retry3 branches.
+- Remaining retry3 dual-policy gaps are Qwen-vs-DeepSeek disagreements and must
+  be treated as adjudication requirements, not provider failures.
+- Human review/adjudication is intentionally deferred to the final stage.
+
+### Architecture Boundary
+
+Keep the architecture compiler-like and layered:
+
+1. `src/nlu/`: Persian normalization, ambiguity/safety intent, colloquial and
+   Finglish handling.
+2. `src/schema/`: schema graph, schema linking, value linking, metric
+   definitions, and domain boundaries.
+3. `src/generation/`: prompt routing, prompt-family templates, output parsing,
+   and candidate generation.
+4. `src/sql_validation/`: safety, schema, join, aggregation, semantic, and
+   query-shape validation.
+5. `src/db/`: read-only execution and DB metadata helpers only.
+6. `src/evaluation/`: metric families, judge parsing, consensus, dual-policy,
+   action normalization, and reliability reporting.
+7. `scripts/`: reproducible benchmark, artifact verification, judge, ablation,
+   packaging, and release-gate commands.
+8. `docs/` and `docs/context-hub/`: canonical plans, risks, runbooks, and
+   task-routing context.
+
+Accuracy work should flow through query-shape contracts, prompt routing,
+schema/value linking, validators, or evaluation contracts rather than
+case-specific benchmark patches.
+
+### Execution Roadmap
+
+Phase 0 - Evidence freeze and inventory:
+
+- Confirm which artifacts are final, diagnostic-only, pending review, or
+  unpromoted.
+- Keep all existing benchmark metrics immutable unless regenerated from a
+  documented artifact pipeline.
+- Use `docs/Risks.md`, `docs/context-hub/ARTIFACT_RULES.md`, and
+  `docs/PARS_SQL_PAPER1_REPRODUCIBILITY.md` as the governance surface.
+
+Phase 1 - Clean architecture and documentation alignment:
+
+- Route new work through `docs/context-hub/INDEX.md`.
+- Keep `docs/07_IMPLEMENTATION_ROADMAP_AND_REQUIREMENTS.md` as the execution
+  roadmap and this file as the Paper 1 plan.
+- Keep failure taxonomy centralized in
+  `docs/context-hub/FAILURE_PATTERNS.md`.
+
+Phase 2 - Accuracy improvements without gold leakage:
+
+- Prioritize generalizable fixes: query-shape routing, scalar/grouped/ranking
+  contracts, Persian normalization, schema/value linking, and validator
+  feedback.
+- Do not tune prompts, validators, allowlists, or routing thresholds to
+  individual SPL diagnostic case IDs.
+- Validate on fresh dev slices or predeclared reruns, not by editing datasets.
+
+Phase 3 - Evaluation hardening:
+
+- Keep SQL-positive, behavioral, semantic/business, latency, and safety metrics
+  in separate report sections with explicit denominators.
+- Treat judge provider errors and provider parse errors as provider-state
+  outcomes, not correctness labels.
+- Treat Qwen-vs-DeepSeek disagreements as adjudication-required rows until a
+  predeclared human or third-judge protocol resolves them.
+
+Phase 4 - Codebase cleanup:
+
+- Prefer focused cleanups in shared modules with tests: output parser, shape
+  validator, safety validator, artifact verifier, release gate, and evaluation
+  report builders.
+- Do not run broad auto-formatting across the repository in the same patch as
+  logic changes. Format only touched files unless a separate formatting-only
+  cleanup is planned.
+
+Phase 5 - Final review and paper packaging:
+
+- Complete human review/adjudication after non-human cleanup is stable.
+- Regenerate paper-facing tables only from verified artifacts and manifests.
+- Promote artifacts in `docs/PARS_SQL_PAPER1_REPRODUCIBILITY.md` only after the
+  release gate accepts them as paper-final.
+
+### Success Gates
+
+A development step is done only when the smallest relevant tests pass, the
+release gate passes for affected artifact families, no dataset or paper metric
+was silently edited, metric family separation remains explicit, and risks are
+either closed or documented with blocker category, current guard, next action,
+and close condition.
+
 نکته مهم: فایل دانلودی `paper1_implementation_plan.md` بیشتر حالت «از صفر چه بسازیم» دارد. این سند آن برنامه را با وضعیت واقعی repo ادغام می‌کند. بنابراین هرجا کد فعلی از قبل وجود دارد، اقدام درست «تثبیت، تست، artifact کردن و تکمیل contract» است، نه دوباره‌نویسی.
 
 ---
@@ -62,7 +182,7 @@ docs/07_IMPLEMENTATION_ROADMAP_AND_REQUIREMENTS.md
    `behavior_test=60` و `behavior_dev=40` هر دو کامل اجرا شده‌اند. مجموع behavioral100: `expected_action_accuracy=76/100=0.76`, `safety_rejection_accuracy=16/16=1.0`, `clarification_accuracy=22/25=0.88`, `abstention_precision=80/90=0.8889`, `abstention_recall=80/83=0.9639`, `unsafe_sql=0`. این کامل است، اما expected-action زیر target پیشنهادی 80% است.
 
 4. **Semantic/business judge full audit**  
-   OpenRouter judge اکنون روی همه 400 prediction اصلی اجرا و merge شده است. Artifact نهایی: `results/judgments/paper1_main_semantic_openrouter_s400_split/merged_authoritative`. نتیجه: `authoritative=true`, `authoritative_judgments=400`, `business_correct=161/400=0.4025`, `business_incorrect=239/400=0.5975`, `provider_error=0`, `provider_parse_error=0`, `redaction_applied=true`. این metric باید جدا از strict execution accuracy گزارش شود.
+   OpenRouter judge اکنون روی همه 400 prediction اصلی اجرا و merge شده است. Artifact نهایی: `results/judgments/paper1_main_semantic_openrouter_s400_split/merged_authoritative`. نتیجه: `authoritative=true`, `authoritative_judgments=400`, `business_correct=161/400=0.4025`, `business_incorrect=239/400=0.5975`, `provider_error=0`, `provider_parse_error=0`, `redaction_applied=true`. این metric باید جدا از strict execution accuracy گزارش شود; semantic/business and strict EX are reported separately.
 
 5. **Error analysis و representative failures**  
    گزارش اصلی ساخته شده: `results/error_analysis/paper1_main_local_bounded/error_report.md`. برای paper package نهایی فقط باید خلاصه representative failureها وارد `results/reports/` شود.
@@ -99,7 +219,7 @@ experiments/configs/paper1_main_local_no_templates_bounded_smoke.yaml
 
 ```text
 docs/
-  DATASET_CARD_DRAFT.md یا DATASET_CARD.md
+  DATASET_CARD.md
   PARS_SQL_PAPER1_REPRODUCIBILITY.md
   PARS_SQL_PAPER1_RESULTS_SUMMARY.md
 
@@ -140,6 +260,7 @@ results/reports/
 - خطاهای schema/value linking، validation، retrieval، generation و reliability را جدا گزارش می‌کند.
 - با مدل محلی و بدون تکیه به مدل cloud به عنوان هسته اصلی اجرا می‌شود.
 - هر claim آن از یک artifact واقعی در `results/` قابل ردیابی است.
+- SQL-positive، behavioral، و semantic/business evidence familyها different denominators دارند و reported separately هستند.
 
 ---
 
@@ -220,6 +341,7 @@ src/evaluation/artifact_analysis.py
 5. اگر positive `test/` قبلاً در debug subsets استفاده شده باشد، برای claim نهایی باید holdout/paraphrase مستقل ساخته شود.
 6. behavioral examples وارد denominator مربوط به `EX` نشوند.
 7. SQL execution correctness و semantic/business correctness جدا گزارش شوند.
+8. SQL-positive، behavioral، و semantic/business metric familyها reported separately هستند و نباید در یک denominator ترکیب شوند.
 8. safety و read-only execution هیچ‌وقت ablation-disabled نشوند.
 9. cloud judge فقط برای de-identified/synthetic artifact یا subset قضاوت استفاده شود و هسته سیستم نباشد.
 10. خروجی benchmark باید prompt، raw model response، parsed payload، validation errors، execution status و final action را trace کند.
@@ -305,6 +427,7 @@ git rev-parse --short HEAD
 - SQL-positive برای `EX` و valid SQL.
 - behavioral برای abstention/refusal/clarification.
 - holdout/paraphrase برای anti-overfit validation.
+- این نقش‌ها different denominators دارند و reported separately هستند.
 
 ### وضعیت فعلی
 
@@ -338,7 +461,7 @@ scripts/validate_dataset_sql.py
 scripts/check_duplicate_questions.py
 scripts/check_benchmark_leakage.py
 scripts/check_schema_column_references.py
-docs/DATASET_CARD_DRAFT.md
+docs/DATASET_CARD.md
 data/audit/vtd_400_500_audit_report.md
 ```
 
@@ -348,6 +471,7 @@ data/audit/vtd_400_500_audit_report.md
    - داده تشخیصی/clinical decision نیست.
    - فقط برای aggregate analytics است.
    - SQL-positive و behavioral جدا هستند.
+   - SQL-positive و behavioral different denominators دارند و reported separately هستند.
    - gold SQLها validated هستند.
    - limitationهای Persian/Finglish/Jalali ذکر شوند.
 
@@ -1041,7 +1165,7 @@ abstention_recall
 ### معیار پذیرش
 
 - `unsafe_pass_through_count = 0`
-- behavioral metrics در `behavioral_metrics.csv` جدا از SQL-positive metrics باشند.
+- behavioral metrics در `behavioral_metrics.csv` جدا از SQL-positive metrics باشند؛ این خانواده‌ها reported separately و با different denominators هستند.
 - اگر routed gate هنوز quality را خراب می‌کند، آن را main pipeline نکن؛ annotation-only را برای analysis گزارش کن و limitation بنویس.
 
 ---
@@ -1539,6 +1663,7 @@ PARS-SQL یک framework قابل سنجش و reliability-first برای Persian 
   وضعیت: artifact `20260621_064906_gold_positive400...`, نتیجه `400/400`.
 - [x] behavioral100 جدا ارزیابی شده.  
   وضعیت: `behavior_test=60` و `behavior_dev=40` کامل‌اند. مجموع: `expected_action_accuracy=76/100=0.76`, `safety_rejection_accuracy=16/16=1.0`, `clarification_accuracy=22/25=0.88`, `abstention_precision=80/90=0.8889`, `abstention_recall=80/83=0.9639`, `unsafe_sql=0`.
+  Metric familyها reported separately هستند: behavioral100 وارد strict EX denominator نمی‌شود.
 - [x] main agent run با مدل local و `deterministic_templates=false` انجام شده.  
   وضعیت: full `positive400` کامل است. Artifact: `results/benchmark/20260621_122748_paper1_main_local_no_templates_bounded`, نتیجه: `execution_accuracy=102/394=0.2589`, `valid_sql_rate=295/394=0.7487`, `trace_contract.validated=true`.
 - [x] retrieval ablation حداقل R0-R2 انجام شده.  
@@ -1646,7 +1771,7 @@ scripts/run_benchmark.py
 scripts/run_ablation.py
 scripts/analyze_benchmark_artifact.py
 experiments/configs/*.yaml
-docs/DATASET_CARD_DRAFT.md
+docs/DATASET_CARD.md
 docs/BENCHMARK_AND_TEST_GUIDE.md
 docs/phases/PHASE_18_7_ZERO_SHOT_MASTERY.md
 ```
@@ -1779,7 +1904,7 @@ code change
     ```powershell
     .\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset behavior_test --sample 0 --top-k 5 --exclude-self --bootstrap-iterations 1000 --trace-level compact --ablation-id paper1_behavior_test
     ```
-  - پذیرش: behavior metrics جدا از SQL metrics گزارش شوند.
+  - پذیرش: behavior metrics جدا از SQL metrics گزارش شوند؛ they are reported separately with different denominators.
   - انجام‌شده در ادامه اجرا:
     - action normalization برای aliases رفتاری مثل `refuse_privacy_or_offer_aggregate`, `refuse_data_fabrication`, `answer_with_sql_optional_explanation`, `generate_sql_with_caveat` مرکزی شد.
     - `expected_action_accuracy` به metricهای summary اضافه شد تا action-policy جدا از execution/result correctness گزارش شود.
@@ -1801,6 +1926,7 @@ code change
     .\.venv\Scripts\python.exe -m pytest tests\tier1_unit -q
     ```
     نتیجه قبلی: `405 passed, 3 warnings`. نتیجه بعد از bounded retry config: `411 passed, 3 warnings`.
+  - Metric family note: behavioral action metrics و SQL-positive subset metrics reported separately هستند و different denominators دارند.
   - behavior_dev full بعداً اجرا شد:
     `results/benchmark/20260621_205133_agent_behavior_dev_qwen2_5-coder-7b-instruct-q4_k_m_paper1_behavior_dev_full`
   - behavior_dev نتیجه:
@@ -2028,6 +2154,7 @@ code change
     `results/judgments/paper1_main_semantic_openrouter_s50_rerun`.
   - نتیجه:
     `total_judged=50`, `authoritative=true`, `authoritative_judgments=50`, `business_correct=39/50=0.78`, `business_incorrect=11/50=0.22`, `provider_error=0`, `provider_parse_error=0`, `redaction_applied=true`.
+  - Metric family note: semantic/business judge metrics و strict EX reported separately هستند.
   - تفسیر:
     این artifact اولین subset موفق بود و برای audit trail حفظ می‌شود، اما نتیجه اصلی فعلی نیست.
   - full 400-case split judge اجرا، retry و merge شد:

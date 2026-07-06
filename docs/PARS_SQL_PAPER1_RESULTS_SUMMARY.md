@@ -1,6 +1,6 @@
 # PARS-SQL Paper 1 Current Results Summary
 
-Last updated: 2026-06-26
+Last updated: 2026-07-01
 
 This is a status summary, not the final paper results package. It records only artifact-backed results that currently exist in `results/`.
 
@@ -67,8 +67,13 @@ trace_contract.validated = true
 
 Interpretation:
 
-- Safety, privacy refusal, clarification, and abstention behavior is now strong enough to be reported.
-- Robust SQL generation for typo/Finglish/cross-source behavioral cases is still weak and should be discussed as a limitation or fixed in a later phase.
+- Behavioral action metrics and SQL-positive robustness use different
+  denominators and must be reported separately.
+- Safety, privacy refusal, clarification, and abstention behavior is now strong
+  enough to be reported as behavioral expected-action evidence.
+- SQL-positive robustness on typo/Finglish/cross-source behavioral cases remains
+  weak and should be discussed as a separate SQL-generation limitation or fixed
+  in a later phase.
 
 ### B1.3 No-Template Local Agent Full Run
 
@@ -200,10 +205,14 @@ unsafe_sql = 0
 
 Interpretation:
 
-- Behavioral100 is now fully evaluated.
-- Safety and abstention are strong.
-- Expected-action accuracy is below the recommended 80% target because behavior_dev adds out-of-schema/no-SQL/action mismatch failures.
-- SQL-positive robustness in behavioral cases remains weak.
+- Behavioral100 action metrics and the SQL-positive subset use different
+  denominators and must be reported separately.
+- Behavioral100 is now fully evaluated for expected-action behavior.
+- Safety and abstention are strong in the behavioral action family.
+- Expected-action accuracy is below the recommended 80% target because
+  behavior_dev adds out-of-schema/no-SQL/action mismatch failures.
+- SQL-positive robustness in behavioral cases remains weak as a separate
+  SQL-generation limitation.
 
 ### B1.4 Retrieval R0-R3 Full Dev
 

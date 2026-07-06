@@ -4,8 +4,39 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-
 CandidateConsistencySeverity = Literal["warning", "error"]
+GOLD_LEAKAGE_KEYS = {
+    "case_id",
+    "id",
+    "audit_id",
+    "source_id",
+    "gold_sql",
+    "expected_sql",
+    "gold_result_hash",
+    "gold_result_preview",
+    "expected_result_hash",
+    "expected_result_preview",
+    "execution_correct",
+    "result_match",
+    "ok",
+    "error",
+    "benchmark_error",
+    "strict_policy_label",
+    "semantic_policy_label",
+    "combined_label",
+    "semantic_business_correct",
+    "judge_label",
+}
+RUNTIME_CANDIDATE_KEYS = {
+    "candidate_id",
+    "sql",
+    "generated_sql",
+    "valid_sql",
+    "execution_passed",
+    "execution_ok",
+    "result_hash",
+    "execution_result_hash",
+}
 
 
 @dataclass(slots=True)
@@ -20,15 +51,17 @@ class SqlCandidate:
     @classmethod
     def from_record(cls, record: dict[str, Any], index: int) -> "SqlCandidate":
         return cls(
-            candidate_id=str(record.get("candidate_id") or record.get("id") or f"candidate_{index}"),
+            candidate_id=str(record.get("candidate_id") or f"candidate_{index}"),
             sql=record.get("sql") or record.get("generated_sql"),
             valid_sql=record.get("valid_sql"),
-            execution_passed=record.get("execution_passed") or record.get("execution_ok"),
-            result_hash=record.get("result_hash") or record.get("execution_result_hash"),
+            execution_passed=record.get("execution_passed")
+            or record.get("execution_ok"),
+            result_hash=record.get("result_hash")
+            or record.get("execution_result_hash"),
             metadata={
                 key: value
                 for key, value in record.items()
-                if key not in {"candidate_id", "id", "sql", "generated_sql", "valid_sql", "execution_passed", "execution_ok", "result_hash", "execution_result_hash"}
+                if key not in RUNTIME_CANDIDATE_KEYS and key not in GOLD_LEAKAGE_KEYS
             },
         )
 
@@ -75,7 +108,9 @@ class CandidateConsistencyReport:
         }
 
 
-def analyze_candidate_consistency(candidates: list[SqlCandidate | dict[str, Any]]) -> CandidateConsistencyReport:
+def analyze_candidate_consistency(
+    candidates: list[SqlCandidate | dict[str, Any]],
+) -> CandidateConsistencyReport:
     """Compare SQL candidates using runtime-only evidence.
 
     This module intentionally does not accept gold SQL, benchmark case IDs, or exact
@@ -84,7 +119,11 @@ def analyze_candidate_consistency(candidates: list[SqlCandidate | dict[str, Any]
     """
 
     normalized = [
-        candidate if isinstance(candidate, SqlCandidate) else SqlCandidate.from_record(candidate, index)
+        (
+            candidate
+            if isinstance(candidate, SqlCandidate)
+            else SqlCandidate.from_record(candidate, index)
+        )
         for index, candidate in enumerate(candidates)
     ]
     issues: list[CandidateConsistencyIssue] = []
@@ -97,7 +136,9 @@ def analyze_candidate_consistency(candidates: list[SqlCandidate | dict[str, Any]
     viable = [
         candidate
         for candidate in normalized
-        if candidate.sql and candidate.valid_sql is not False and candidate.execution_passed is not False
+        if candidate.sql
+        and candidate.valid_sql is not False
+        and candidate.execution_passed is not False
     ]
 
     if not normalized:
@@ -163,7 +204,9 @@ def _add_signature_disagreement_issues(
     }
     for key, code in dimensions.items():
         values = {
-            _hashable_signature_value(signatures.get(candidate.candidate_id, {}).get(key))
+            _hashable_signature_value(
+                signatures.get(candidate.candidate_id, {}).get(key)
+            )
             for candidate in candidates
         }
         if len(values) > 1:
@@ -194,7 +237,9 @@ def _add_result_hash_disagreement_issue(
 
 
 def _select_candidate(candidates: list[SqlCandidate]) -> str | None:
-    hash_counts = Counter(candidate.result_hash for candidate in candidates if candidate.result_hash)
+    hash_counts = Counter(
+        candidate.result_hash for candidate in candidates if candidate.result_hash
+    )
     if hash_counts:
         result_hash, count = hash_counts.most_common(1)[0]
         if count >= 2:
@@ -218,8 +263,16 @@ def _sql_signature(sql: str | None) -> dict[str, Any]:
         from sqlglot import exp
 
         parsed = sqlglot.parse_one(sql, read="sqlite")
-        tables = sorted({table.name.lower() for table in parsed.find_all(exp.Table) if table.name})
-        columns = sorted({column.name.lower() for column in parsed.find_all(exp.Column) if column.name})
+        tables = sorted(
+            {table.name.lower() for table in parsed.find_all(exp.Table) if table.name}
+        )
+        columns = sorted(
+            {
+                column.name.lower()
+                for column in parsed.find_all(exp.Column)
+                if column.name
+            }
+        )
         aggregations = sorted(
             node.key.lower()
             for node in parsed.find_all(exp.AggFunc)
@@ -234,7 +287,9 @@ def _sql_signature(sql: str | None) -> dict[str, Any]:
                 if column.name
             )
         where = parsed.args.get("where")
-        where_fingerprint = _normalize_sql_fragment(where.sql(dialect="sqlite") if where is not None else "")
+        where_fingerprint = _normalize_sql_fragment(
+            where.sql(dialect="sqlite") if where is not None else ""
+        )
         return {
             "tables": tables,
             "columns": columns,
@@ -251,9 +306,17 @@ def _fallback_signature(sql: str) -> dict[str, Any]:
     return {
         "tables": [],
         "columns": [],
-        "aggregations": sorted(function for function in ("count(", "sum(", "avg(", "min(", "max(") if function in normalized),
+        "aggregations": sorted(
+            function
+            for function in ("count(", "sum(", "avg(", "min(", "max(")
+            if function in normalized
+        ),
         "group_columns": ["__present__"] if "group by" in normalized else [],
-        "where_fingerprint": normalized.split(" where ", 1)[1].split(" group by ", 1)[0] if " where " in normalized else "",
+        "where_fingerprint": (
+            normalized.split(" where ", 1)[1].split(" group by ", 1)[0]
+            if " where " in normalized
+            else ""
+        ),
     }
 
 

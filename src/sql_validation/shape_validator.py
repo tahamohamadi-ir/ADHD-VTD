@@ -7,9 +7,27 @@ from src.core.query_ir import QueryIR
 from src.sql_validation.validation_result import ValidationIssue, ValidationResult
 
 
-_DASHBOARD_TERMS = ("dashboard", "story", "\u062f\u0627\u0634\u0628\u0648\u0631\u062f", "\u062f\u0627\u0633\u062a\u0627\u0646", "\u0631\u0648\u0627\u06cc\u062a")
-_CHANGE_TERMS = ("change", "delta", "\u062a\u063a\u06cc\u06cc\u0631", "\u0627\u0641\u0632\u0627\u06cc\u0634", "\u06a9\u0627\u0647\u0634")
-_QUANTILE_TERMS = ("quartile", "percentile", "ntile", "\u0686\u0647\u0627\u0631\u06a9", "\u0635\u062f\u06a9")
+_DASHBOARD_TERMS = (
+    "dashboard",
+    "story",
+    "\u062f\u0627\u0634\u0628\u0648\u0631\u062f",
+    "\u062f\u0627\u0633\u062a\u0627\u0646",
+    "\u0631\u0648\u0627\u06cc\u062a",
+)
+_CHANGE_TERMS = (
+    "change",
+    "delta",
+    "\u062a\u063a\u06cc\u06cc\u0631",
+    "\u0627\u0641\u0632\u0627\u06cc\u0634",
+    "\u06a9\u0627\u0647\u0634",
+)
+_QUANTILE_TERMS = (
+    "quartile",
+    "percentile",
+    "ntile",
+    "\u0686\u0647\u0627\u0631\u06a9",
+    "\u0635\u062f\u06a9",
+)
 _RISK_TERMS = ("risk", "mental_health_risk", "\u0631\u06cc\u0633\u06a9")
 _MENTAL_HEALTH_RISK_TERMS = (
     "mental_health_risk",
@@ -17,11 +35,23 @@ _MENTAL_HEALTH_RISK_TERMS = (
     "\u0631\u06cc\u0633\u06a9 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646",
     "\u0633\u0637\u062d \u0631\u06cc\u0633\u06a9",
 )
-_AVERAGE_TERMS = ("average", "mean", "\u0645\u06cc\u0627\u0646\u06af\u06cc\u0646", "\u0628\u0627\u0644\u0627\u062a\u0631", "\u067e\u0627\u06cc\u06cc\u0646")
+_AVERAGE_TERMS = (
+    "average",
+    "mean",
+    "\u0645\u06cc\u0627\u0646\u06af\u06cc\u0646",
+    "\u0628\u0627\u0644\u0627\u062a\u0631",
+    "\u067e\u0627\u06cc\u06cc\u0646",
+)
 _STRESS_TERMS = ("stress", "\u0627\u0633\u062a\u0631\u0633")
 _SLEEP_TERMS = ("sleep", "\u062e\u0648\u0627\u0628")
 _BY_GROUP_TERMS = (" by ", "based on", "\u0628\u0631 \u0627\u0633\u0627\u0633")
-_RATE_TERMS = ("rate", "percent", "percentage", "\u0646\u0631\u062e", "\u062f\u0631\u0635\u062f")
+_RATE_TERMS = (
+    "rate",
+    "percent",
+    "percentage",
+    "\u0646\u0631\u062e",
+    "\u062f\u0631\u0635\u062f",
+)
 _DEPRESSION_TERMS = ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc")
 _GROUPING_TERMS = (
     "distribution",
@@ -49,10 +79,52 @@ _MULTI_DIM_TERMS = (
     "matrix",
     "combination",
 )
-_DISORDER_TERMS = ("eating_disorder", "depression", "anxiety", "bipolar", "schizophrenia")
+_DISORDER_TERMS = (
+    "eating_disorder",
+    "depression",
+    "anxiety",
+    "bipolar",
+    "schizophrenia",
+)
 _MATRIX_TERMS = ("matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633")
-_DIET_TERMS = ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc")
+_DIET_TERMS = (
+    "diet",
+    "dietary",
+    "\u0631\u0698\u06cc\u0645",
+    "\u063a\u0630\u0627\u06cc\u06cc",
+)
 _CGPA_TERMS = ("cgpa", "gpa")
+_RANKING_TERMS = (
+    "rank",
+    "ranking",
+    "top",
+    "highest",
+    "lowest",
+    "best",
+    "worst",
+    "most",
+    "least",
+    "\u0631\u062a\u0628\u0647",
+    "\u0628\u0631\u062a\u0631",
+    "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646",
+    "\u06a9\u0645\u062a\u0631\u06cc\u0646",
+    "\u0628\u0627\u0644\u0627\u062a\u0631\u06cc\u0646",
+    "\u067e\u0627\u06cc\u06cc\u0646\u200c\u062a\u0631\u06cc\u0646",
+)
+_TOP_N_TERMS = (
+    "top",
+    "highest",
+    "lowest",
+    "best",
+    "worst",
+    "most",
+    "least",
+    "\u0628\u0631\u062a\u0631",
+    "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646",
+    "\u06a9\u0645\u062a\u0631\u06cc\u0646",
+    "\u0628\u0627\u0644\u0627\u062a\u0631\u06cc\u0646",
+    "\u067e\u0627\u06cc\u06cc\u0646\u200c\u062a\u0631\u06cc\u0646",
+)
 
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -85,8 +157,18 @@ def _has_group_by(sql: str) -> bool:
     return bool(re.search(r"\bgroup\s+by\b", sql))
 
 
+def _has_order_by(sql: str) -> bool:
+    return bool(re.search(r"\border\s+by\b", sql))
+
+
+def _has_limit(sql: str) -> bool:
+    return bool(re.search(r"\blimit\b", sql))
+
+
 def _group_by_fragment(sql: str) -> str:
-    match = re.search(r"\bgroup\s+by\b(?P<body>.*?)(\border\s+by\b|\bhaving\b|\blimit\b|$)", sql, re.S)
+    match = re.search(
+        r"\bgroup\s+by\b(?P<body>.*?)(\border\s+by\b|\bhaving\b|\blimit\b|$)", sql, re.S
+    )
     if not match:
         return ""
     return match.group("body").strip()
@@ -111,7 +193,10 @@ def _has_rate_formula(sql: str, metrics: list[str]) -> bool:
     if re.search(r"\bsum\s*\([^)]*\)\s*/\s*count\s*\(", sql):
         return True
     if metrics:
-        return any(metric.lower() in sql and ("avg(" in sql or "sum(" in sql) for metric in metrics)
+        return any(
+            metric.lower() in sql and ("avg(" in sql or "sum(" in sql)
+            for metric in metrics
+        )
     return "sum(" in sql or "avg(" in sql
 
 
@@ -138,7 +223,9 @@ def _table_columns(schema: dict[str, Any] | None, table_name: str) -> set[str]:
     return names
 
 
-def _add(issues: list[ValidationIssue], code: str, message: str, severity: str = "error") -> None:
+def _add(
+    issues: list[ValidationIssue], code: str, message: str, severity: str = "error"
+) -> None:
     issues.append(ValidationIssue(code=code, message=message, severity=severity))
 
 
@@ -163,11 +250,19 @@ class SQLShapeValidator:
         issues: list[ValidationIssue] = []
 
         self._validate_sqlite_dialect(lower_sql, issues)
-        self._validate_generic_qir_shape(lower_sql, lower_question, task_type, qir, issues)
-        self._validate_global_change_shape(lower_sql, lower_question, task_type, schema, issues)
+        self._validate_generic_qir_shape(
+            lower_sql, lower_question, task_type, qir, issues
+        )
+        self._validate_global_change_shape(
+            lower_sql, lower_question, task_type, schema, issues
+        )
         self._validate_risk_summary_shape(lower_sql, lower_question, schema, issues)
-        self._validate_grouped_rate_shape(lower_sql, lower_question, task_type, schema, issues)
-        self._validate_student_sleep_diet_matrix_shape(lower_sql, lower_question, task_type, schema, issues)
+        self._validate_grouped_rate_shape(
+            lower_sql, lower_question, task_type, schema, issues
+        )
+        self._validate_student_sleep_diet_matrix_shape(
+            lower_sql, lower_question, task_type, schema, issues
+        )
 
         has_errors = any(issue.severity == "error" for issue in issues)
         return ValidationResult(not has_errors, issues, sql)
@@ -188,17 +283,40 @@ class SQLShapeValidator:
         qir: QueryIR | None,
         issues: list[ValidationIssue],
     ) -> None:
-        dimensions = [str(dim).lower() for dim in (getattr(qir, "dimensions", []) or [])]
-        metrics = [str(metric).lower() for metric in (getattr(qir, "metrics", []) or [])]
+        dimensions = [
+            str(dim).lower() for dim in (getattr(qir, "dimensions", []) or [])
+        ]
+        metrics = [
+            str(metric).lower() for metric in (getattr(qir, "metrics", []) or [])
+        ]
         expected_shape = str(getattr(qir, "expected_result_shape", "") or "").lower()
         asks_grouping = (
             expected_shape == "table"
             or bool(dimensions)
-            or task_type in {"grouping_query", "comparison_query", "ranking_query", "trend_query", "rate_query"}
+            or task_type
+            in {
+                "grouping_query",
+                "comparison_query",
+                "ranking_query",
+                "trend_query",
+                "rate_query",
+            }
             or _has_any(question, _GROUPING_TERMS)
             or _has_any(question, _TWO_SIDED_TERMS)
         )
         if task_type == "raw_retrieval_query":
+            if not _has_limit(sql):
+                _add(
+                    issues,
+                    "ANALYTICAL_SHAPE_MISSING_RAW_ROW_LIMIT",
+                    "Raw row/list queries must include LIMIT to avoid unbounded row-level output.",
+                )
+            if _has_group_by(sql):
+                _add(
+                    issues,
+                    "ANALYTICAL_SHAPE_RAW_ROWS_SHOULD_NOT_GROUP",
+                    "Raw row/list queries should return bounded records, not grouped aggregates.",
+                )
             return
 
         if asks_grouping and _has_aggregate(sql) and not _has_group_by(sql):
@@ -218,8 +336,13 @@ class SQLShapeValidator:
 
         two_sided = _has_any(question, _TWO_SIDED_TERMS)
         single_sided_depression_filter = bool(
-            re.search(r"\bwhere\b[^;]*(depression_flag|depression_diagnosis)\s*=\s*[01]", sql)
-            or re.search(r"\bwhere\b[^;]*(part_time_job|treatment|seeks_treatment)\s*=\s*[01]", sql)
+            re.search(
+                r"\bwhere\b[^;]*(depression_flag|depression_diagnosis)\s*=\s*[01]", sql
+            )
+            or re.search(
+                r"\bwhere\b[^;]*(part_time_job|treatment|seeks_treatment)\s*=\s*[01]",
+                sql,
+            )
         )
         if two_sided and single_sided_depression_filter and not _has_group_by(sql):
             _add(
@@ -228,12 +351,32 @@ class SQLShapeValidator:
                 "Two-sided comparison questions such as 'with and without' must group by the binary column instead of filtering to only one side.",
             )
 
-        asks_multi_dim = _has_any(question, _MULTI_DIM_TERMS) or question.count("\u0628\u0647 \u062a\u0641\u06a9\u06cc\u06a9") >= 1 and "\u0648" in question
+        asks_multi_dim = (
+            _has_any(question, _MULTI_DIM_TERMS)
+            or question.count("\u0628\u0647 \u062a\u0641\u06a9\u06cc\u06a9") >= 1
+            and "\u0648" in question
+        )
         if asks_multi_dim and _has_group_by(sql) and _group_by_count(sql) < 2:
             _add(
                 issues,
                 "ANALYTICAL_SHAPE_MISSING_MULTI_DIMENSION_GROUPING",
                 "Multi-dimensional/matrix questions must GROUP BY at least two dimensions.",
+            )
+
+        asks_ranking = task_type == "ranking_query" or _has_any(
+            question, _RANKING_TERMS
+        )
+        if asks_ranking and not _has_order_by(sql):
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_RANKING_ORDER_BY",
+                "Ranking/top-N questions must include ORDER BY on the ranking metric.",
+            )
+        if asks_ranking and _has_any(question, _TOP_N_TERMS) and not _has_limit(sql):
+            _add(
+                issues,
+                "ANALYTICAL_SHAPE_MISSING_RANKING_LIMIT",
+                "Top/highest/lowest ranking questions must include LIMIT for the requested top-N slice.",
             )
 
         if dimensions and _has_group_by(sql):
@@ -263,10 +406,14 @@ class SQLShapeValidator:
     ) -> None:
         has_prevalence_long = bool(_table_columns(schema, "country_prevalence_long"))
         asks_change = _has_any(question, _CHANGE_TERMS)
-        asks_dashboard = task_type == "grouping_query" or _has_any(question, _DASHBOARD_TERMS)
+        asks_dashboard = task_type == "grouping_query" or _has_any(
+            question, _DASHBOARD_TERMS
+        )
         asks_bins = _has_any(question, _QUANTILE_TERMS)
         names_disorder = _has_any(question, _DISORDER_TERMS)
-        if not (has_prevalence_long and asks_change and asks_dashboard and names_disorder):
+        if not (
+            has_prevalence_long and asks_change and asks_dashboard and names_disorder
+        ):
             return
 
         if "country_prevalence_long" not in sql:
@@ -302,16 +449,24 @@ class SQLShapeValidator:
         issues: list[ValidationIssue],
     ) -> None:
         general_cols = _table_columns(schema, "mental_health_general")
-        if not {"mental_health_risk", "stress_level", "sleep_hours"}.issubset(general_cols):
+        if not {"mental_health_risk", "stress_level", "sleep_hours"}.issubset(
+            general_cols
+        ):
             return
-        asks_risk_average = _has_any(question, _RISK_TERMS) and _has_any(question, _AVERAGE_TERMS)
+        asks_risk_average = _has_any(question, _RISK_TERMS) and _has_any(
+            question, _AVERAGE_TERMS
+        )
         if not asks_risk_average:
             return
-        asks_stress_sleep_thresholds = _has_any(question, _STRESS_TERMS) and _has_any(question, _SLEEP_TERMS)
-        asks_explicit_mental_health_risk_group = _has_any(question, _MENTAL_HEALTH_RISK_TERMS) and _has_any(
-            f" {question} ", _BY_GROUP_TERMS
+        asks_stress_sleep_thresholds = _has_any(question, _STRESS_TERMS) and _has_any(
+            question, _SLEEP_TERMS
         )
-        asks_grouped_risk_profile = asks_stress_sleep_thresholds or asks_explicit_mental_health_risk_group
+        asks_explicit_mental_health_risk_group = _has_any(
+            question, _MENTAL_HEALTH_RISK_TERMS
+        ) and _has_any(f" {question} ", _BY_GROUP_TERMS)
+        asks_grouped_risk_profile = (
+            asks_stress_sleep_thresholds or asks_explicit_mental_health_risk_group
+        )
 
         if asks_grouped_risk_profile and "group by mental_health_risk" not in sql:
             _add(
@@ -331,7 +486,9 @@ class SQLShapeValidator:
                 "ANALYTICAL_SHAPE_MISSING_RISK_COUNT",
                 "Risk summary SQL must include COUNT(*) AS n so the result explains how many records are in each risk group.",
             )
-        if asks_stress_sleep_thresholds and ("avg(stress_level" not in sql or "avg(sleep_hours" not in sql):
+        if asks_stress_sleep_thresholds and (
+            "avg(stress_level" not in sql or "avg(sleep_hours" not in sql
+        ):
             _add(
                 issues,
                 "ANALYTICAL_SHAPE_MISSING_RISK_AVERAGES",
@@ -363,7 +520,9 @@ class SQLShapeValidator:
         asks_sleep_rate = (
             task_type == "rate_query"
             and _has_any(question, _SLEEP_TERMS)
-            and (_has_any(question, _RATE_TERMS) or _has_any(question, _DEPRESSION_TERMS))
+            and (
+                _has_any(question, _RATE_TERMS) or _has_any(question, _DEPRESSION_TERMS)
+            )
         )
         if not asks_sleep_rate:
             return
@@ -404,7 +563,12 @@ class SQLShapeValidator:
         issues: list[ValidationIssue],
     ) -> None:
         student_cols = _table_columns(schema, "student_depression")
-        required_cols = {"sleep_duration_category", "dietary_habits", "depression_flag", "cgpa_10"}
+        required_cols = {
+            "sleep_duration_category",
+            "dietary_habits",
+            "depression_flag",
+            "cgpa_10",
+        }
         if not required_cols.issubset(student_cols):
             return
         asks_matrix = (

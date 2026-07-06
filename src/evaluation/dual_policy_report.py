@@ -8,7 +8,9 @@ from typing import Any
 from src.evaluation.dataset_loader import read_json, read_jsonl, write_json, write_jsonl
 
 
-def _load_policy_report(root: str | Path) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
+def _load_policy_report(
+    root: str | Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
     path = Path(root)
     consensus_summary = path / "judge_consensus.json"
     consensus_cases = path / "judge_consensus_cases.jsonl"
@@ -45,9 +47,35 @@ def _combined_label(semantic_label: str, strict_label: str) -> str:
         return "semantic_correct_strict_incorrect"
     if semantic_label == "incorrect" and strict_label == "correct":
         return "semantic_incorrect_strict_correct"
-    if semantic_label == "partial_business_match" or strict_label == "partial_business_match":
+    if (
+        semantic_label == "partial_business_match"
+        or strict_label == "partial_business_match"
+    ):
         return "partial_or_mixed"
     return "adjudication_required"
+
+
+def _source_authoritative(summary: dict[str, Any], artifact_kind: str) -> bool:
+    if summary.get("authoritative") is True:
+        return True
+    return artifact_kind == "consensus"
+
+
+def _complete_policy_labels(
+    semantic_counts: Counter[str],
+    strict_counts: Counter[str],
+    combined_counts: Counter[str],
+) -> bool:
+    blocking_labels = {
+        "adjudication_required",
+        "partial_business_match",
+        "partial_or_mixed",
+        "unjudged",
+    }
+    for counts in (semantic_counts, strict_counts, combined_counts):
+        if any(counts.get(label, 0) > 0 for label in blocking_labels):
+            return False
+    return True
 
 
 def build_dual_policy_report(
@@ -95,6 +123,13 @@ def build_dual_policy_report(
         strict_summary.get("left_source_artifact")
         or strict_summary.get("source_artifacts", [None])[0],
     ]
+    semantic_authoritative = _source_authoritative(semantic_summary, semantic_kind)
+    strict_authoritative = _source_authoritative(strict_summary, strict_kind)
+    complete_policy_labels = _complete_policy_labels(
+        semantic_counts,
+        strict_counts,
+        combined_counts,
+    )
     summary = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "semantic_dir": str(semantic_dir),
@@ -106,8 +141,15 @@ def build_dual_policy_report(
         "semantic_judge_policies": _summary_judge_policies(semantic_summary),
         "strict_judge_policies": _summary_judge_policies(strict_summary),
         "source_artifacts": source_artifacts,
-        "same_source_artifact": len(set(source for source in source_artifacts if source)) == 1,
+        "same_source_artifact": len(
+            set(source for source in source_artifacts if source)
+        )
+        == 1,
         "common_cases": len(common_ids),
+        "authoritative": semantic_authoritative and strict_authoritative,
+        "semantic_source_authoritative": semantic_authoritative,
+        "strict_source_authoritative": strict_authoritative,
+        "complete_policy_labels": complete_policy_labels,
         "semantic_only_cases": sorted(set(semantic_by_id) - set(strict_by_id)),
         "strict_only_cases": sorted(set(strict_by_id) - set(semantic_by_id)),
         "semantic_counts": dict(semantic_counts),
@@ -151,6 +193,8 @@ def _render_report(summary: dict[str, Any], cases: list[dict[str, Any]]) -> str:
         f"- semantic_dir: `{summary['semantic_dir']}`",
         f"- strict_dir: `{summary['strict_dir']}`",
         f"- same_source_artifact: `{summary['same_source_artifact']}`",
+        f"- authoritative: `{summary['authoritative']}`",
+        f"- complete_policy_labels: `{summary['complete_policy_labels']}`",
         "",
         "## Summary",
         "",

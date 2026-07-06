@@ -7,6 +7,13 @@ from typing import Any
 
 from src.evaluation.dataset_loader import read_json, read_jsonl, write_json
 
+_POLICY_BLOCKING_LABELS = {
+    "adjudication_required",
+    "partial_business_match",
+    "partial_or_mixed",
+    "unjudged",
+}
+
 
 def _first_file(root: Path, pattern: str) -> Path:
     matches = sorted(root.glob(pattern))
@@ -32,6 +39,75 @@ def _safe_count(counts: dict[str, Any], key: str) -> int:
         return 0
 
 
+def _positive_int(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _dual_policy_blocking_counts(
+    summary: dict[str, Any],
+    cases: list[dict[str, Any]],
+) -> dict[str, int]:
+    blocking: dict[str, int] = {}
+    for group_name in ("semantic_counts", "strict_counts", "combined_counts"):
+        counts = summary.get(group_name)
+        if not isinstance(counts, dict):
+            continue
+        for label, count in counts.items():
+            if label in _POLICY_BLOCKING_LABELS:
+                parsed = _positive_int(count)
+                if parsed:
+                    blocking[f"{group_name}.{label}"] = parsed
+
+    for row in cases:
+        for field_name in (
+            "semantic_policy_label",
+            "strict_policy_label",
+            "combined_label",
+        ):
+            label = str(row.get(field_name) or "")
+            if label in _POLICY_BLOCKING_LABELS:
+                key = f"cases.{field_name}.{label}"
+                blocking[key] = blocking.get(key, 0) + 1
+    return blocking
+
+
+def _require_packaging_ready_dual_policy(
+    summary: dict[str, Any],
+    cases: list[dict[str, Any]],
+) -> None:
+    if summary.get("authoritative") is not True:
+        raise ValueError("Dual-policy evidence must be authoritative before packaging.")
+
+    common_cases = _positive_int(summary.get("common_cases"))
+    if common_cases is None:
+        raise ValueError(
+            "Dual-policy evidence must record a positive common_cases count."
+        )
+    if common_cases != len(cases):
+        raise ValueError(
+            f"Dual-policy common_cases {common_cases} does not match case rows {len(cases)}."
+        )
+
+    blocking_counts = _dual_policy_blocking_counts(summary, cases)
+    if blocking_counts:
+        raise ValueError(
+            f"Dual-policy evidence contains unresolved labels: {blocking_counts}."
+        )
+
+
+def _require_verified_artifacts(benchmark_dir: Path, dual_policy_dir: Path) -> None:
+    from scripts.verify_artifact import verify_artifact
+
+    report = verify_artifact(benchmark_dir, dual_policy_dir=dual_policy_dir)
+    if not report.ok:
+        details = "; ".join(f"{issue.code}: {issue.message}" for issue in report.issues)
+        raise ValueError(f"Artifact verification failed before packaging: {details}")
+
+
 def build_dual_policy_evidence_package(
     *,
     benchmark_dir: str | Path,
@@ -48,6 +124,7 @@ def build_dual_policy_evidence_package(
 
     benchmark_root = Path(benchmark_dir)
     dual_root = Path(dual_policy_dir)
+    _require_verified_artifacts(benchmark_root, dual_root)
     benchmark_summary_path = _first_file(benchmark_root, "*_summary.json")
     predictions_path = _first_file(benchmark_root, "*_predictions.jsonl")
     dual_summary_path = dual_root / "dual_policy_summary.json"
@@ -61,8 +138,11 @@ def build_dual_policy_evidence_package(
     predictions = read_jsonl(predictions_path)
     dual_summary = read_json(dual_summary_path)
     dual_cases = read_jsonl(dual_cases_path)
+    _require_packaging_ready_dual_policy(dual_summary, dual_cases)
 
-    predictions_by_id = {str(row.get("id") or row.get("case_id")): row for row in predictions}
+    predictions_by_id = {
+        str(row.get("id") or row.get("case_id")): row for row in predictions
+    }
     case_rows: list[dict[str, Any]] = []
     for row in dual_cases:
         case_id = str(row.get("case_id"))
@@ -96,6 +176,11 @@ def build_dual_policy_evidence_package(
         "benchmark_predictions": str(predictions_path),
         "dual_policy_summary": str(dual_summary_path),
         "dual_policy_cases": str(dual_cases_path),
+        "source_verification": {
+            "benchmark_artifact_verified": True,
+            "dual_policy_authoritative": dual_summary.get("authoritative") is True,
+            "dual_policy_complete": True,
+        },
         "dataset": {
             "kind": dataset.get("kind"),
             "total_loaded": dataset.get("total_loaded"),
@@ -107,7 +192,9 @@ def build_dual_policy_evidence_package(
             "selected_cases_hash": config.get("selected_cases_hash"),
         },
         "benchmark_metrics": {
-            "execution_accuracy": _metric_value(benchmark_summary, "execution_accuracy"),
+            "execution_accuracy": _metric_value(
+                benchmark_summary, "execution_accuracy"
+            ),
             "valid_sql_rate": _metric_value(benchmark_summary, "valid_sql_rate"),
             "sql2nl_paraphrase_robustness": _metric_value(
                 benchmark_summary, "sql2nl_paraphrase_robustness"
@@ -124,7 +211,9 @@ def build_dual_policy_evidence_package(
             ),
             "strict_correct": _safe_count(strict_counts, "correct"),
             "strict_incorrect": _safe_count(strict_counts, "incorrect"),
-            "strict_adjudication_required": _safe_count(strict_counts, "adjudication_required"),
+            "strict_adjudication_required": _safe_count(
+                strict_counts, "adjudication_required"
+            ),
             "both_correct": _safe_count(combined_counts, "both_correct"),
             "both_incorrect": _safe_count(combined_counts, "both_incorrect"),
             "semantic_correct_strict_incorrect": _safe_count(
@@ -148,10 +237,14 @@ def build_dual_policy_evidence_package(
 
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    summary_path = write_json(output_root / "paper_evidence_summary.json", package_summary)
+    summary_path = write_json(
+        output_root / "paper_evidence_summary.json", package_summary
+    )
     cases_path = _write_case_csv(output_root / "paper_evidence_cases.csv", case_rows)
     report_path = output_root / "paper_evidence_table.md"
-    report_path.write_text(_render_markdown(package_summary, case_rows), encoding="utf-8")
+    report_path.write_text(
+        _render_markdown(package_summary, case_rows), encoding="utf-8"
+    )
     return {"summary": summary_path, "cases_csv": cases_path, "report": report_path}
 
 
@@ -191,6 +284,8 @@ def _render_markdown(summary: dict[str, Any], cases: list[dict[str, Any]]) -> st
         f"- dual_policy_dir: `{summary['dual_policy_dir']}`",
         f"- total_evaluated: `{dataset.get('total_evaluated')}`",
         f"- selected_cases_hash: `{dataset.get('selected_cases_hash')}`",
+        f"- dual_policy_authoritative: `{summary['source_verification']['dual_policy_authoritative']}`",
+        f"- dual_policy_complete: `{summary['source_verification']['dual_policy_complete']}`",
         "",
         "## Benchmark Slice",
         "",

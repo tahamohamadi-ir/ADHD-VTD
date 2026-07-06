@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
-
+from typing import Any, Iterable, Literal
 
 MultiCandidateMode = Literal["disabled", "adaptive", "always"]
 
@@ -14,6 +13,8 @@ class MultiCandidatePolicy:
     adaptive_candidates: int = 2
     max_candidates: int = 3
     low_confidence_threshold: float = 0.65
+    allowed_triggers: tuple[str, ...] | None = None
+    blocked_triggers: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -22,14 +23,18 @@ class MultiCandidateDecision:
     candidate_count: int
     reason: str
     triggers: list[str] = field(default_factory=list)
+    suppressed_triggers: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "enabled": self.enabled,
             "candidate_count": self.candidate_count,
             "reason": self.reason,
             "triggers": list(self.triggers),
         }
+        if self.suppressed_triggers:
+            payload["suppressed_triggers"] = list(self.suppressed_triggers)
+        return payload
 
 
 _COMPLEX_INTENTS = {
@@ -63,20 +68,71 @@ def decide_multi_candidate(
     if p.mode == "disabled":
         return MultiCandidateDecision(False, 1, "disabled")
     if p.mode == "always":
-        return MultiCandidateDecision(True, _clamp(p.max_candidates, p.adaptive_candidates), "always")
+        return MultiCandidateDecision(
+            True, _clamp(p.max_candidates, p.adaptive_candidates), "always"
+        )
 
-    triggers = _adaptive_triggers(record, p)
+    raw_triggers = _adaptive_triggers(record, p)
+    triggers, suppressed_triggers = _filter_triggers(raw_triggers, p)
     if not triggers:
-        return MultiCandidateDecision(False, _clamp(p.max_candidates, p.default_candidates), "simple_or_confident_query")
+        if suppressed_triggers:
+            return MultiCandidateDecision(
+                False,
+                _clamp(p.max_candidates, p.default_candidates),
+                "triggers_filtered_by_policy",
+                suppressed_triggers=suppressed_triggers,
+            )
+        return MultiCandidateDecision(
+            False,
+            _clamp(p.max_candidates, p.default_candidates),
+            "simple_or_confident_query",
+        )
     return MultiCandidateDecision(
         True,
         _clamp(p.max_candidates, p.adaptive_candidates),
         "adaptive_triggers_present",
         triggers=triggers,
+        suppressed_triggers=suppressed_triggers,
     )
 
 
-def _adaptive_triggers(record: dict[str, Any], policy: MultiCandidatePolicy) -> list[str]:
+def multi_candidate_policy_from_config(
+    config: dict[str, Any] | None,
+) -> MultiCandidatePolicy:
+    runtime_config = config or {}
+    return MultiCandidatePolicy(
+        allowed_triggers=_trigger_tuple_or_none(
+            runtime_config.get("multi_candidate_allowed_triggers")
+        ),
+        blocked_triggers=_trigger_tuple(
+            runtime_config.get("multi_candidate_blocked_triggers")
+        ),
+    )
+
+
+def _trigger_tuple_or_none(value: Any) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    return _trigger_tuple(value)
+
+
+def _trigger_tuple(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raw_values: Iterable[Any] = value.split(",")
+    elif isinstance(value, Iterable):
+        raw_values = value
+    else:
+        raw_values = (value,)
+    return tuple(
+        sorted({str(item).strip() for item in raw_values if str(item).strip()})
+    )
+
+
+def _adaptive_triggers(
+    record: dict[str, Any], policy: MultiCandidatePolicy
+) -> list[str]:
     triggers: list[str] = []
     retry_count = _int_or_default(record.get("retry_count"), 0)
     if retry_count > 0:
@@ -88,7 +144,11 @@ def _adaptive_triggers(record: dict[str, Any], policy: MultiCandidatePolicy) -> 
         and record.get("should_generate_sql") is not False
     ):
         triggers.append("missing_generated_sql")
-    if record.get("valid_sql") is False or record.get("validation_errors") or record.get("validation_issues"):
+    if (
+        record.get("valid_sql") is False
+        or record.get("validation_errors")
+        or record.get("validation_issues")
+    ):
         triggers.append("validation_failed")
     if record.get("execution_error"):
         triggers.append("execution_failed")
@@ -112,12 +172,34 @@ def _adaptive_triggers(record: dict[str, Any], policy: MultiCandidatePolicy) -> 
     return sorted(set(triggers))
 
 
+def _filter_triggers(
+    triggers: list[str],
+    policy: MultiCandidatePolicy,
+) -> tuple[list[str], list[str]]:
+    allowed = (
+        set(policy.allowed_triggers) if policy.allowed_triggers is not None else None
+    )
+    blocked = set(policy.blocked_triggers)
+    kept = sorted(
+        {
+            trigger
+            for trigger in triggers
+            if (allowed is None or trigger in allowed) and trigger not in blocked
+        }
+    )
+    suppressed = sorted(set(triggers) - set(kept))
+    return kept, suppressed
+
+
 def _has_complexity_marker(record: dict[str, Any]) -> bool:
     qir = record.get("qir")
     qir_dict = qir if isinstance(qir, dict) else {}
     if qir_dict.get("chart_intent") or qir_dict.get("time_range"):
         return True
-    if len(qir_dict.get("metrics") or []) > 1 or len(qir_dict.get("dimensions") or []) > 1:
+    if (
+        len(qir_dict.get("metrics") or []) > 1
+        or len(qir_dict.get("dimensions") or []) > 1
+    ):
         return True
     if qir_dict.get("expected_result_shape") == "table" and (
         len(qir_dict.get("dimensions") or []) >= 1
@@ -150,10 +232,19 @@ def _generation_was_attempted(record: dict[str, Any], *, retry_count: int) -> bo
         return True
     if record.get("attempts"):
         return True
-    if record.get("validation_errors") or record.get("validation_issues") or record.get("execution_error"):
+    if (
+        record.get("validation_errors")
+        or record.get("validation_issues")
+        or record.get("execution_error")
+    ):
         return True
     actual_action = str(record.get("actual_action") or "")
-    return actual_action in {"generate_sql", "format_answer", "fail_gracefully", "ask_clarification"}
+    return actual_action in {
+        "generate_sql",
+        "format_answer",
+        "fail_gracefully",
+        "ask_clarification",
+    }
 
 
 def _clamp(max_value: int, value: int) -> int:

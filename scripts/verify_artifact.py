@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,28 @@ from src.evaluation.metrics import (
     is_unsafe_sql,
     is_valid_sql,
 )
+
+_POLICY_BLOCKING_LABELS = {
+    "adjudication_required",
+    "partial_business_match",
+    "partial_or_mixed",
+    "unjudged",
+}
+_SEMANTIC_POLICY_LABELS = {
+    "correct",
+    "incorrect",
+    "partial_business_match",
+    "adjudication_required",
+}
+_STRICT_POLICY_LABELS = _SEMANTIC_POLICY_LABELS
+_COMBINED_POLICY_LABELS = {
+    "both_correct",
+    "both_incorrect",
+    "semantic_correct_strict_incorrect",
+    "semantic_incorrect_strict_correct",
+    "partial_or_mixed",
+    "adjudication_required",
+}
 
 
 @dataclass(frozen=True)
@@ -46,7 +70,7 @@ class ArtifactVerificationReport:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -63,6 +87,25 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _resolve_dataset_path(raw_path: Any, run_dir: Path) -> Path:
+    path = Path(str(raw_path))
+    if path.is_absolute():
+        return path
+    candidates = (PROJECT_ROOT / path, run_dir / path)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 def _write_issue(issues: list[ArtifactIssue], code: str, message: str) -> None:
     issues.append(ArtifactIssue(code=code, message=message))
 
@@ -72,7 +115,18 @@ def _path_from_summary(run_dir: Path, summary: dict[str, Any], key: str) -> Path
     if not isinstance(artifacts, dict) or not artifacts.get(key):
         return None
     raw_path = Path(str(artifacts[key]))
-    return raw_path if raw_path.is_absolute() else run_dir / raw_path
+    if raw_path.is_absolute():
+        return raw_path
+
+    candidates = (
+        run_dir / raw_path,
+        PROJECT_ROOT / raw_path,
+        run_dir / raw_path.name,
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def _find_one(run_dir: Path, pattern: str) -> Path | None:
@@ -264,10 +318,215 @@ def _check_required_file(
         _write_issue(issues, f"{key.upper()}_MISSING", f"Required artifact file is missing: {key}")
 
 
+def _coerce_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _positive_counts(value: Any) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for label, count in value.items():
+        coerced = _coerce_int(count)
+        if coerced is not None and coerced > 0:
+            counts[str(label)] = coerced
+    return counts
+
+
+def _counter_dict(counter: Counter[str]) -> dict[str, int]:
+    return {label: count for label, count in sorted(counter.items()) if count > 0}
+
+
+def _policy_label(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _pending_import_status(root: Path) -> str | None:
+    import_summary_path = root / "candidate_adoption_review_import_summary.json"
+    if not import_summary_path.exists():
+        return None
+    try:
+        summary = _load_json(import_summary_path)
+    except Exception:
+        return "invalid_import_summary"
+    return str(summary.get("status") or "unknown")
+
+
+def _verify_dual_policy_artifact(
+    issues: list[ArtifactIssue],
+    checked: dict[str, Any],
+    dual_policy_dir: str | Path | None,
+) -> None:
+    if not dual_policy_dir:
+        return
+
+    root = Path(dual_policy_dir)
+    summary_path = root / "dual_policy_summary.json"
+    cases_path = root / "dual_policy_cases.jsonl"
+    checked["dual_policy"] = {
+        "dir": str(root),
+        "summary": str(summary_path),
+        "cases": str(cases_path),
+    }
+
+    if not root.exists() or not root.is_dir():
+        _write_issue(
+            issues,
+            "DUAL_POLICY_DIR_MISSING",
+            f"Dual-policy artifact directory not found: {root}",
+        )
+        return
+
+    pending_status = _pending_import_status(root)
+    if pending_status and pending_status != "complete":
+        _write_issue(
+            issues,
+            "DUAL_POLICY_PENDING_REVIEW",
+            f"Candidate review import is not complete: status={pending_status}.",
+        )
+
+    if not summary_path.exists():
+        _write_issue(
+            issues,
+            "DUAL_POLICY_SUMMARY_MISSING",
+            f"dual_policy_summary.json is required in {root}.",
+        )
+        return
+    if not cases_path.exists():
+        _write_issue(
+            issues,
+            "DUAL_POLICY_CASES_MISSING",
+            f"dual_policy_cases.jsonl is required in {root}.",
+        )
+        return
+
+    try:
+        summary = _load_json(summary_path)
+    except Exception as exc:
+        _write_issue(
+            issues, "DUAL_POLICY_SUMMARY_INVALID", f"Cannot parse dual policy summary: {exc}"
+        )
+        return
+    try:
+        cases = _load_jsonl(cases_path)
+    except Exception as exc:
+        _write_issue(issues, "DUAL_POLICY_CASES_INVALID", f"Cannot parse dual policy cases: {exc}")
+        return
+
+    common_cases = _coerce_int(summary.get("common_cases"))
+    authoritative = summary.get("authoritative") is True
+    checked["dual_policy"].update(
+        {
+            "authoritative": authoritative,
+            "common_cases": common_cases,
+            "case_count": len(cases),
+        }
+    )
+
+    if not authoritative:
+        _write_issue(
+            issues,
+            "DUAL_POLICY_NOT_AUTHORITATIVE",
+            "Dual-policy evidence must be marked authoritative before final verification.",
+        )
+    if common_cases is None or common_cases <= 0:
+        _write_issue(
+            issues,
+            "DUAL_POLICY_COMMON_CASES_MISSING",
+            "Dual-policy summary must record a positive common_cases count.",
+        )
+    elif common_cases != len(cases):
+        _write_issue(
+            issues,
+            "DUAL_POLICY_CASE_COUNT_MISMATCH",
+            f"dual_policy_cases count {len(cases)} does not match common_cases {common_cases}.",
+        )
+
+    expected_fields = {
+        "semantic_policy_label": _SEMANTIC_POLICY_LABELS,
+        "strict_policy_label": _STRICT_POLICY_LABELS,
+        "combined_label": _COMBINED_POLICY_LABELS,
+    }
+    invalid_labels: dict[str, set[str]] = {field: set() for field in expected_fields}
+    missing_fields: dict[str, int] = {field: 0 for field in expected_fields}
+    derived_counts: dict[str, Counter[str]] = {
+        "semantic_counts": Counter(),
+        "strict_counts": Counter(),
+        "combined_counts": Counter(),
+    }
+
+    for row in cases:
+        for field, allowed in expected_fields.items():
+            label = _policy_label(row.get(field))
+            if not label:
+                missing_fields[field] += 1
+                continue
+            if label not in allowed:
+                invalid_labels[field].add(label)
+            if field == "semantic_policy_label":
+                derived_counts["semantic_counts"][label] += 1
+            elif field == "strict_policy_label":
+                derived_counts["strict_counts"][label] += 1
+            else:
+                derived_counts["combined_counts"][label] += 1
+
+    missing = {field: count for field, count in missing_fields.items() if count}
+    if missing:
+        _write_issue(
+            issues,
+            "DUAL_POLICY_LABEL_MISSING",
+            f"Dual-policy case labels are missing: {missing}.",
+        )
+    invalid = {field: sorted(labels) for field, labels in invalid_labels.items() if labels}
+    if invalid:
+        _write_issue(
+            issues,
+            "DUAL_POLICY_LABEL_INVALID",
+            f"Dual-policy case labels contain unsupported values: {invalid}.",
+        )
+
+    blocking_counts: dict[str, int] = {}
+    for group_name, counter in derived_counts.items():
+        for label, count in counter.items():
+            if label in _POLICY_BLOCKING_LABELS and count > 0:
+                blocking_counts[f"{group_name}.{label}"] = count
+
+    for group_name, counter in derived_counts.items():
+        summary_counts = _positive_counts(summary.get(group_name))
+        if not summary_counts:
+            _write_issue(
+                issues,
+                "DUAL_POLICY_COUNTS_MISSING",
+                f"Dual-policy summary must include positive {group_name}.",
+            )
+            continue
+        if summary_counts != _counter_dict(counter):
+            _write_issue(
+                issues,
+                "DUAL_POLICY_COUNTS_MISMATCH",
+                f"{group_name} {summary_counts} does not match derived counts {_counter_dict(counter)}.",
+            )
+        for label, count in summary_counts.items():
+            if label in _POLICY_BLOCKING_LABELS and count > 0:
+                blocking_counts[f"{group_name}.{label}"] = count
+
+    checked["dual_policy"]["blocking_counts"] = blocking_counts
+    if blocking_counts:
+        _write_issue(
+            issues,
+            "DUAL_POLICY_INCOMPLETE_LABELS",
+            f"Dual-policy evidence still contains unresolved labels: {blocking_counts}.",
+        )
+
+
 def verify_artifact(
     artifact_dir: str | Path,
     *,
     manifest_path: str | Path | None = None,
+    dual_policy_dir: str | Path | None = None,
     allow_smoke: bool = False,
 ) -> ArtifactVerificationReport:
     run_dir = Path(artifact_dir)
@@ -526,6 +785,28 @@ def verify_artifact(
         if not config.get(key):
             _write_issue(issues, f"{key.upper()}_MISSING", f"Config must include {key}.")
 
+    dataset_path_raw = config.get("dataset_path")
+    expected_dataset_hash = config.get("dataset_hash")
+    if dataset_path_raw and expected_dataset_hash:
+        dataset_path = _resolve_dataset_path(dataset_path_raw, run_dir)
+        checked["dataset_path"] = str(dataset_path)
+        checked["dataset_path_exists"] = dataset_path.exists() and dataset_path.is_file()
+        if not checked["dataset_path_exists"]:
+            _write_issue(
+                issues,
+                "DATASET_PATH_MISSING",
+                f"Config dataset_path cannot be verified: {dataset_path}",
+            )
+        else:
+            current_dataset_hash = _sha256_file(dataset_path)
+            checked["current_dataset_hash"] = current_dataset_hash
+            if current_dataset_hash != expected_dataset_hash:
+                _write_issue(
+                    issues,
+                    "DATASET_HASH_DRIFT",
+                    "Current dataset file hash does not match artifact config dataset_hash.",
+                )
+
     if _is_smoke_run(run_dir, summary, config) and not allow_smoke:
         _write_issue(
             issues,
@@ -558,6 +839,8 @@ def verify_artifact(
             "Identity placeholder reranker must not be cited as a real reranker.",
         )
 
+    _verify_dual_policy_artifact(issues, checked, dual_policy_dir)
+
     checked.update(
         {
             "prediction_count": len(predictions),
@@ -575,6 +858,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("artifact_dir", help="Benchmark artifact directory.")
     parser.add_argument("--manifest", help="Manifest JSON path containing this run.")
     parser.add_argument(
+        "--dual-policy-dir",
+        help=(
+            "Optional dual-policy evidence directory. When provided, it must contain "
+            "authoritative and complete dual_policy_summary/cases artifacts."
+        ),
+    )
+    parser.add_argument(
         "--allow-smoke",
         action="store_true",
         help="Allow smoke artifacts to pass smoke-run checks.",
@@ -588,6 +878,7 @@ def main() -> None:
     report = verify_artifact(
         args.artifact_dir,
         manifest_path=args.manifest,
+        dual_policy_dir=args.dual_policy_dir,
         allow_smoke=args.allow_smoke,
     )
     if args.json:

@@ -76,13 +76,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Merge split judge_benchmark_artifact.py output directories into one summary artifact.",
     )
-    parser.add_argument("artifact_dirs", nargs="+", help="Input results/judgments/<chunk> directories.")
+    parser.add_argument(
+        "artifact_dirs", nargs="+", help="Input results/judgments/<chunk> directories."
+    )
     parser.add_argument("--output-dir", required=True, help="Merged output directory.")
     parser.add_argument(
         "--duplicate-policy",
-        choices=["error", "keep-first", "keep-last"],
+        choices=["error", "keep-first", "keep-last", "prefer-authoritative"],
         default="error",
-        help="How to handle duplicate case IDs across chunks. Use keep-last for retry patch artifacts.",
+        help=(
+            "How to handle duplicate case IDs across chunks. Use prefer-authoritative "
+            "for retry artifacts that may contain provider parse errors."
+        ),
     )
     return parser
 
@@ -97,6 +102,7 @@ def main() -> None:
     judgments_without_case: list[dict[str, Any]] = []
     reasoning_parts: list[str] = []
     seen_cases: set[str] = set()
+    duplicate_resolution_counts: Counter[str] = Counter()
 
     for raw_dir in args.artifact_dirs:
         artifact_dir = Path(raw_dir)
@@ -109,21 +115,52 @@ def main() -> None:
             case_id = str(row.get("case_id") or row.get("item_id") or "")
             if case_id:
                 if case_id in seen_cases:
+                    duplicate_resolution_counts["duplicates"] += 1
                     if args.duplicate_policy == "error":
-                        raise ValueError(f"Duplicate judged case_id across chunks: {case_id}")
+                        raise ValueError(
+                            f"Duplicate judged case_id across chunks: {case_id}"
+                        )
                     if args.duplicate_policy == "keep-first":
+                        duplicate_resolution_counts["kept_first"] += 1
                         continue
+                    if args.duplicate_policy == "prefer-authoritative":
+                        existing = judgments_by_case[case_id]
+                        existing_authoritative = bool(existing.get("authoritative"))
+                        row_authoritative = bool(row.get("authoritative"))
+                        if existing_authoritative and not row_authoritative:
+                            duplicate_resolution_counts[
+                                "kept_existing_authoritative"
+                            ] += 1
+                            continue
+                        if not existing_authoritative and row_authoritative:
+                            duplicate_resolution_counts[
+                                "replaced_with_authoritative"
+                            ] += 1
+                            judgments_by_case[case_id] = row
+                            continue
+                        if existing_authoritative and row_authoritative:
+                            duplicate_resolution_counts["kept_first_authoritative"] += 1
+                        else:
+                            duplicate_resolution_counts[
+                                "kept_first_non_authoritative"
+                            ] += 1
+                        continue
+                    duplicate_resolution_counts["kept_last"] += 1
                 seen_cases.add(case_id)
                 judgments_by_case[case_id] = row
             else:
                 judgments_without_case.append(row)
         reasoning_path = artifact_dir / "judge_reasoning.md"
         if reasoning_path.exists():
-            reasoning_parts.append(f"\n\n## Source: {artifact_dir}\n\n{reasoning_path.read_text(encoding='utf-8')}")
+            reasoning_parts.append(
+                f"\n\n## Source: {artifact_dir}\n\n{reasoning_path.read_text(encoding='utf-8')}"
+            )
 
     verdict_counts: Counter[str] = Counter()
     semantic_counts: Counter[str] = Counter()
-    judgments = [judgments_by_case[key] for key in sorted(judgments_by_case)] + judgments_without_case
+    judgments = [
+        judgments_by_case[key] for key in sorted(judgments_by_case)
+    ] + judgments_without_case
 
     authoritative_judgments = 0
     non_authoritative_judgments = 0
@@ -163,6 +200,8 @@ def main() -> None:
     summary_out = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "merged_from": [str(Path(path)) for path in args.artifact_dirs],
+        "duplicate_policy": args.duplicate_policy,
+        "duplicate_resolution_counts": _counter_to_dict(duplicate_resolution_counts),
         "provider": provider,
         "model": model,
         "prompt_version": prompt_version,
@@ -186,7 +225,10 @@ def main() -> None:
         "reasoning_tokens": reasoning_tokens,
         "reasoning_details_present": reasoning_details_present,
         "redaction_policy": redaction_policy,
-        "anti_fake_policy": "Merged from live judge artifacts. No judgments are inferred or rewritten.",
+        "anti_fake_policy": (
+            "Merged from live judge artifacts. No judgments are inferred or rewritten. "
+            "Duplicate retry rows are resolved only by the declared duplicate policy."
+        ),
     }
 
     costs_out = {
@@ -197,7 +239,11 @@ def main() -> None:
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
         "estimated_cost_usd": estimated_cost_usd,
-        "cost_authoritative": all(bool(_read_json(Path(path) / "judge_costs.json").get("cost_authoritative")) for path in args.artifact_dirs if (Path(path) / "judge_costs.json").exists()),
+        "cost_authoritative": all(
+            bool(_read_json(Path(path) / "judge_costs.json").get("cost_authoritative"))
+            for path in args.artifact_dirs
+            if (Path(path) / "judge_costs.json").exists()
+        ),
         "note": "Merged token counts from chunk-level judge_costs.json files.",
     }
 
@@ -245,7 +291,9 @@ def main() -> None:
     _write_jsonl(output_dir / "judgments.jsonl", judgments)
     _write_json(output_dir / "judge_summary.json", summary_out)
     _write_json(output_dir / "judge_costs.json", costs_out)
-    (output_dir / "judge_reasoning.md").write_text("\n".join(reasoning_parts).strip() + "\n", encoding="utf-8")
+    (output_dir / "judge_reasoning.md").write_text(
+        "\n".join(reasoning_parts).strip() + "\n", encoding="utf-8"
+    )
 
     print(f"project_root={PROJECT_ROOT}")
     print(f"chunks={len(args.artifact_dirs)}")

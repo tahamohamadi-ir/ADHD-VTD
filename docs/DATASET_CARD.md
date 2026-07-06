@@ -1,6 +1,6 @@
 # VTD / PARS-SQL Dataset Card
 
-Last updated: 2026-06-21
+Last updated: 2026-07-01
 
 ## Dataset Name
 
@@ -13,6 +13,7 @@ This card documents the dataset package used for Paper 1 of PARS-SQL:
 - `positive400`: 400 SQL-positive Persian/Text-to-SQL examples.
 - `behavioral100`: 100 behavioral/reliability examples split as `behavior_dev=40` and `behavior_test=60`.
 - `vtd_total_500_dataset_package`: package view of the 400 + 100 examples.
+- `positive400` and `behavioral100` use different denominators and are reported separately.
 
 The dataset is for research evaluation of Persian-aware, reliability-first Text-to-SQL over mental-health and student-lifestyle analytics.
 
@@ -33,6 +34,20 @@ Evaluation mode: read-only SELECT execution
 - Behavioral evaluation for ambiguity, unsafe requests, out-of-schema requests, no-SQL answers, chart advice, typo/Finglish, and multi-turn-like utterances.
 - Reproducible research artifacts for PARS-SQL Paper 1.
 
+## Data Origin and Review Status
+
+The benchmark is primarily manually authored for research evaluation. Any
+LLM-assisted generation or reviewer involvement must be documented in the
+relevant artifact manifest before it is cited.
+
+Current publication posture:
+
+- Treat single-annotator coverage as a limitation unless a second-review or
+  judge artifact exists.
+- Report agreement percentage or Cohen's kappa only from an explicit agreement
+  artifact.
+- Do not use behavioral examples in strict SQL execution denominators.
+
 ## Not Intended For
 
 - Clinical diagnosis.
@@ -51,7 +66,7 @@ Positive split: train/dev/test = 280/60/60
 Behavioral split: behavior_dev/behavior_test = 40/60
 ```
 
-Behavioral examples must not be mixed into the denominator for SQL execution accuracy. They are evaluated with action/reliability metrics such as expected-action accuracy, safety rejection, clarification accuracy, and abstention precision/recall.
+Behavioral examples must not be mixed into the denominator for SQL execution accuracy. They are evaluated with action/reliability metrics such as expected-action accuracy, safety rejection, clarification accuracy, and abstention precision/recall; behavioral and SQL-positive metrics are reported separately.
 
 ## Current Artifact-Backed Audit Status
 
@@ -63,7 +78,11 @@ Behavioral examples must not be mixed into the denominator for SQL execution acc
 - Behavioral artifact:
   `results/benchmark/20260621_072711_agent_behavior_test_qwen2-5-coder-7b_paper1_behavior_test_b1_2_actionfix`
 - Result: `expected_action_accuracy=52/60=0.8667`, `unsafe_sql=0`, `safety_rejection_accuracy=1.0`, `abstention_recall=1.0`.
-- Full `behavior_dev=40` has not yet been run as a final artifact; only a 20-case smoke exists.
+- `behavior_dev` full run is complete.
+- Behavioral dev artifact:
+  `results/benchmark/20260621_205133_agent_behavior_dev_qwen2_5-coder-7b-instruct-q4_k_m_paper1_behavior_dev_full`
+- Result: `expected_action_accuracy=24/40=0.6`, `unsafe_sql=0`, `safety_rejection_accuracy=6/6=1.0`, `abstention_recall=30/33=0.9091`.
+- Combined behavioral100 action metrics are reported separately from SQL-positive execution metrics.
 
 ## Annotation and Audit Notes
 
@@ -74,6 +93,18 @@ The benchmark is primarily author-created and research-oriented. The paper shoul
 - Whether a second reviewer or LLM-as-judge subset was used.
 - Agreement percentage or Cohen's kappa if second-review annotation is completed.
 - Known failures and limitations for typo/Finglish/cross-source behavioral SQL-positive cases.
+- SQL-positive audit status and behavioral robustness findings use different denominators and are reported separately.
+
+## Historical Phase 0 Gates
+
+The old Phase 0 checklist is now folded into the dataset and artifact
+governance docs. The relevant gates are:
+
+- Freeze the SQLite schema and generated schema snapshot.
+- Audit gold SQL against the current database.
+- Keep the dataset card current.
+- Store audit reports under `data/audit/` or the relevant artifact directory.
+- Commit or package manifests, hashes, and summaries together.
 
 ## Leakage and Split Policy
 
@@ -96,6 +127,7 @@ The benchmark is aggregate-analytics oriented. The system must refuse or abstain
 - The dataset is not a clinical benchmark.
 - Persian colloquial, Finglish, typo-heavy, and Jalali coverage is useful but not exhaustive.
 - `behavior_test` shows strong safety/abstention behavior but weak execution correctness on SQL-positive behavioral robustness cases.
+- Behavioral safety/abstention and SQL-positive robustness are reported separately with different denominators.
 - A model-backed reranker is not yet part of the final retrieval claim; current R3 verifies identity-reranker wiring only.
-- Full no-template local agent evaluation over `positive400` is still pending.
-
+- Full no-template local agent claims must be taken only from verified artifacts
+  listed in the reproducibility notes.

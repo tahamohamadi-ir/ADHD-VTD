@@ -98,6 +98,58 @@ def git_commit() -> str | None:
     return proc.stdout.strip() or None
 
 
+def build_artifact_manifest(
+    output_dir: Path,
+    summary: dict[str, Any],
+    artifact_paths: dict[str, Path],
+) -> dict[str, Any]:
+    config = summary.get("config") if isinstance(summary.get("config"), dict) else {}
+    metrics = summary.get("metrics") if isinstance(summary.get("metrics"), dict) else {}
+    manifest_key = str(config.get("config_id") or config.get("ablation_id") or output_dir.name)
+    artifact_entry = {
+        "result_status": "completed",
+        "artifact_dir": str(output_dir),
+        "config_id": config.get("config_id"),
+        "ablation_id": config.get("ablation_id"),
+        "mode": config.get("mode"),
+        "dataset": config.get("dataset"),
+        "dataset_hash": config.get("dataset_hash"),
+        "selected_cases_hash": config.get("selected_cases_hash"),
+        "model_name": config.get("model_name"),
+        "model_path": config.get("model_path"),
+        "model_slug": config.get("model_slug"),
+        "prompt_template": config.get("prompt_template"),
+        "module_flags": config.get("module_flags"),
+        "deterministic_templates": (config.get("module_flags") or {}).get(
+            "deterministic_templates"
+        ),
+        "git_commit": config.get("git_commit"),
+        "started_at": config.get("started_at"),
+        "finished_at": config.get("finished_at"),
+        "artifacts": {key: str(path) for key, path in artifact_paths.items()},
+        "metrics": {
+            key: {
+                "value": value.get("value"),
+                "numerator": value.get("numerator"),
+                "denominator": value.get("denominator"),
+            }
+            for key, value in metrics.items()
+            if isinstance(value, dict)
+        },
+    }
+    return {
+        "schema_version": "pars_sql_benchmark_artifact_manifest_v1",
+        "generated_at": utc_now(),
+        "anti_fake_policy": (
+            "This manifest records completed benchmark artifacts only. "
+            "Config-only, dry-run, smoke, failed judge, and placeholder reranker outputs "
+            "must not be cited as final paper results."
+        ),
+        "completed": {manifest_key: artifact_entry},
+        "runs": [artifact_entry],
+    }
+
+
 def sha256_file(path: Path) -> str | None:
     if not path.exists() or not path.is_file():
         return None
@@ -296,6 +348,23 @@ def classify_agent_exception(exc: Exception) -> str:
     return "AGENT_EXCEPTION"
 
 
+def _dict_or_none(value: Any) -> dict[str, Any] | None:
+    if hasattr(value, "model_dump"):
+        value = value.model_dump()
+    return value if isinstance(value, dict) else None
+
+
+def _latency_ms_from_payload(value: Any) -> int | None:
+    payload = _dict_or_none(value)
+    if not payload:
+        return None
+    try:
+        parsed = int(payload.get("latency_ms"))
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
 def exception_prediction(
     case: dict[str, Any],
     exc: Exception,
@@ -356,7 +425,7 @@ def agent_prediction(
     workflow: Any,
     executor: ReadOnlyExecutor,
     *,
-    ablation_config: dict[str, bool] | None = None,
+    ablation_config: dict[str, Any] | None = None,
     exclude_self_retrieval: bool = False,
     top_k: int = 5,
     max_retries_override: int | None = None,
@@ -448,6 +517,9 @@ def agent_prediction(
             final_state=final_state_dict,
         )
     )
+    candidate_verification = final_state_dict.get("candidate_verification")
+    reliability_decision = final_state_dict.get("reliability_decision")
+    graph_reliability_gate_latency_ms = _latency_ms_from_payload(reliability_decision)
 
     prediction = {
         "actual_action": actual_action,
@@ -493,8 +565,12 @@ def agent_prediction(
         "candidate_sqls": final_state_dict.get("candidate_sqls", []),
         "selected_candidate_id": final_state_dict.get("selected_candidate_id"),
         "candidate_consistency": final_state_dict.get("candidate_consistency"),
-        "candidate_verification": final_state_dict.get("candidate_verification"),
+        "candidate_verification": candidate_verification,
+        "candidate_verification_latency_ms": _latency_ms_from_payload(candidate_verification),
         "multi_candidate_policy": final_state_dict.get("multi_candidate_policy"),
+        "multi_candidate_generation_budget": final_state_dict.get(
+            "multi_candidate_generation_budget"
+        ),
         "multi_candidate_generation_enabled": bool(
             (ablation_config or {}).get("multi_candidate_generation", False)
         ),
@@ -508,6 +584,8 @@ def agent_prediction(
             (ablation_config or {}).get("reliability_gate_review_consistency_failures", False)
         ),
         "reliability": final_state_dict.get("reliability"),
+        "reliability_decision": reliability_decision,
+        "graph_reliability_gate_latency_ms": graph_reliability_gate_latency_ms,
         "error": error,
     }
     if (ablation_config or {}).get("reliability_gate", False):
@@ -524,8 +602,13 @@ def agent_prediction(
             "safety_label": final_state_dict.get("safety_label"),
             "sql_consistency_issues": [issue.as_dict() for issue in consistency_report.issues],
         }
+        gate_started = time.perf_counter()
         gate_decision = evaluate_reliability_gate(gate_record)
-        prediction["reliability_gate"] = gate_decision.as_dict()
+        reliability_gate_latency_ms = int((time.perf_counter() - gate_started) * 1000)
+        gate_payload = gate_decision.as_dict()
+        gate_payload["latency_ms"] = reliability_gate_latency_ms
+        prediction["reliability_gate"] = gate_payload
+        prediction["reliability_gate_latency_ms"] = reliability_gate_latency_ms
         prediction["reliability_gate_action"] = gate_decision.action
         prediction["reliability_gate_reason"] = gate_decision.reason
         prediction["reliability_gate_warnings"] = gate_decision.warnings
@@ -673,9 +756,9 @@ def get_model_name() -> str:
     return Path(get_model_path() or "qwen2.5-coder-7b-default").stem
 
 
-def split_module_flags(flags: dict[str, bool]) -> tuple[list[str], list[str]]:
-    enabled = sorted(k for k, v in flags.items() if bool(v))
-    disabled = sorted(k for k, v in flags.items() if not bool(v))
+def split_module_flags(flags: dict[str, Any]) -> tuple[list[str], list[str]]:
+    enabled = sorted(k for k, v in flags.items() if isinstance(v, bool) and v)
+    disabled = sorted(k for k, v in flags.items() if isinstance(v, bool) and not v)
     return enabled, disabled
 
 
@@ -938,6 +1021,7 @@ def run(args: argparse.Namespace) -> Path:
         "reliability_summary_csv": output_dir / f"{prefix}_reliability_summary.csv",
         "error_taxonomy_csv": output_dir / f"{prefix}_error_taxonomy.csv",
         "paper_tables_md": output_dir / f"{prefix}_paper_tables.md",
+        "manifest": output_dir / f"{prefix}_artifact_manifest.json",
     }
     if args.mode == "retrieval":
         artifact_paths["retrieval_metrics"] = output_dir / f"{prefix}_retrieval_metrics.json"
@@ -1009,6 +1093,10 @@ def run(args: argparse.Namespace) -> Path:
     generate_paper_tables(summary, artifact_paths["paper_tables_md"])
 
     write_benchmark_markdown_report(summary, artifact_paths["summary_md"])
+    write_json(
+        artifact_paths["manifest"],
+        build_artifact_manifest(output_dir, summary, artifact_paths),
+    )
     print_terminal_summary(summary, output_dir, failures)
     return output_dir
 

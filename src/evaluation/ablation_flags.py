@@ -26,6 +26,9 @@ RUNTIME_LOCKED_FLAGS = {
 
 RUNTIME_PARAMETER_FLAGS = {
     "max_retries",
+    "multi_candidate_extra_generation_budget_ms",
+    "multi_candidate_allowed_triggers",
+    "multi_candidate_blocked_triggers",
     "retrieval_backend",
     "reranker",
 }
@@ -33,19 +36,26 @@ RUNTIME_PARAMETER_FLAGS = {
 METADATA_ONLY_FLAGS: dict[str, str] = {}
 
 
-def normalize_feature_flags(flags: dict[str, Any] | None) -> dict[str, bool]:
+def normalize_feature_flags(flags: dict[str, Any] | None) -> dict[str, Any]:
     if not flags:
         return {}
-    return {str(key): bool(value) for key, value in flags.items() if isinstance(value, bool)}
+    normalized: dict[str, Any] = {}
+    for raw_key, value in flags.items():
+        key = str(raw_key)
+        if isinstance(value, bool):
+            normalized[key] = value
+        elif key in RUNTIME_PARAMETER_FLAGS:
+            normalized[key] = value
+    return normalized
 
 
-def ablation_runtime_contract(flags: dict[str, bool]) -> dict[str, Any]:
+def ablation_runtime_contract(flags: dict[str, Any]) -> dict[str, Any]:
     warnings: list[str] = []
     enforced: dict[str, bool] = {}
     locked: dict[str, bool] = {}
     runtime_parameters: dict[str, Any] = {}
     metadata_only: dict[str, bool] = {}
-    unknown: dict[str, bool] = {}
+    unknown: dict[str, Any] = {}
 
     for key, value in sorted(flags.items()):
         if key in RUNTIME_ENFORCED_FLAGS:

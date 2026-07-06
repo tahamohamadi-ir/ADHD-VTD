@@ -42,7 +42,10 @@ from src.evaluation.candidate_consistency import (
     analyze_candidate_consistency,
 )
 from src.evaluation.candidate_verifier import verify_sql_candidates
-from src.evaluation.multi_candidate_policy import decide_multi_candidate
+from src.evaluation.multi_candidate_policy import (
+    decide_multi_candidate,
+    multi_candidate_policy_from_config,
+)
 from src.output.answer_formatter import format_answer as output_format_answer
 from src.output.chart_recommender import recommend_chart
 from src.output.explanation_builder import build_explanation
@@ -50,6 +53,32 @@ from src.output.explanation_builder import build_explanation
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
 _DEFAULT_SQL_GENERATION_MAX_TOKENS = 512
+_CANDIDATE_PROMPT_VARIANTS: tuple[str, ...] = (
+    "primary",
+    "variant_2_independent_equivalent",
+    "variant_3_conservative_cte_or_alias",
+)
+
+_CANDIDATE_PROMPT_SUFFIXES: dict[str, str] = {
+    "variant_2_independent_equivalent": """
+
+Candidate verifier variant 2:
+Independently solve the same question for verifier comparison.
+Prefer a different safe SQLite formulation only if it preserves the exact requested semantics.
+Allowed differences include explicit aliases, equivalent aggregate expressions, or a simple CTE.
+Do not add hidden WHERE filters, hidden GROUP BY dimensions, new joins, new tables, or SELECT *.
+Return only the same JSON object schema as the original prompt.
+""",
+    "variant_3_conservative_cte_or_alias": """
+
+Candidate verifier variant 3:
+Produce a conservative alternative SQL candidate for verifier comparison.
+Keep the same query shape, requested filters, grouping keys, ranking/time grain, and schema scope.
+If no safe equivalent alternative exists, return the canonical SQL rather than changing semantics.
+Do not use destructive SQL, comments, SELECT *, or non-SQLite syntax.
+Return only the same JSON object schema as the original prompt.
+""",
+}
 
 _UNKNOWN_COLUMN_ALIASES: tuple[dict[str, Any], ...] = (
     {
@@ -110,6 +139,17 @@ def _sql_generation_max_tokens() -> int:
     except ValueError:
         return _DEFAULT_SQL_GENERATION_MAX_TOKENS
     return value if value > 0 else _DEFAULT_SQL_GENERATION_MAX_TOKENS
+
+
+def _multi_candidate_extra_generation_budget_ms(config: dict[str, Any]) -> int | None:
+    raw = config.get("multi_candidate_extra_generation_budget_ms")
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
 
 
 def _with_retry_increment(state: VTDState, updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -540,7 +580,8 @@ def plan_multi_candidate(state: VTDState) -> Dict[str, Any]:
             "execution_error": state.execution_error,
             "should_generate_sql": state.should_generate_sql,
             "generation_attempted": bool(state.attempts or state.raw_model_response),
-        }
+        },
+        policy=multi_candidate_policy_from_config(state.ablation_config),
     )
     return {"multi_candidate_policy": decision.as_dict()}
 
@@ -629,11 +670,17 @@ def _generate_sql_candidates(
     parsed_payloads: dict[str, dict[str, Any] | None] = {}
     candidates: list[dict[str, Any]] = []
     started = time.perf_counter()
+    extra_generation_budget_ms = _multi_candidate_extra_generation_budget_ms(
+        state.ablation_config
+    )
+    budget_exhausted = False
 
     for index in range(requested):
         candidate_id = f"candidate_{index + 1}"
+        prompt_variant = _candidate_prompt_variant(index)
+        candidate_prompt = _candidate_generation_prompt(state.prompt, prompt_variant)
         response_text = llm.generate_json(
-            state.prompt,
+            candidate_prompt,
             enforce_json=True,
             max_tokens=_sql_generation_max_tokens(),
         )
@@ -647,8 +694,17 @@ def _generate_sql_candidates(
             state=state,
             raw_model_response=response_text,
             parsed_payload=parsed,
+            prompt_variant=prompt_variant,
         )
         candidates.append(candidate)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        if (
+            extra_generation_budget_ms is not None
+            and index < requested - 1
+            and elapsed_ms >= extra_generation_budget_ms
+        ):
+            budget_exhausted = True
+            break
 
     consistency_report = analyze_candidate_consistency(
         [
@@ -691,6 +747,7 @@ def _generate_sql_candidates(
         and (verification_report is None or verification_report.action == "select")
         and selected is not None
         and _candidate_is_viable(selected)
+        and _candidate_is_adoption_improvement(selected, primary, primary_id=primary_id)
         else None
     )
     output_candidate_id = adopted_candidate_id or primary_id
@@ -698,7 +755,7 @@ def _generate_sql_candidates(
     selected_payload = parsed_payloads.get(output_candidate_id)
     generation_latency_ms = int((time.perf_counter() - started) * 1000)
 
-    return {
+    result = {
         "generated_sql": selected_raw,
         "raw_model_response": selected_raw,
         "generation_source": "llm_multi_candidate",
@@ -709,6 +766,14 @@ def _generate_sql_candidates(
         "candidate_verification": verification_report.as_dict() if verification_report else None,
         "parsed_payload": selected_payload,
     }
+    if extra_generation_budget_ms is not None:
+        result["multi_candidate_generation_budget"] = {
+            "configured_budget_ms": extra_generation_budget_ms,
+            "requested_candidate_count": requested,
+            "generated_candidate_count": len(candidates),
+            "budget_exhausted": budget_exhausted,
+        }
+    return result
 
 
 def _inspect_sql_candidate(
@@ -718,10 +783,12 @@ def _inspect_sql_candidate(
     state: VTDState,
     raw_model_response: str,
     parsed_payload: dict[str, Any] | None,
+    prompt_variant: str,
 ) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "raw_model_response": raw_model_response,
         "parsed": parsed_payload is not None,
+        "prompt_variant": prompt_variant,
     }
     if not sql:
         metadata["shape_ok"] = False
@@ -807,6 +874,42 @@ def _candidate_is_viable(candidate: dict[str, Any]) -> bool:
         and candidate.get("valid_sql") is not False
         and candidate.get("execution_passed") is not False
     )
+
+
+def _candidate_prompt_variant(index: int) -> str:
+    if index < len(_CANDIDATE_PROMPT_VARIANTS):
+        return _CANDIDATE_PROMPT_VARIANTS[index]
+    return _CANDIDATE_PROMPT_VARIANTS[-1]
+
+
+def _candidate_generation_prompt(base_prompt: str | None, prompt_variant: str) -> str:
+    prompt = (base_prompt or "").rstrip()
+    suffix = _CANDIDATE_PROMPT_SUFFIXES.get(prompt_variant)
+    if not suffix:
+        return prompt
+    return f"{prompt}{suffix.rstrip()}"
+
+
+def _candidate_is_adoption_improvement(
+    selected: dict[str, Any],
+    primary: dict[str, Any],
+    *,
+    primary_id: str,
+) -> bool:
+    if str(selected.get("candidate_id")) == str(primary_id):
+        return False
+    return _candidate_runtime_score(selected) > _candidate_runtime_score(primary)
+
+
+def _candidate_runtime_score(candidate: dict[str, Any]) -> float:
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
+    score = (
+        metadata.get("candidate_score") if isinstance(metadata.get("candidate_score"), dict) else {}
+    )
+    try:
+        return float(score.get("score"))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _validation_issues_as_dict(issues: list[Any]) -> list[dict[str, Any]]:

@@ -110,6 +110,7 @@ class VTDState(BaseModel):
     candidate_verification: dict[str, Any] | None = None
     reliability_decision: dict[str, Any] | None = None
     multi_candidate_policy: dict[str, Any] | None = None
+    multi_candidate_generation_budget: dict[str, Any] | None = None
     reliability: ReliabilityState | None = None
 
     final_answer: str | None = None
@@ -118,7 +119,7 @@ class VTDState(BaseModel):
     benchmark_record: dict[str, Any] | None = None
 
     # Ablation configuration for research studies
-    ablation_config: dict[str, bool] = Field(
+    ablation_config: dict[str, Any] = Field(
         default_factory=lambda: {
             "reflexion": True,
             "cag": True,
