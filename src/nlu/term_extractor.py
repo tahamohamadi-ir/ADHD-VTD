@@ -4,6 +4,7 @@ Extracts semantic anchor tokens from a normalized Persian question.
 These tokens are used as input to the schema linker and value linker
 for matching against schema aliases, glossary terms, and metric definitions.
 """
+
 from __future__ import annotations
 
 import re
@@ -14,28 +15,115 @@ from src.nlu.persian_normalizer import PersianNormalizer
 
 # Common Persian stopwords that carry no schema-linking signal
 PERSIAN_STOPWORDS: set[str] = {
-    "و", "در", "به", "از", "که", "این", "را", "با", "آن", "یک", "یه",
-    "برای", "تا", "هم", "است", "بود", "شد", "می", "هر", "اگر", "یا",
-    "ها", "های", "ای", "آیا", "چه", "اما", "ولی", "بین", "همه",
-    "هست", "نیست", "باشد", "شود", "شده", "بر", "روی", "کنید", "کنم",
-    "لطفا", "لطفاً", "بده", "بگو", "نشون", "نشان", "نمایش",
-    "مقدار", "مقداری", "چند", "چندتا", "چنده", "تعدادی",
-    "خیلی", "خوب", "بد", "کمی",
+    "و",
+    "در",
+    "به",
+    "از",
+    "که",
+    "این",
+    "را",
+    "با",
+    "آن",
+    "یک",
+    "یه",
+    "برای",
+    "تا",
+    "هم",
+    "است",
+    "بود",
+    "شد",
+    "می",
+    "هر",
+    "اگر",
+    "یا",
+    "ها",
+    "های",
+    "ای",
+    "آیا",
+    "چه",
+    "اما",
+    "ولی",
+    "بین",
+    "همه",
+    "هست",
+    "نیست",
+    "باشد",
+    "شود",
+    "شده",
+    "بر",
+    "روی",
+    "کنید",
+    "کنم",
+    "لطفا",
+    "لطفاً",
+    "بده",
+    "بگو",
+    "نشون",
+    "نشان",
+    "نمایش",
+    "مقدار",
+    "مقداری",
+    "چند",
+    "چندتا",
+    "چنده",
+    "تعدادی",
+    "خیلی",
+    "خوب",
+    "بد",
+    "کمی",
 }
 
 # English stopwords commonly appearing in mixed queries
 ENGLISH_STOPWORDS: set[str] = {
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "of", "in", "for", "to", "and", "or", "not", "it", "its", "this",
-    "that", "what", "how", "many", "much", "which", "who", "where",
-    "show", "me", "give", "get", "tell", "list", "find", "all", "each",
-    "by", "on", "at", "with", "from",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "of",
+    "in",
+    "for",
+    "to",
+    "and",
+    "or",
+    "not",
+    "it",
+    "its",
+    "this",
+    "that",
+    "what",
+    "how",
+    "many",
+    "much",
+    "which",
+    "who",
+    "where",
+    "show",
+    "me",
+    "give",
+    "get",
+    "tell",
+    "list",
+    "find",
+    "all",
+    "each",
+    "by",
+    "on",
+    "at",
+    "with",
+    "from",
 }
 
 
 @dataclass(frozen=True)
 class TermExtractionResult:
     """Result of term extraction from a query."""
+
     original: str
     normalized: str
     terms: list[str] = field(default_factory=list)
@@ -57,6 +145,7 @@ class TermExtractor:
     def __init__(self, extra_stopwords: set[str] | None = None) -> None:
         self.normalizer = PersianNormalizer()
         import hazm
+
         self.tokenizer = hazm.WordTokenizer()
         self.stopwords = PERSIAN_STOPWORDS | ENGLISH_STOPWORDS
         if extra_stopwords:
@@ -91,13 +180,20 @@ class TermExtractor:
         numbers = self._extract_numbers(all_tokens)
 
         # Filter stopwords for semantic tokens
-        semantic_tokens = [t for t in all_tokens if not self._is_stopword(t) and not re.match(r"^\d+$", t)]
+        semantic_tokens = [
+            t for t in all_tokens if not self._is_stopword(t) and not re.match(r"^\d+$", t)
+        ]
 
         # Build n-grams from the full (non-stopword-filtered) token list
         # for catching compound terms
         content_tokens = [t for t in all_tokens if not self._is_stopword(t)]
-        bigrams = [f"{content_tokens[i]} {content_tokens[i+1]}" for i in range(len(content_tokens) - 1)]
-        trigrams = [f"{content_tokens[i]} {content_tokens[i+1]} {content_tokens[i+2]}" for i in range(len(content_tokens) - 2)]
+        bigrams = [
+            f"{content_tokens[i]} {content_tokens[i + 1]}" for i in range(len(content_tokens) - 1)
+        ]
+        trigrams = [
+            f"{content_tokens[i]} {content_tokens[i + 1]} {content_tokens[i + 2]}"
+            for i in range(len(content_tokens) - 2)
+        ]
 
         return TermExtractionResult(
             original=original,

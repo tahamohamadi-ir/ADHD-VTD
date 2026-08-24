@@ -131,7 +131,9 @@ def test_shape_validator_rejects_grouped_risk_summary_without_requested_average_
     )
 
     assert not result.ok
-    assert any(issue.code == "ANALYTICAL_SHAPE_MISSING_RISK_AVERAGE_FILTERS" for issue in result.issues)
+    assert any(
+        issue.code == "ANALYTICAL_SHAPE_MISSING_RISK_AVERAGE_FILTERS" for issue in result.issues
+    )
     assert not any(issue.code == "ANALYTICAL_SHAPE_MISSING_RISK_KEY" for issue in result.issues)
 
 
@@ -178,6 +180,22 @@ def test_shape_validator_accepts_general_risk_profile_without_stress_sleep_avera
             "FROM mental_health_general GROUP BY mental_health_risk"
         ),
         question="average depression and anxiety based on mental health risk level",
+        qir=QueryIR(task_type="aggregation_query"),
+        schema=_schema(),
+    )
+
+    assert result.ok
+
+
+def test_shape_validator_does_not_force_mental_health_risk_for_depression_risk_rank():
+    result = SQLShapeValidator().validate(
+        (
+            "SELECT employment_status, COUNT(*) AS total, "
+            "ROUND(AVG(depression_score), 2) AS avg_depression_score, "
+            "RANK() OVER (ORDER BY AVG(depression_score) DESC) AS rank_by_depression "
+            "FROM mental_health_general GROUP BY employment_status ORDER BY rank_by_depression"
+        ),
+        question="رتبه وضعیت‌های اشتغال بر اساس میانگین ریسک افسردگی در دیتاست عمومی چیست؟",
         qir=QueryIR(task_type="aggregation_query"),
         schema=_schema(),
     )
@@ -293,3 +311,125 @@ def test_shape_validator_rejects_sleep_diet_matrix_without_support_threshold_and
     codes = {issue.code for issue in result.issues}
     assert "ANALYTICAL_SHAPE_MISSING_MATRIX_SUPPORT_THRESHOLD" in codes
     assert "ANALYTICAL_SHAPE_MISSING_PRIMARY_METRIC_SORT" in codes
+
+
+def test_shape_validator_rejects_scalar_for_grouped_qir_dimension():
+    result = SQLShapeValidator().validate(
+        "SELECT COUNT(*) AS n FROM student_depression WHERE depression_flag = 0",
+        question="show the count of depressed and non-depressed students",
+        qir=QueryIR(
+            task_type="grouping_query",
+            dimensions=["depression_flag"],
+            expected_result_shape="table",
+        ),
+        schema=_schema(),
+    )
+
+    assert not result.ok
+    codes = {issue.code for issue in result.issues}
+    assert "ANALYTICAL_SHAPE_MISSING_GROUP_BY" in codes
+    assert "ANALYTICAL_SHAPE_SINGLE_SIDED_COMPARISON" in codes
+
+
+def test_shape_validator_rejects_count_only_for_grouped_rate():
+    result = SQLShapeValidator().validate(
+        "SELECT gender, COUNT(*) AS n FROM student_depression GROUP BY gender",
+        question="depression rate by gender",
+        qir=QueryIR(
+            task_type="rate_query",
+            dimensions=["gender"],
+            metrics=["depression_flag"],
+            expected_result_shape="table",
+        ),
+        schema=_schema(),
+    )
+
+    assert not result.ok
+    assert any(issue.code == "ANALYTICAL_SHAPE_MISSING_RATE_FORMULA" for issue in result.issues)
+
+
+def test_shape_validator_rejects_top_ranking_without_order_by_and_limit():
+    result = SQLShapeValidator().validate(
+        (
+            "SELECT country_name, AVG(prevalence_pct) AS avg_prevalence "
+            "FROM country_prevalence_long GROUP BY country_name"
+        ),
+        question="top countries by average prevalence",
+        qir=QueryIR(
+            task_type="ranking_query",
+            dimensions=["country_name"],
+            metrics=["prevalence_pct"],
+            expected_result_shape="table",
+        ),
+        schema=_schema(),
+    )
+
+    assert not result.ok
+    codes = {issue.code for issue in result.issues}
+    assert "ANALYTICAL_SHAPE_MISSING_RANKING_ORDER_BY" in codes
+    assert "ANALYTICAL_SHAPE_MISSING_RANKING_LIMIT" in codes
+
+
+def test_shape_validator_accepts_full_ranking_without_limit_when_not_top_n():
+    result = SQLShapeValidator().validate(
+        (
+            "SELECT country_name, AVG(prevalence_pct) AS avg_prevalence, "
+            "RANK() OVER (ORDER BY AVG(prevalence_pct) DESC) AS prevalence_rank "
+            "FROM country_prevalence_long GROUP BY country_name ORDER BY prevalence_rank"
+        ),
+        question="rank all countries by average prevalence",
+        qir=QueryIR(
+            task_type="ranking_query",
+            dimensions=["country_name"],
+            metrics=["prevalence_pct"],
+            expected_result_shape="table",
+        ),
+        schema=_schema(),
+    )
+
+    assert result.ok
+
+
+def test_shape_validator_rejects_unbounded_raw_row_query():
+    result = SQLShapeValidator().validate(
+        "SELECT age, gender FROM student_depression",
+        question="show student records",
+        qir=QueryIR(task_type="raw_retrieval_query"),
+        schema=_schema(),
+    )
+
+    assert not result.ok
+    assert any(issue.code == "ANALYTICAL_SHAPE_MISSING_RAW_ROW_LIMIT" for issue in result.issues)
+
+
+def test_shape_validator_accepts_bounded_raw_row_query():
+    result = SQLShapeValidator().validate(
+        "SELECT age, gender FROM student_depression LIMIT 20",
+        question="show student records",
+        qir=QueryIR(task_type="raw_retrieval_query"),
+        schema=_schema(),
+    )
+
+    assert result.ok
+
+
+def test_shape_validator_rejects_single_group_for_multidimensional_question():
+    result = SQLShapeValidator().validate(
+        (
+            "SELECT benefits, COUNT(*) AS total, SUM(treatment) AS treatment_count "
+            "FROM workplace_mental_health_survey GROUP BY benefits"
+        ),
+        question="compare treatment by combination of benefits and care options",
+        qir=QueryIR(
+            task_type="comparison_query",
+            dimensions=["benefits", "care_options"],
+            metrics=["treatment"],
+            expected_result_shape="table",
+        ),
+        schema=_schema(),
+    )
+
+    assert not result.ok
+    assert any(
+        issue.code == "ANALYTICAL_SHAPE_MISSING_MULTI_DIMENSION_GROUPING" for issue in result.issues
+    )

@@ -251,7 +251,6 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 - docs/context-hub/ARTIFACT_RULES.md
 - src/evaluation/metrics.py
 - src/evaluation/action_normalizer.py
@@ -294,7 +293,6 @@ Return:
 Read AGENTS.md.
 Read:
 - docs/context-hub/ARTIFACT_RULES.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 
 Implement or improve:
 scripts/verify_artifact.py
@@ -376,7 +374,7 @@ Return:
 Read AGENTS.md.
 Read:
 - docs/context-hub/QUERY_SHAPE_CONTRACTS.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
+- docs/context-hub/ARTIFACT_RULES.md
 - src/graph/workflow.py
 - src/graph/state.py
 - src/sql_validation/validation_pipeline.py
@@ -428,7 +426,7 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/BENCHMARK_PROTOCOL.md
+- docs/context-hub/ARTIFACT_RULES.md
 - src/evaluation/reliability_gate.py
 - src/evaluation/reliability_metrics.py
 - src/evaluation/action_normalizer.py
@@ -480,7 +478,6 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 - docs/context-hub/ARTIFACT_RULES.md
 - docs/context-hub/FAILURE_PATTERNS.md
 - latest paper_tables.md
@@ -498,7 +495,7 @@ Rules:
 3. Keep strict EX separate from semantic/business correctness.
 4. Do not call LLM judge human evaluation.
 5. Do not claim SOTA.
-6. Do not claim high accuracy.
+6. Do not make broad accuracy claims.
 7. Do not claim clinical use.
 8. Do not hide low EX.
 9. Clearly state limitations.
@@ -520,7 +517,7 @@ Read AGENTS.md.
 Read:
 - docs/annotation/guidelines_fa.md
 - docs/annotation/adjudication_fa.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
+- docs/context-hub/ARTIFACT_RULES.md
 
 Task:
 Implement or improve human annotation processing.
@@ -568,7 +565,7 @@ Return:
 Read AGENTS.md.
 Read:
 - docs/context-hub/FAILURE_PATTERNS.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
+- docs/context-hub/ARTIFACT_RULES.md
 - latest failures.jsonl if needed
 
 Task:
@@ -695,24 +692,25 @@ Return:
 Read AGENTS.md.
 Read:
 - docs/context-hub/ARTIFACT_RULES.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 
 Task:
 Create or improve reproducibility scripts and docs.
 
 Required files:
-- scripts/reproduce_paper.ps1
-- scripts/reproduce_paper.sh
-- scripts/make_paper_tables.py
-- scripts/make_paper_figures.py
-- docs/paper/reproducing.md
+- scripts/check_release_readiness.py
+- scripts/verify_artifact.py
+- scripts/package_dual_policy_evidence.py
+- docs/PARS_SQL_PAPER1_REPRODUCIBILITY.md
+- docs/paper/reproducing.md, only if a separate paper runbook is still needed
 
 Requirements:
-1. One command regenerates paper tables.
-2. One command verifies dataset hashes.
+1. One command verifies generated paper tables and artifact provenance.
+2. One command verifies dataset hashes through current artifact verification.
 3. One command verifies benchmark artifacts.
 4. Paper numbers must come from artifacts.
 5. Script must fail on missing/invalid artifacts.
+6. Generated paper tables must include `dataset_hash`, `selected_cases_hash`,
+   and artifact provenance.
 6. Do not run full local LLM benchmark unless explicitly requested.
 
 Return:
@@ -782,8 +780,8 @@ Then wait for confirmation before editing.
 ```text
 Read AGENTS.md and docs/context-hub/INDEX.md.
 Read:
-- docs/context-hub/query-shape-contracts.md
-- docs/context-hub/failure-patterns.md
+- docs/context-hub/QUERY_SHAPE_CONTRACTS.md
+- docs/context-hub/FAILURE_PATTERNS.md
 
 Implement Phase 1 only:
 - create or update src/core/query_shape.py
@@ -823,8 +821,8 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/query-shape-contracts.md
-- docs/context-hub/failure-patterns.md
+- docs/context-hub/QUERY_SHAPE_CONTRACTS.md
+- docs/context-hub/FAILURE_PATTERNS.md
 - src/generation/output_parser.py
 
 Create or update only:
@@ -861,7 +859,7 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/BENCHMARK_PROTOCOL.md
+- docs/context-hub/ARTIFACT_RULES.md
 
 Task:
 Prepare human audit documentation and export schema for semantic/business correctness.
@@ -905,10 +903,9 @@ Return:
 ```text
 Read AGENTS.md.
 Read:
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 - docs/context-hub/ARTIFACT_RULES.md
 - src/retrieval/
-- src/generation/context_builder.py
+- src/retrieval/context_builder.py
 
 Task:
 Audit and improve CAG/retrieval hygiene.
@@ -943,13 +940,13 @@ Return:
 Read AGENTS.md.
 Read:
 - docs/context-hub/ARTIFACT_RULES.md
-- docs/context-hub/BENCHMARK_PROTOCOL.md
 
 Task:
 Implement or improve dataset hash and split freeze utilities.
 
 Create or update:
-- scripts/verify_dataset_hashes.py
+- scripts/verify_artifact.py
+- scripts/check_release_readiness.py
 - data/splits/README.md
 - experiments/registries/dataset_registry.json
 

@@ -47,7 +47,7 @@ class ConceptRegistry:
             "student": ConceptMapping(
                 concept_id="student",
                 aliases=["دانشجو", "دانش آموز", "محصل", "student", "students"],
-                implied_filters=[], # General context, usually no hard filter
+                implied_filters=[],  # General context, usually no hard filter
             ),
             "cgpa": ConceptMapping(
                 concept_id="cgpa",
@@ -80,16 +80,19 @@ class ConceptRegistry:
             for metric in concept.implied_metrics:
                 if metric not in qir.metrics:
                     qir.metrics.append(metric)
-            
+
             # Dimensions
             for dim in concept.implied_dimensions:
                 if dim not in qir.dimensions:
                     qir.dimensions.append(dim)
-                    
+
             # Filters
             for filt in concept.implied_filters:
                 # Basic dedup
-                if not any(f.get("column") == filt.get("column") and f.get("value") == filt.get("value") for f in qir.filters):
+                if not any(
+                    f.get("column") == filt.get("column") and f.get("value") == filt.get("value")
+                    for f in qir.filters
+                ):
                     qir.filters.append(filt)
-                    
+
         return qir

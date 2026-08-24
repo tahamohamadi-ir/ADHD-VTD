@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable
 
 from src.core.dataset_types import BehavioralExample, DatasetPackageSummary, PositiveExample
 
@@ -92,7 +92,9 @@ def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> Path:
     return p
 
 
-def _split_metadata_and_cases(raw: Any, *, preferred_keys: tuple[str, ...]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _split_metadata_and_cases(
+    raw: Any, *, preferred_keys: tuple[str, ...]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     if isinstance(raw, list):
         return {}, raw
     if not isinstance(raw, dict):
@@ -132,12 +134,20 @@ def normalize_case(case: dict[str, Any], *, source_kind: str = "unknown") -> dic
     c = dict(case)
     c.setdefault("source_kind", source_kind)
     c.setdefault("id", c.get("audit_id") or c.get("source_id") or c.get("case_id"))
-    c.setdefault("question", c.get("question_fa") or c.get("user_utterance_fa") or c.get("question_en") or "")
+    c.setdefault(
+        "question", c.get("question_fa") or c.get("user_utterance_fa") or c.get("question_en") or ""
+    )
     c.setdefault("gold_sql", c.get("gold_sql") or c.get("sql") or c.get("expected_sql"))
     c.setdefault("should_generate_sql", bool(c.get("gold_sql")))
-    c.setdefault("expected_action", c.get("expected_action") or ("generate_sql" if c.get("should_generate_sql") else "ask_clarification"))
+    c.setdefault(
+        "expected_action",
+        c.get("expected_action")
+        or ("generate_sql" if c.get("should_generate_sql") else "ask_clarification"),
+    )
     c.setdefault("difficulty", c.get("difficulty", "unknown"))
-    c.setdefault("category", c.get("category") or c.get("evaluation_type") or c.get("pattern") or "unknown")
+    c.setdefault(
+        "category", c.get("category") or c.get("evaluation_type") or c.get("pattern") or "unknown"
+    )
     return c
 
 
@@ -168,7 +178,11 @@ def load_special_eval(path: str | Path | None = None) -> LoadedDataset:
 
 
 def load_positive_400(path: str | Path | None = None) -> LoadedDataset:
-    p = Path(path) if path else QUESTIONS_DIR / "full" / "vtd_question_sql_400_merged_validated.json"
+    p = (
+        Path(path)
+        if path
+        else QUESTIONS_DIR / "full" / "vtd_question_sql_400_merged_validated.json"
+    )
     return load_dataset(p, kind="positive_400")
 
 
@@ -176,7 +190,9 @@ def positive_example_from_case(case: dict[str, Any]) -> PositiveExample:
     c = normalize_case(case)
     sql = c.get("gold_sql") or c.get("sql")
     if not sql:
-        raise ValueError(f"Case {c.get('id') or '<missing-id>'} is not SQL-positive: missing gold SQL.")
+        raise ValueError(
+            f"Case {c.get('id') or '<missing-id>'} is not SQL-positive: missing gold SQL."
+        )
     return PositiveExample(
         id=str(c.get("id") or ""),
         question_fa=str(c.get("question_fa") or c.get("question") or ""),
@@ -190,7 +206,9 @@ def positive_example_from_case(case: dict[str, Any]) -> PositiveExample:
         recommended_visual=c.get("recommended_visual"),
         safe_sql=bool(c.get("safe_sql", True)),
         dialect=str(c.get("dialect") or "sqlite"),
-        metadata={k: v for k, v in c.items() if k not in {"sql", "gold_sql", "question", "question_fa"}},
+        metadata={
+            k: v for k, v in c.items() if k not in {"sql", "gold_sql", "question", "question_fa"}
+        },
     )
 
 
@@ -198,7 +216,9 @@ def behavioral_example_from_case(case: dict[str, Any]) -> BehavioralExample:
     c = normalize_case(case)
     utterance = c.get("user_utterance_fa") or c.get("question_fa") or c.get("question")
     if not utterance:
-        raise ValueError(f"Behavioral case {c.get('id') or '<missing-id>'} is missing user utterance.")
+        raise ValueError(
+            f"Behavioral case {c.get('id') or '<missing-id>'} is missing user utterance."
+        )
     return BehavioralExample(
         id=str(c.get("id") or ""),
         evaluation_type=str(c.get("evaluation_type") or c.get("category") or "unknown"),
@@ -206,7 +226,9 @@ def behavioral_example_from_case(case: dict[str, Any]) -> BehavioralExample:
         should_generate_sql=bool(c.get("should_generate_sql")),
         expected_action=str(c.get("expected_action") or "ask_clarification"),
         expected_sql=c.get("expected_sql") or c.get("gold_sql"),
-        metadata={k: v for k, v in c.items() if k not in {"user_utterance_fa", "question", "question_fa"}},
+        metadata={
+            k: v for k, v in c.items() if k not in {"user_utterance_fa", "question", "question_fa"}
+        },
     )
 
 

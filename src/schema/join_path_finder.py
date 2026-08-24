@@ -7,12 +7,14 @@ try:
 except Exception:  # pragma: no cover
     from schema_graph import SchemaGraph
 
+
 @dataclass(frozen=True)
 class JoinPathResult:
     found: bool
     tables: list[str] = field(default_factory=list)
     join_sql: list[str] = field(default_factory=list)
     reason: str | None = None
+
 
 class JoinPathFinder:
     """Find only explicitly allowed join paths. No inferred cross-dataset joins."""

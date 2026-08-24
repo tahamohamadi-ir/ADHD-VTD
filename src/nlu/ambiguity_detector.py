@@ -7,12 +7,14 @@ try:
 except Exception:  # pragma: no cover
     from persian_normalizer import PersianNormalizer
 
+
 @dataclass(frozen=True)
 class AmbiguityDecision:
     is_ambiguous: bool
     score: float
     reasons: list[str] = field(default_factory=list)
     clarification_question: str | None = None
+
 
 class AmbiguityDetector:
     """Detect ambiguous queries that cannot produce reliable SQL.
@@ -25,44 +27,134 @@ class AmbiguityDetector:
     """
 
     GENERIC_PATTERNS = [
-        "یه آمار کلی", "یک آمار کلی", "آمار کلی", "وضعیت چطوره", "وضعیت دانشجوها",
-        "یه چیزی نشون بده", "چیزی نشان بده", "top 10", "کدوم بهتره", "بهترین ها", "بدترین ها",
-        "تحلیل کن", "تحلیل", "داشبورد بساز", "خلاصه بده", "خلاصه نمایش بده", "خلاصه",
+        "یه آمار کلی",
+        "یک آمار کلی",
+        "آمار کلی",
+        "وضعیت چطوره",
+        "وضعیت دانشجوها",
+        "یه چیزی نشون بده",
+        "چیزی نشان بده",
+        "top 10",
+        "کدوم بهتره",
+        "بهترین ها",
+        "بدترین ها",
+        "تحلیل کن",
+        "تحلیل",
+        "داشبورد بساز",
+        "خلاصه بده",
+        "خلاصه نمایش بده",
+        "خلاصه",
     ]
-    VAGUE_PROFILE_PATTERNS = [
-        "مشخصات", "ویژگی", "پروفایل", "چگونه است", "چطور است", "چه کسانی"
-    ]
+    VAGUE_PROFILE_PATTERNS = ["مشخصات", "ویژگی", "پروفایل", "چگونه است", "چطور است", "چه کسانی"]
     IMPOSSIBLE_PATTERNS = [
-        "علت و معلول", "رابطه علت", "توصیه", "پیش‌بینی", "score واحد", "وزن دهی", "اصلاح‌شده", "مدل بساز", "صفر فرض کن"
+        "علت و معلول",
+        "رابطه علت",
+        "توصیه",
+        "پیش‌بینی",
+        "score واحد",
+        "وزن دهی",
+        "اصلاح‌شده",
+        "مدل بساز",
+        "صفر فرض کن",
     ]
-    VAGUE_TERMS = [
-        "پرریسک", "مشکل", "خوب"
-    ]
+    VAGUE_TERMS = ["پرریسک", "مشکل", "خوب"]
     REQUIRED_METRIC_HINTS = [
-        "افسردگی", "اضطراب", "خواب", "cgpa", "معدل", "نمره", "درمان", "ریسک", "استرس", "شیوع", "حضور", "exam",
-        "phq9", "gad7", "bdi", "sleep", "score", "gpa", "depression", "anxiety",
-        "eating_disorder", "schizophrenia", "bipolar", "prevalence", "country", "countries",
-        "change", "quartile", "percentile", "germany", "italy", "united kingdom", "sweden", "japan", "brazil", "iran",
-        "remote", "treatment", "benefits", "تعداد", "توزیع",
+        "افسردگی",
+        "اضطراب",
+        "خواب",
+        "cgpa",
+        "معدل",
+        "نمره",
+        "درمان",
+        "ریسک",
+        "استرس",
+        "شیوع",
+        "حضور",
+        "exam",
+        "phq9",
+        "gad7",
+        "bdi",
+        "sleep",
+        "score",
+        "gpa",
+        "depression",
+        "anxiety",
+        "eating_disorder",
+        "schizophrenia",
+        "bipolar",
+        "prevalence",
+        "country",
+        "countries",
+        "change",
+        "quartile",
+        "percentile",
+        "germany",
+        "italy",
+        "united kingdom",
+        "sweden",
+        "japan",
+        "brazil",
+        "iran",
+        "remote",
+        "treatment",
+        "benefits",
+        "تعداد",
+        "توزیع",
     ]
 
     # Ranking terms that need a metric to be actionable
     RANKING_PATTERNS = [
-        "بهترین", "بدترین", "بیشترین", "کمترین", "بالاترین", "پایین‌ترین", "پایین ترین",
-        "اولین", "آخرین", "top", "best", "worst", "highest", "lowest",
+        "بهترین",
+        "بدترین",
+        "بیشترین",
+        "کمترین",
+        "بالاترین",
+        "پایین‌ترین",
+        "پایین ترین",
+        "اولین",
+        "آخرین",
+        "top",
+        "best",
+        "worst",
+        "highest",
+        "lowest",
     ]
 
     # Chart request patterns
     CHART_PATTERNS = [
-        "نمودار", "چارت", "chart", "graph", "plot", "رسم کن", "ترسیم",
-        "bar chart", "pie chart", "line chart", "histogram",
-        "نمودار میله ای", "نمودار دایره ای", "نمودار خطی",
+        "نمودار",
+        "چارت",
+        "chart",
+        "graph",
+        "plot",
+        "رسم کن",
+        "ترسیم",
+        "bar chart",
+        "pie chart",
+        "line chart",
+        "histogram",
+        "نمودار میله ای",
+        "نمودار دایره ای",
+        "نمودار خطی",
     ]
 
     # Dimension/measure hints for chart requests
     DIMENSION_HINTS = [
-        "بر اساس", "تفکیک", "گروه", "جنسیت", "سال", "کشور", "رشته", "دانشکده",
-        "gender", "year", "country", "department", "age", "سن", "مقطع",
+        "بر اساس",
+        "تفکیک",
+        "گروه",
+        "جنسیت",
+        "سال",
+        "کشور",
+        "رشته",
+        "دانشکده",
+        "gender",
+        "year",
+        "country",
+        "department",
+        "age",
+        "سن",
+        "مقطع",
     ]
 
     def __init__(self) -> None:
@@ -76,10 +168,28 @@ class AmbiguityDetector:
 
         # Data-aware signals
         _data_signals = [
-            "دیتاست", "dataset", "survey", "دیتابیس", "جدول", "table",
-            "محل کار", "workplace", "دانشجو", "student", "کشور", "country",
-            "پاسخ", "response", "رکورد", "record", "نمونه", "sample",
-            "اشتغال", "employment", "وضعیت", "شغلی",
+            "دیتاست",
+            "dataset",
+            "survey",
+            "دیتابیس",
+            "جدول",
+            "table",
+            "محل کار",
+            "workplace",
+            "دانشجو",
+            "student",
+            "کشور",
+            "country",
+            "پاسخ",
+            "response",
+            "رکورد",
+            "record",
+            "نمونه",
+            "sample",
+            "اشتغال",
+            "employment",
+            "وضعیت",
+            "شغلی",
         ]
         has_data_signal = any(s in norm for s in _data_signals)
 
@@ -119,14 +229,16 @@ class AmbiguityDetector:
         # 6. Vague profile request without dimension
         has_vague_profile = any(p in norm for p in self.VAGUE_PROFILE_PATTERNS)
         if has_vague_profile and not has_dimension and not has_data_signal:
-            reasons.append("Vague profile request without specifying which characteristics to look at.")
+            reasons.append(
+                "Vague profile request without specifying which characteristics to look at."
+            )
             score += 0.6
-            
+
         # 7. Impossible tasks
         if any(p in norm for p in self.IMPOSSIBLE_PATTERNS):
             reasons.append("Impossible or non-SQL task requested.")
             score += 0.8
-            
+
         # 8. Vague terms
         has_vague_terms = any(p in norm for p in self.VAGUE_TERMS)
         if has_vague_terms and not has_dimension:
@@ -136,10 +248,19 @@ class AmbiguityDetector:
         is_amb = score >= 0.5
         clarification = None
         if is_amb:
-            clarification = self._build_clarification(reasons, has_ranking, has_chart, has_vague_profile, has_vague_terms)
+            clarification = self._build_clarification(
+                reasons, has_ranking, has_chart, has_vague_profile, has_vague_terms
+            )
         return AmbiguityDecision(is_amb, min(score, 1.0), reasons, clarification)
 
-    def _build_clarification(self, reasons: list[str], has_ranking: bool, has_chart: bool, has_vague: bool = False, has_vague_terms: bool = False) -> str:
+    def _build_clarification(
+        self,
+        reasons: list[str],
+        has_ranking: bool,
+        has_chart: bool,
+        has_vague: bool = False,
+        has_vague_terms: bool = False,
+    ) -> str:
         """Build a context-appropriate clarification question in Persian."""
         if has_vague_terms:
             return "لطفاً منظور دقیق خود را از کلماتی مانند «عملکرد» یا «پرریسک» مشخص کنید تا قابل اندازه‌گیری باشد."

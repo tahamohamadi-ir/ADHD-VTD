@@ -14,7 +14,9 @@ class RetrievalContext:
 
 
 class ContextBuilder:
-    def build(self, retrieved: list[RetrievedExample], *, max_examples: int = 3) -> RetrievalContext:
+    def build(
+        self, retrieved: list[RetrievedExample], *, max_examples: int = 3
+    ) -> RetrievalContext:
         selected = retrieved[:max_examples]
         examples: list[dict[str, Any]] = []
         lines: list[str] = []
@@ -32,7 +34,8 @@ class ContextBuilder:
                     "sql": sql,
                     "intent": record.get("intent"),
                     "tables": record.get("tables", []),
-                    "difficulty": record.get("metadata", {}).get("difficulty") or record.get("difficulty"),
+                    "difficulty": record.get("metadata", {}).get("difficulty")
+                    or record.get("difficulty"),
                     "why_relevant": ", ".join(item.reasons) or "ranked by retriever",
                 }
             )

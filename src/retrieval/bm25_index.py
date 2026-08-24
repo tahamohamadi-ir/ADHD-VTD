@@ -37,7 +37,9 @@ class BM25Index:
         self._idf = self._build_idf()
 
     @classmethod
-    def from_records(cls, records: list[dict[str, Any]], text_field: str = "text_for_embedding") -> "BM25Index":
+    def from_records(
+        cls, records: list[dict[str, Any]], text_field: str = "text_for_embedding"
+    ) -> "BM25Index":
         return cls(records=records, text_field=text_field)
 
     def _record_text(self, record: dict[str, Any]) -> str:
@@ -97,7 +99,9 @@ class BM25Index:
         scores = self.score(query)
         by_id = {str(record.get("id", idx)): record for idx, record in enumerate(self.records)}
         ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
-        return [BM25SearchResult(record=by_id[record_id], score=score) for record_id, score in ranked]
+        return [
+            BM25SearchResult(record=by_id[record_id], score=score) for record_id, score in ranked
+        ]
 
     def save(self, path: str | Path) -> Path:
         output_path = Path(path)

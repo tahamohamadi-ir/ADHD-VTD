@@ -27,24 +27,38 @@ def prediction_record_from_benchmark(record: dict[str, Any]) -> PredictionRecord
         reliability=_reliability_trace(record),
         generated_sql=record.get("generated_sql"),
         gold_sql=record.get("gold_sql") or record.get("sql"),
-        final_action=str(record.get("actual_action") or record.get("final_action") or "controlled_failure"),
-        execution_correct=_bool_or_none(record.get("execution_correct") if "execution_correct" in record else record.get("result_match")),
-        valid_sql=_bool_or_none(record.get("valid_sql") if "valid_sql" in record else record.get("schema_valid")),
+        final_action=str(
+            record.get("actual_action") or record.get("final_action") or "controlled_failure"
+        ),
+        execution_correct=_bool_or_none(
+            record.get("execution_correct")
+            if "execution_correct" in record
+            else record.get("result_match")
+        ),
+        valid_sql=_bool_or_none(
+            record.get("valid_sql") if "valid_sql" in record else record.get("schema_valid")
+        ),
         semantic_business_correct=_bool_or_none(record.get("semantic_business_correct")),
         error_category=record.get("error") or record.get("error_category"),
         latency_ms=_int_or_default(record.get("latency_ms"), 0),
     )
 
 
-def attempt_trace_from_benchmark(attempt: dict[str, Any], *, default_ablation_id: str = "unknown") -> AttemptTrace:
+def attempt_trace_from_benchmark(
+    attempt: dict[str, Any], *, default_ablation_id: str = "unknown"
+) -> AttemptTrace:
     item_id = str(attempt.get("item_id") or attempt.get("case_id") or attempt.get("id") or "")
-    validation_errors = _list_of_dicts(attempt.get("validation_errors") or attempt.get("validation_issues"))
+    validation_errors = _list_of_dicts(
+        attempt.get("validation_errors") or attempt.get("validation_issues")
+    )
     execution_error = attempt.get("execution_error")
     if execution_error is None and attempt.get("execution_passed") is False:
         execution_error = attempt.get("error_message")
     return AttemptTrace(
         item_id=item_id,
-        iteration=_int_or_default(attempt.get("iteration"), _int_or_default(attempt.get("attempt_index"), 0)),
+        iteration=_int_or_default(
+            attempt.get("iteration"), _int_or_default(attempt.get("attempt_index"), 0)
+        ),
         ablation_id=str(attempt.get("ablation_id") or default_ablation_id),
         prompt=attempt.get("prompt"),
         raw_model_response=attempt.get("raw_model_response"),
@@ -85,7 +99,9 @@ def validate_benchmark_trace_contract(
     return {"predictions": prediction_count, "attempts": attempt_count}
 
 
-def _retrieval_trace(record: dict[str, Any], retrieved_examples: list[dict[str, Any]]) -> RetrievalTrace:
+def _retrieval_trace(
+    record: dict[str, Any], retrieved_examples: list[dict[str, Any]]
+) -> RetrievalTrace:
     diagnostics = _list_of_dicts(record.get("retrieval_diagnostics"))
     retrieval = record.get("retrieval") if isinstance(record.get("retrieval"), dict) else {}
     bm25_ids = _string_list(record.get("bm25_ids") or retrieval.get("bm25_ids"))

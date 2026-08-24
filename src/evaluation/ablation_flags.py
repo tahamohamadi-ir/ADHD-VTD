@@ -31,6 +31,7 @@ RUNTIME_PARAMETER_FLAGS = {
     "multi_candidate_blocked_triggers",
     "retrieval_backend",
     "reranker",
+    "reliability_gate_routing",
 }
 
 METADATA_ONLY_FLAGS: dict[str, str] = {}

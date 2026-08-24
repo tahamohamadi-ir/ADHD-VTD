@@ -43,14 +43,20 @@ PHASE0_50Q_CASES_PATH: Path = QUESTION_AUDIT_DIR / "phase0_50q_audit_cases.json"
 PHASE0_50Q_RESULTS_PATH: Path = QUESTION_AUDIT_DIR / "phase0_50q_audit_results.jsonl"
 PHASE0_50Q_REPORT_PATH: Path = QUESTION_AUDIT_DIR / "phase0_50q_audit_report.md"
 MILESTONE_1_5_STRESS_TEST_PATH: Path = QUESTION_AUDIT_DIR / "milestone_1_5_stress_test.json"
-MILESTONE_1_5_STRESS_TEST_RESULTS_PATH: Path = QUESTION_AUDIT_DIR / "milestone_1_5_stress_test_results.jsonl"
-MILESTONE_1_5_STRESS_TEST_REPORT_PATH: Path = QUESTION_AUDIT_DIR / "milestone_1_5_stress_test_report.md"
+MILESTONE_1_5_STRESS_TEST_RESULTS_PATH: Path = (
+    QUESTION_AUDIT_DIR / "milestone_1_5_stress_test_results.jsonl"
+)
+MILESTONE_1_5_STRESS_TEST_REPORT_PATH: Path = (
+    QUESTION_AUDIT_DIR / "milestone_1_5_stress_test_report.md"
+)
 
 GOLDEN_EXAMPLES_PATH: Path = GOLDEN_SQL_DIR / "golden_examples.jsonl"
 FEW_SHOT_BANK_PATH: Path = GOLDEN_SQL_DIR / "few_shot_bank.jsonl"
 INDEXED_EXAMPLES_PATH: Path = RAG_DIR / "indexed_examples.jsonl"
 
-DEFAULT_GENERATION_MODEL_PATH: Path = MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+DEFAULT_GENERATION_MODEL_PATH: Path = (
+    MODELS_DIR / "generation" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+)
 DEFAULT_EMBEDDING_MODEL_PATH: Path = MODELS_DIR / "embedding" / "multilingual-e5-small"
 
 

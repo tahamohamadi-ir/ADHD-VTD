@@ -8,6 +8,7 @@ try:
 except Exception:  # pragma: no cover
     SCHEMA_DIR = Path("data/schema")
 
+
 class BusinessRules:
     """Access domain-specific routing, metric, and glossary rules."""
 

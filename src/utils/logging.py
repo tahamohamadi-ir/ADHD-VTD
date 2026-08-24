@@ -6,6 +6,7 @@ Provides a pre-configured ``loguru`` logger with:
 - Rich console output for development
 - Configurable log levels via environment variables
 """
+
 from __future__ import annotations
 
 import os
@@ -13,8 +14,12 @@ import sys
 import uuid
 from contextvars import ContextVar
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from loguru import logger as _loguru_logger
+
+if TYPE_CHECKING:
+    from loguru._logger import Logger
 
 # ── Trace ID context ───────────────────────────────────────────────
 _trace_id_var: ContextVar[str] = ContextVar("vtd_trace_id", default="no-trace")
@@ -38,6 +43,7 @@ def set_trace_id(trace_id: str) -> None:
 
 
 # ── Logger configuration ──────────────────────────────────────────
+
 
 def _trace_id_patcher(record: dict) -> None:  # type: ignore[type-arg]
     record["extra"]["trace_id"] = _trace_id_var.get()
@@ -76,7 +82,7 @@ _loguru_logger.add(
 )
 
 
-def get_logger(name: str | None = None) -> "loguru.Logger":  # type: ignore[name-defined]
+def get_logger(name: str | None = None) -> Logger:
     """Return a child logger bound with the given module name."""
     if name:
         return _loguru_logger.bind(module=name)

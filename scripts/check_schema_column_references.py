@@ -3,6 +3,7 @@
 Parses all gold SQL from dataset and verifies every table and column
 against schema_snapshot.json.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,11 +32,20 @@ def extract_column_refs(sql: str, known_tables: set[str]) -> set[str]:
     """Extract column references (table.col or bare col)."""
     # Qualified: table.column
     qualified = re.findall(r"(\w+)\.(\w+)", sql)
-    # Bare columns after SELECT, WHERE, ON, BY, etc.
-    bare = re.findall(r"\b(?:SELECT|WHERE|ON|BY|SET|AND|OR|HAVING)\s+(\w+)", sql, re.IGNORECASE)
     cols = set()
     for t, c in qualified:
-        if t.lower() not in ("avg", "count", "sum", "min", "max", "round", "coalesce", "cast", "group", "order"):
+        if t.lower() not in (
+            "avg",
+            "count",
+            "sum",
+            "min",
+            "max",
+            "round",
+            "coalesce",
+            "cast",
+            "group",
+            "order",
+        ):
             cols.add(f"{t.lower()}.{c.lower()}")
     return cols
 
@@ -60,7 +70,18 @@ def main():
         tables_in_sql = extract_table_refs(sql)
         for t in tables_in_sql:
             # Skip CTE aliases and subquery aliases
-            if t.lower() in ("select", "where", "as", "on", "and", "or", "not", "null", "true", "false"):
+            if t.lower() in (
+                "select",
+                "where",
+                "as",
+                "on",
+                "and",
+                "or",
+                "not",
+                "null",
+                "true",
+                "false",
+            ):
                 continue
             if t not in all_tables:
                 # Could be a CTE alias — check if defined in WITH

@@ -43,7 +43,12 @@ from src.evaluation.retrieval_metrics import summarize_retrieval
 from src.evaluation.export_utils import export_benchmark_csvs, generate_paper_tables
 from src.evaluation.llm_judge import judge_benchmark_artifact
 from src.retrieval.hybrid_retriever import HybridRetriever
-from src.retrieval.reranker import IdentityReranker
+from src.retrieval.reranker import (
+    CrossEncoderReranker,
+    IdentityReranker,
+    create_reranker,
+    resolve_reranker_backend,
+)
 from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.retrieval.schema_evidence import ensure_schema_evidence_after_filter
 from src.retrieval.self_overlap import filter_self_overlaps
@@ -208,6 +213,7 @@ def retrieval_prediction(
     exclude_self: bool = False,
     use_reranker: bool = False,
     reranker_name: str | None = None,
+    reranker_obj: IdentityReranker | CrossEncoderReranker | None = None,
 ) -> dict[str, Any]:
     expected_tables, expected_columns = infer_sql_references(
         case.get("gold_sql") or case.get("sql")
@@ -236,7 +242,15 @@ def retrieval_prediction(
         retrieved = ensure_schema_evidence_after_filter(retrieved, top_k=top_k)
         retrieved = retrieved[:top_k]
     if use_reranker:
-        retrieved = IdentityReranker().rerank(retrieved, top_k=top_k)
+        reranker_backend_value = (
+            "cross_encoder" if isinstance(reranker_obj, CrossEncoderReranker) else "identity"
+        )
+        if isinstance(reranker_obj, CrossEncoderReranker):
+            retrieved = reranker_obj.rerank(retrieved, top_k=top_k, query=case_question(case))
+        else:
+            retrieved = IdentityReranker().rerank(retrieved, top_k=top_k)
+    else:
+        reranker_backend_value = None
     latency_ms = int((time.perf_counter() - started) * 1000)
     retrieved_dicts = [item.to_dict() for item in retrieved]
 
@@ -270,13 +284,32 @@ def retrieval_prediction(
         "self_overlap_removed": len(removed_ids),
         "self_overlap_removed_ids": removed_ids,
         "retrieval_reranker": reranker_name if use_reranker else None,
-        "retrieval_reranker_backend": "identity" if use_reranker else None,
+        "retrieval_reranker_backend": reranker_backend_value,
         "retrieval_reranker_warning": (
             "model_backed_reranker_not_implemented_identity_placeholder_used"
-            if use_reranker and reranker_name not in {None, "identity"}
+            if use_reranker
+            and reranker_backend_value == "identity"
+            and reranker_name not in {None, "identity"}
             else None
         ),
     }
+
+
+def apply_agent_retrieval_overrides(
+    ablation_config: dict[str, Any],
+    *,
+    retrieval_backend: str | None,
+    reranker_name: str | None,
+) -> dict[str, Any]:
+    """Inject agent-mode retrieval overrides into the ablation config copy."""
+    if not retrieval_backend and not (reranker_name and reranker_name != "none"):
+        return ablation_config
+    overridden = dict(ablation_config)
+    if retrieval_backend:
+        overridden["retrieval_backend"] = str(retrieval_backend)
+    if reranker_name and reranker_name != "none":
+        overridden["reranker"] = str(reranker_name)
+    return overridden
 
 
 def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[str, Any]:
@@ -801,6 +834,12 @@ def run(args: argparse.Namespace) -> Path:
     if getattr(args, "use_judge", False):
         ablation_config = dict(ablation_config)
         ablation_config["llm_judge"] = True
+    if args.mode == "agent":
+        ablation_config = apply_agent_retrieval_overrides(
+            ablation_config,
+            retrieval_backend=getattr(args, "retrieval_backend", None),
+            reranker_name=getattr(args, "reranker", None),
+        )
     ablation_contract = ablation_runtime_contract(ablation_config)
     enabled_modules, disabled_modules = split_module_flags(ablation_config)
     max_retries_override = getattr(args, "max_retries_override", None)
@@ -848,6 +887,11 @@ def run(args: argparse.Namespace) -> Path:
             "hybrid" if retrieval_backend_mode == "hybrid_rerank" else retrieval_backend_mode
         )
         retriever = HybridRetriever(retrieval_mode=retriever_mode)
+        active_reranker_obj = None
+        if use_reranker:
+            candidate_reranker = create_reranker(requested_reranker)
+            if isinstance(candidate_reranker, CrossEncoderReranker):
+                active_reranker_obj = candidate_reranker
         for index, case in enumerate(cases, start=1):
             record = dict(
                 case,
@@ -858,6 +902,7 @@ def run(args: argparse.Namespace) -> Path:
                     exclude_self=exclude_self,
                     use_reranker=use_reranker,
                     reranker_name=requested_reranker,
+                    reranker_obj=active_reranker_obj,
                 ),
             )
             records.append(record)
@@ -875,7 +920,13 @@ def run(args: argparse.Namespace) -> Path:
     elif args.mode == "agent":
         from src.graph.workflow import create_workflow
 
-        workflow = create_workflow()
+        checkpoint_db = getattr(args, "checkpoint_db", None)
+        if checkpoint_db:
+            from src.graph.checkpoints import build_checkpointer
+
+            workflow = create_workflow(checkpointer=build_checkpointer(checkpoint_db))
+        else:
+            workflow = create_workflow()
         executor = ReadOnlyExecutor()
         for index, case in enumerate(cases, start=1):
             case_started = time.perf_counter()
@@ -935,12 +986,13 @@ def run(args: argparse.Namespace) -> Path:
         "use_vector": args.use_vector,
         "retrieval_backend": retrieval_backend,
         "retrieval_reranker": effective_reranker if effective_reranker != "none" else None,
-        "retrieval_reranker_backend": (
-            "identity" if effective_reranker and effective_reranker != "none" else None
+        "retrieval_reranker_backend": resolve_reranker_backend(
+            effective_reranker if effective_reranker else None
         ),
         "retrieval_reranker_warning": (
             "model_backed_reranker_not_implemented_identity_placeholder_used"
-            if effective_reranker not in {None, "none", "identity"}
+            if resolve_reranker_backend(effective_reranker) == "identity"
+            and effective_reranker not in {None, "none", "identity"}
             else None
         ),
         "max_retries": (
@@ -978,6 +1030,9 @@ def run(args: argparse.Namespace) -> Path:
         "finished_at": utc_now(),
         "git_commit": git_commit(),
     }
+    checkpoint_db = getattr(args, "checkpoint_db", None)
+    if checkpoint_db:
+        config["checkpoint_db"] = checkpoint_db
     summary: dict[str, Any] = {
         "config": config,
         "dataset": {
@@ -1139,6 +1194,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--exclude-self",
         action="store_true",
         help="Remove retrieved examples that match the evaluated case by base id or normalized question.",
+    )
+    parser.add_argument(
+        "--checkpoint-db",
+        default=None,
+        help="Agent mode only: path to a SQLite checkpoint database for LangGraph state persistence.",
     )
     parser.add_argument(
         "--trace-level",

@@ -47,10 +47,7 @@ def _combined_label(semantic_label: str, strict_label: str) -> str:
         return "semantic_correct_strict_incorrect"
     if semantic_label == "incorrect" and strict_label == "correct":
         return "semantic_incorrect_strict_correct"
-    if (
-        semantic_label == "partial_business_match"
-        or strict_label == "partial_business_match"
-    ):
+    if semantic_label == "partial_business_match" or strict_label == "partial_business_match":
         return "partial_or_mixed"
     return "adjudication_required"
 
@@ -141,10 +138,7 @@ def build_dual_policy_report(
         "semantic_judge_policies": _summary_judge_policies(semantic_summary),
         "strict_judge_policies": _summary_judge_policies(strict_summary),
         "source_artifacts": source_artifacts,
-        "same_source_artifact": len(
-            set(source for source in source_artifacts if source)
-        )
-        == 1,
+        "same_source_artifact": len(set(source for source in source_artifacts if source)) == 1,
         "common_cases": len(common_ids),
         "authoritative": semantic_authoritative and strict_authoritative,
         "semantic_source_authoritative": semantic_authoritative,

@@ -1,6 +1,7 @@
 from typing import Optional
 from src.reflexion.error_taxonomy import classify_error
 
+
 class RetryPolicy:
     """Encapsulates the logic for whether a retry should be attempted."""
 
@@ -10,10 +11,10 @@ class RetryPolicy:
     def should_retry(self, retry_count: int, error_msg: Optional[str] = None) -> bool:
         if retry_count >= self.max_retries:
             return False
-            
+
         if error_msg:
             taxon = classify_error(error_msg)
             if not taxon.is_retryable:
                 return False
-                
+
         return True

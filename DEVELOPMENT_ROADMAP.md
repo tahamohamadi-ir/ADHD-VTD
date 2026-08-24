@@ -49,7 +49,7 @@
 | Research packaging | In Progress | dataset card/threat model/phase docs وجود دارد؛ اولین paper-facing evidence package برای A4 dual-policy smoke ساخته شده است: `results/paper/20260520_phase16_a4_dual_policy_evidence`. reproduce script و paper-grade tables روی larger runs هنوز باقی مانده‌اند. |
 | LLM-as-a-Judge | Done | mock/offline artifact scaffold، اتصال `run_benchmark.py --use-judge`، OpenRouter provider پیاده‌سازی شدند. Judge policy به دو حالت رسمی تقسیم شده: `semantic_user_question` و `strict_reference`. فاز ۱۶ در یک سناریوی کامل با قاضی DeepSeek V4-Flash اجرا شد که با موفقیت توانست کوئری‌هایی که به دلیل تفاوت در تعداد ستون‌ها مردود شده بودند (مانند VTD-300 و VTD-078) را به عنوان `business_correct` تأیید کند. این موضوع توانمندی معماری برای تمایز Strict Constraint Failure از Semantic Failure را اثبات می‌کند و مسیر را برای مقاله‌نویسی هموار کرد. |
 | Phase 17 Pipeline Fix | Done | باگ ResultSerializer (هش ستون)، NLU routing، JSON parser سه‌مرحله‌ای، و Repair prompt context رفع شدند. بنچمارک ۴۰۰ سوالی: EX=32.5%, Valid=82.5%. تحلیل عمیق ۲۷۰ خطا به ۱۴ دسته. |
-| Phase 18 Accuracy Optimization | In Progress | هدف >60% بدون Fine-tuning. ۴ فاز: A=Prompt Hints (+14.6%), B=Few-shot/RAG (+6.2%), C=Schema Linking (+9.9%), D=NLU (+3.6%). |
+| Phase 18 Accuracy Optimization | In Progress | Anti-overfit zero/few-shot optimization reached 61.25% on positive400 with `--exclude-self` and no exact cache. The large 18.7b5 template pack is now quarantined as an ablation/debug artifact because the 94.25% full400 run was mostly template-driven and regressed 23 previously correct cases. Runtime default is `deterministic_templates=false`; next accepted metric must come from the AI/QIR/schema/retrieval path plus behavior and holdout/paraphrase checks. |
 
 ## Current Decision Snapshot - 2026-05-22
 
@@ -179,7 +179,7 @@ allowed_next_action:
 | D: NLU Routing | 24 | +6.0% | +3.6% | انجام شد |
 | **مجموع** | **228** | **+57.0%** | **+34.3%** | |
 
-دقت فعلی: 32.5% → هدف پس از Phase 18: **~67%**
+دقت Phase 17: 32.5% → Phase 18.5 ضد-overfit: 52.00% → Phase 18.6 ضد-overfit: **61.25%** → هدف Phase 18.7: **>=65%**
 
 دسته‌های بحرانی (0% accuracy): group_comparison (0/11), rate (0/7), performance (0/6), benchmark_rank (0/5), bucket (0/5), change_analysis (0/5)
 
@@ -228,6 +228,96 @@ Persian question
   -> answer formatting + chart recommendation + disclaimer
   -> benchmark trace + error analysis
 ```
+
+
+
+### Phase 18.5 — جهش بزرگ به کمک General Templates و Inference Optimizations
+
+اجرای بنچمارک در فاز 18.5 (با فعال‌سازی Templates و جلوگیری از Overlap در RAG) باعث شد دقت از سد مقاومت 32.75% عبور کند و به **52.00%** برسد. نرخ کدهای SQL قابل اجرا (Valid SQL Rate) نیز به **93.00%** ارتقا یافت.
+
+**توزیع خطاهای جدید (مجموعاً 192 خطا):**
+- `RESULT_MISMATCH`: 167 (کاهش چشمگیر، اما همچنان گلوگاه اصلی منطقی)
+- `INVALID_SQL`: 25 (کاهش به دلیل ساختارهای تمپلیتی)
+- `MISSING_GENERATED_SQL`: 0 (حل کامل)
+
+**چرا به 52% رسیدیم؟**
+استفاده از اسکلت‌های SQL (Templates) به مدل کمک کرد تا از ساختارشکنی بپرهیزد و فقط فیلدها و شروط را پر کند. این کار باعث شد خطاهای مربوط به عدم تطابق `GROUP BY` و موارد مشابه به شدت کاهش یابند.
+
+### Phase 18.6 — عبور از مرز 60% (دستاورد بزرگ!)
+
+با اجرای ویرایش دوم اسکلت‌ها (`general_templates_v2`)، دقت مدل به **61.25%** رسید و نرخ Valid SQL به **93.5%** ارتقا یافت. ما رسماً توانستیم یک مدل 7 میلیارد پارامتری را بدون Fine-tuning به سطح قابل قبولی برای تولید SQLهای سازمانی برسانیم. خطاهای `MISSING_GENERATED_SQL` کاملاً صفر شده‌اند.
+
+**توزیع خطاهای جدید (مجموعاً 155 خطا):**
+- `RESULT_MISMATCH`: 132
+- `INVALID_SQL`: 23
+
+بیشتر این 155 خطا در دسته‌های بسیار دشوار قرار دارند: `advanced_sql`، `complex_dashboard`، `dashboard_story` و `advanced_analysis`.
+
+### Phase 18.7 — لمس سقف نهایی توانایی مدل (Zero-Shot Mastery)
+
+برای رفع خطاهای پیچیده باقیمانده، پیش از QLoRA، تکنیک‌های پیشرفته زیر اجرا خواهند شد:
+1. **Vector RAG & Cross-Encoder Reranker:** تغییر مکانیزم جستجو از BM25 به Semantic برای پیدا کردن مثال‌هایی با ساختار دقیقاً مشابه در کوئری‌های پیچیده.
+2. **Chain of Thought (CoT):** الزام LLM به استدلال متنی پیش از تولید کد SQL در Few-shot ها برای جلوگیری از خطاهای منطقی در `advanced_analysis`.
+3. **Multi-Candidate Generation & Reliability Gate:** تولید موازی چندین کوئری و انتخاب بهترین مورد بر اساس گزارش‌های Validator.
+
+Canonical Phase 18.7 plan: `docs/phases/PHASE_18_7_ZERO_SHOT_MASTERY.md`
+
+Baseline artifact:
+`results/benchmark/20260524_221942_agent_positive400_qwen2-5-coder-7b_phase18_5_general_templates_v2_no_exact_cache_exclude_self_full400`
+
+Current baseline: EX `61.25%`, valid SQL `93.5%`, failures `155`, unsafe SQL `0`, p95 latency `86.8s`.
+
+18.7 execution order:
+
+1. `18.7a` - Template Safety Gate, specific-before-broad template priority, schema hard-gating with cross-dataset escape hatch, validator fixes for windowed aggregates and `GROUP BY` aliases.
+2. `18.7b` - One-shot deterministic Schema Surgeon for `UNKNOWN_COLUMN`; patch once, validate once, then fail fast only when a mapped patch remains invalid.
+3. `18.7b2` - Corrective regression-recovery pass after the `61.5%` full400 run: add general templates for the five valid-result regressions and keep one bounded LLM repair slot when Surgeon has no mapping.
+4. `18.7b5` - Selected failed154 iteration gate: result-verified deterministic template pack plus shape-validator false-positive fix. Latest failed154 artifact reached EX `154/154`, valid SQL `154/154`, unsafe `0`, p95 latency `1063ms`. The follow-up full400 artifact reached EX `377/400`, but it is quarantined because `324/400` cases bypassed LLM generation and `23` previously correct cases regressed.
+5. `18.7c0` - Required no-template check: full positive400 with `deterministic_templates=false` restored the AI/QIR/schema/retrieval architecture as the measured path, but fell to EX `134/400 = 33.5%`.
+6. `18.7e` - QIR/shape recovery without deterministic templates: populate QIR dimensions/metrics after schema linking, add generic shape validator contracts, schema-table collision preference, QIR-derived retrieval skeletons, and QIR table-shape multi-candidate triggers.
+7. `18.7c1` - Vector retrieval only, with `--exclude-self`.
+8. `18.7c2` - Vector retrieval plus multilingual `BAAI/bge-reranker-v2-m3` or local equivalent.
+9. `18.7d` - Reliability Gate / Semantic Critic over existing multi-candidate outputs. Multi-candidate is already present; this step evaluates gate routing/selection.
+
+Acceptance criteria:
+
+- EX `>= 65%`.
+- Valid SQL `>= 94%`.
+- Regressions `<= 5` versus the 61.25% artifact.
+- Difficulty split: Easy `>= 95%`, Medium `>= 72%`, Hard `>= 52%`, Complex `>= 35%`.
+- p95 latency `<= 65.1s`.
+- Unsafe SQL `= 0`.
+- Holdout or paraphrase validation completed without exact-cache style memorization.
+
+Next required Phase 18.7 commands:
+
+Fast regression gate:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset positive400 --path data\questions\special\phase18_7c0_lost119.json --sample 0 --top-k 5 --exclude-self --bootstrap-iterations 100 --trace-level compact --ablation-id phase18_7e_lost119_qir_shape_repair
+```
+
+Fast failed-set gate:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset positive400 --path data\questions\special\phase18_7c0_failed266.json --sample 0 --top-k 5 --exclude-self --bootstrap-iterations 100 --trace-level compact --ablation-id phase18_7e_failed266_qir_shape_repair
+```
+
+Full no-template check:
+
+```powershell
+$env:VTD_LLM_N_CTX="8192"
+.\.venv\Scripts\python.exe scripts\run_benchmark.py --mode agent --dataset positive400 --sample 0 --top-k 5 --exclude-self --bootstrap-iterations 300 --trace-level compact --ablation-id phase18_7e_ai_pipeline_qir_shape_full400
+```
+
+Dataset governance update:
+
+- `train/dev/test` are clean disjoint splits of `full400`, but `full400` itself is not a holdout because it contains all three splits.
+- `vtd_total_500_dataset_package` is a packaging artifact (`400` SQL-positive + `100` behavioral), not new evaluation data.
+- `phase18_7b_failed154`, `phase18_7b_regressed5`, and `vtd_question_sql_140_colloquial_additions_validated` are all subsets of `full400`; use them only for debugging, regression checks, or robustness slices, not final generalization claims.
+- Current `test/` has been partially touched by Phase 18.7 failure analysis (`20` cases inside failed154), so final anti-overfit claims require a new independent holdout/paraphrase set.
+- JSON/JSONL pairs are now aligned, including the VTD-300 fix in `dev.json`.
+- All gold/expected SQL in the reviewed SQL-positive and behavioral files executes and passes the validation stack after the `CASE WHEN` aggregation validator fix.
 
 ## Milestone نقشه راه
 

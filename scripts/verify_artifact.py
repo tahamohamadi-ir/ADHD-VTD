@@ -459,16 +459,16 @@ def _verify_dual_policy_artifact(
     }
 
     for row in cases:
-        for field, allowed in expected_fields.items():
-            label = _policy_label(row.get(field))
+        for field_name, allowed in expected_fields.items():
+            label = _policy_label(row.get(field_name))
             if not label:
-                missing_fields[field] += 1
+                missing_fields[field_name] += 1
                 continue
             if label not in allowed:
-                invalid_labels[field].add(label)
-            if field == "semantic_policy_label":
+                invalid_labels[field_name].add(label)
+            if field_name == "semantic_policy_label":
                 derived_counts["semantic_counts"][label] += 1
-            elif field == "strict_policy_label":
+            elif field_name == "strict_policy_label":
                 derived_counts["strict_counts"][label] += 1
             else:
                 derived_counts["combined_counts"][label] += 1

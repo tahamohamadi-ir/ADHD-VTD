@@ -184,12 +184,16 @@ class MockJudgeProvider:
             verdict = "missing_sql"
             semantic_business_correct = False
             score = 0.0
-            reason = "No generated SQL exists, so the query cannot satisfy the requested business logic."
+            reason = (
+                "No generated SQL exists, so the query cannot satisfy the requested business logic."
+            )
         elif not valid_sql:
             verdict = "invalid_sql"
             semantic_business_correct = False
             score = 0.0
-            reason = "Generated SQL did not pass validation/execution, so it cannot be business-correct."
+            reason = (
+                "Generated SQL did not pass validation/execution, so it cannot be business-correct."
+            )
         elif self.judge_policy == JUDGE_POLICY_STRICT and error == "RESULT_MISMATCH":
             verdict = "strict_reference_mismatch"
             semantic_business_correct = False
@@ -244,8 +248,7 @@ def _redacted_judge_payload(record: dict[str, Any]) -> dict[str, Any]:
         "execution_correct": record.get("execution_correct"),
         "benchmark_error": record.get("error"),
         "validation_issues": validation_issues,
-        "execution_result_hash": record.get("execution_result_hash")
-        or record.get("result_hash"),
+        "execution_result_hash": record.get("execution_result_hash") or record.get("result_hash"),
         "gold_result_hash": record.get("gold_result_hash"),
     }
 
@@ -318,9 +321,7 @@ def validate_judge_artifact(
         )
         return JudgeArtifactValidationReport(ok=False, issues=issues, checked=checked)
 
-    _validate_judge_summary_metadata(
-        summary, judgments, require_authoritative, issues, paths
-    )
+    _validate_judge_summary_metadata(summary, judgments, require_authoritative, issues, paths)
     _validate_judge_cost_metadata(summary, costs, issues, paths)
     _validate_judge_counts(summary, judgments, issues, paths)
 
@@ -412,10 +413,7 @@ def _validate_judge_summary_metadata(
         )
 
     redaction = summary.get("redaction_policy")
-    if (
-        not isinstance(redaction, dict)
-        or redaction.get("redaction_applied") is not True
-    ):
+    if not isinstance(redaction, dict) or redaction.get("redaction_applied") is not True:
         _append_judge_artifact_issue(
             issues,
             "JUDGE_REDACTION_POLICY_MISSING",
@@ -498,9 +496,7 @@ def _validate_judge_counts(
     summary_verdict_counts = summary.get("verdict_counts")
     if isinstance(summary_verdict_counts, dict):
         for verdict in set(verdict_counts) | set(summary_verdict_counts):
-            if _as_int(summary_verdict_counts.get(verdict)) != verdict_counts.get(
-                verdict, 0
-            ):
+            if _as_int(summary_verdict_counts.get(verdict)) != verdict_counts.get(verdict, 0):
                 _append_judge_artifact_issue(
                     issues,
                     "JUDGE_VERDICT_COUNT_MISMATCH",
@@ -524,11 +520,7 @@ def _validate_judge_counts(
         expected = summary.get(summary_field)
         if expected is None:
             continue
-        mismatches = [
-            row.get("case_id")
-            for row in judgments
-            if row.get(summary_field) != expected
-        ]
+        mismatches = [row.get("case_id") for row in judgments if row.get(summary_field) != expected]
         if mismatches:
             _append_judge_artifact_issue(
                 issues,
@@ -723,18 +715,12 @@ class OpenRouterJudgeProvider:
         )
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         self.base_url = (
-            base_url
-            or os.getenv("OPENROUTER_BASE_URL")
-            or "https://openrouter.ai/api/v1"
+            base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
         ).rstrip("/")
         self.app_url = (
-            app_url
-            or os.getenv("OPENROUTER_HTTP_REFERER")
-            or "https://github.com/local/ADHD-VTD"
+            app_url or os.getenv("OPENROUTER_HTTP_REFERER") or "https://github.com/local/ADHD-VTD"
         )
-        self.app_title = (
-            app_title or os.getenv("OPENROUTER_APP_TITLE") or "ADHD-VTD Phase16 Judge"
-        )
+        self.app_title = app_title or os.getenv("OPENROUTER_APP_TITLE") or "ADHD-VTD Phase16 Judge"
         self.timeout_seconds = timeout_seconds
         self.max_retries = (
             max_retries
@@ -742,9 +728,7 @@ class OpenRouterJudgeProvider:
             else int(os.getenv("VTD_OPENROUTER_JUDGE_RETRIES", "2"))
         )
         if reasoning_enabled is None:
-            reasoning_enabled = os.getenv(
-                "VTD_OPENROUTER_JUDGE_REASONING", ""
-            ).strip().lower() in {
+            reasoning_enabled = os.getenv("VTD_OPENROUTER_JUDGE_REASONING", "").strip().lower() in {
                 "1",
                 "true",
                 "yes",
@@ -895,9 +879,7 @@ class OpenRouterJudgeProvider:
         last_exc: Exception | None = None
         for attempt in range(max(1, self.max_retries + 1)):
             try:
-                with urllib.request.urlopen(
-                    request, timeout=self.timeout_seconds
-                ) as response:
+                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                     response_payload = json.loads(response.read().decode("utf-8"))
                 break
             except (
@@ -934,9 +916,7 @@ class OpenRouterJudgeProvider:
         message = response_payload.get("choices", [{}])[0].get("message", {})
         content = message.get("content", "")
         usage = response_payload.get("usage") or {}
-        reasoning_tokens = int(
-            usage.get("reasoning_tokens") or usage.get("reasoningTokens") or 0
-        )
+        reasoning_tokens = int(usage.get("reasoning_tokens") or usage.get("reasoningTokens") or 0)
         try:
             parsed = _parse_provider_json(content)
         except (json.JSONDecodeError, TypeError) as exc:
@@ -960,17 +940,13 @@ class OpenRouterJudgeProvider:
                 reasoning_details_present=bool(message.get("reasoning_details")),
             )
 
-        semantic_business_correct = _coerce_optional_bool(
-            parsed.get("semantic_business_correct")
-        )
+        semantic_business_correct = _coerce_optional_bool(parsed.get("semantic_business_correct"))
         needs_human_review = _coerce_optional_bool(parsed.get("needs_human_review"))
-        verdict, semantic_business_correct, needs_human_review_bool = (
-            _canonical_provider_verdict(
-                parsed.get("verdict"),
-                semantic_business_correct,
-                needs_human_review,
-                valid_sql=record.get("valid_sql"),
-            )
+        verdict, semantic_business_correct, needs_human_review_bool = _canonical_provider_verdict(
+            parsed.get("verdict"),
+            semantic_business_correct,
+            needs_human_review,
+            valid_sql=record.get("valid_sql"),
         )
         return JudgeResult(
             case_id=case_id,
@@ -989,9 +965,7 @@ class OpenRouterJudgeProvider:
             metric_correct=_coerce_optional_bool(parsed.get("metric_correct")),
             filter_correct=_coerce_optional_bool(parsed.get("filter_correct")),
             join_logic_correct=_coerce_optional_bool(parsed.get("join_logic_correct")),
-            aggregation_correct=_coerce_optional_bool(
-                parsed.get("aggregation_correct")
-            ),
+            aggregation_correct=_coerce_optional_bool(parsed.get("aggregation_correct")),
             needs_human_review=needs_human_review_bool,
             input_tokens=int(usage.get("prompt_tokens") or 0),
             output_tokens=int(usage.get("completion_tokens") or 0),
@@ -1013,16 +987,11 @@ def select_records_for_judging(
     selected = [
         record
         for record in predictions
-        if (
-            case_ids is None
-            or str(record.get("id") or record.get("case_id") or "") in case_ids
-        )
+        if (case_ids is None or str(record.get("id") or record.get("case_id") or "") in case_ids)
         and (
             not failures_only
             or not bool(
-                record.get("ok")
-                or record.get("execution_correct")
-                or record.get("result_match")
+                record.get("ok") or record.get("execution_correct") or record.get("result_match")
             )
         )
     ]
@@ -1047,9 +1016,7 @@ def _provider_from_name(
             reasoning_enabled=reasoning_enabled,
             judge_policy=judge_policy,
         )
-    raise ValueError(
-        f"Unsupported judge provider '{name}'. Supported providers: mock, openrouter."
-    )
+    raise ValueError(f"Unsupported judge provider '{name}'. Supported providers: mock, openrouter.")
 
 
 def judge_benchmark_artifact(
@@ -1090,15 +1057,9 @@ def judge_benchmark_artifact(
     output_root.mkdir(parents=True, exist_ok=True)
 
     verdict_counts = Counter(row["verdict"] for row in judgments)
-    authoritative_count = sum(
-        1 for row in judgments if row.get("authoritative") is True
-    )
-    reasoning_tokens_total = sum(
-        int(row.get("reasoning_tokens") or 0) for row in judgments
-    )
-    reasoning_details_count = sum(
-        1 for row in judgments if row.get("reasoning_details_present")
-    )
+    authoritative_count = sum(1 for row in judgments if row.get("authoritative") is True)
+    reasoning_tokens_total = sum(int(row.get("reasoning_tokens") or 0) for row in judgments)
+    reasoning_details_count = sum(1 for row in judgments if row.get("reasoning_details_present"))
     correctness_counts = _semantic_counts_from_judgments(judgments)
     anti_fake_policy = (
         "Mock judgments are deterministic scaffold labels only. Valid SQL result mismatches remain unjudged until an independent semantic judge or human review runs."
@@ -1136,9 +1097,7 @@ def judge_benchmark_artifact(
         "judge_policy": _normalize_judge_policy(judge_policy),
         "input_tokens": sum(int(row.get("input_tokens") or 0) for row in judgments),
         "output_tokens": sum(int(row.get("output_tokens") or 0) for row in judgments),
-        "reasoning_tokens": sum(
-            int(row.get("reasoning_tokens") or 0) for row in judgments
-        ),
+        "reasoning_tokens": sum(int(row.get("reasoning_tokens") or 0) for row in judgments),
         "estimated_cost_usd": round(
             sum(float(row.get("estimated_cost_usd") or 0.0) for row in judgments), 8
         ),
@@ -1154,9 +1113,7 @@ def judge_benchmark_artifact(
         judge_summary,
     )
     reasoning_path = output_root / "judge_reasoning.md"
-    reasoning_path.write_text(
-        _render_reasoning(judge_summary, judgments), encoding="utf-8"
-    )
+    reasoning_path.write_text(_render_reasoning(judge_summary, judgments), encoding="utf-8")
 
     return {
         "judgments": judgments_path,

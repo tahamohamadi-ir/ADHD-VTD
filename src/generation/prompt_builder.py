@@ -201,9 +201,7 @@ class PromptBuilder:
                     or not ex["thought_process"]
                     or ex["thought_process"] == "Generating query for user request."
                 ):
-                    ex["thought_process"] = self._generate_synthetic_thought(
-                        ex.get("sql", "")
-                    )
+                    ex["thought_process"] = self._generate_synthetic_thought(ex.get("sql", ""))
                 # If skeleton is missing, we could try to extract it, but usually it is pre-populated in golden examples.
                 # Since golden_examples doesn't have it, we'll auto-generate a pseudo-skeleton if missing.
                 if "sql_skeleton" not in ex:
@@ -371,9 +369,7 @@ class PromptBuilder:
                 "LIMIT for the requested top-N slice; use LIMIT 15 when no N is specified."
             )
 
-        asks_raw_rows = (
-            task_type == "raw_retrieval_query" or expected_shape == "raw_rows"
-        )
+        asks_raw_rows = task_type == "raw_retrieval_query" or expected_shape == "raw_rows"
         if asks_raw_rows:
             hints.append(
                 "For raw row/list requests, select only explicit non-identifier columns, "
@@ -431,10 +427,7 @@ class PromptBuilder:
             hints.append(rate_hint)
 
         student_cols = _table_columns(schema, "student_depression")
-        if (
-            _has_any(q, _FAMILY_HISTORY_TERMS)
-            and "family_history_mental_illness" in student_cols
-        ):
+        if _has_any(q, _FAMILY_HISTORY_TERMS) and "family_history_mental_illness" in student_cols:
             hints.append(
                 "For family-history questions over student_depression, use "
                 "family_history_mental_illness. Do not use family_history unless "
@@ -492,9 +485,7 @@ class PromptBuilder:
             )
 
         if "country_prevalence_long" in schema_tables:
-            if _has_any(q, _MENTAL_HEALTH_GENERAL_TERMS) and not _has_any(
-                q, _DISORDER_NAME_TERMS
-            ):
+            if _has_any(q, _MENTAL_HEALTH_GENERAL_TERMS) and not _has_any(q, _DISORDER_NAME_TERMS):
                 hints.append(
                     "In global prevalence data, generic 'mental health' is a topic label, "
                     "not a value in the disorder column. Do not add a disorder filter unless "
@@ -527,9 +518,7 @@ class PromptBuilder:
                 "explicit threshold."
             )
             general_cols = _table_columns(schema, "mental_health_general")
-            if {"stress_level", "sleep_hours", "mental_health_risk"}.issubset(
-                general_cols
-            ):
+            if {"stress_level", "sleep_hours", "mental_health_risk"}.issubset(general_cols):
                 risk_hint += (
                     " For mental_health_general, include "
                     "ROUND(AVG(stress_level), 2) AS avg_stress and "

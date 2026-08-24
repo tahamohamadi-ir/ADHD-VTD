@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.evaluation.dataset_loader import load_phase0_50q_cases, load_phase0_results, summarize_cases, write_json
+from src.evaluation.dataset_loader import (
+    load_phase0_50q_cases,
+    load_phase0_results,
+    summarize_cases,
+    write_json,
+)
 from src.evaluation.metrics import aggregate_basic_metrics
 from src.evaluation.reliability_metrics import reliability_score
 
@@ -13,7 +18,9 @@ except Exception:  # pragma: no cover
     QUESTION_AUDIT_DIR = Path("data/questions/audit")
 
 
-def build_phase0_summary(*, cases_path: str | Path | None = None, results_path: str | Path | None = None) -> dict[str, Any]:
+def build_phase0_summary(
+    *, cases_path: str | Path | None = None, results_path: str | Path | None = None
+) -> dict[str, Any]:
     cases_ds = load_phase0_50q_cases(cases_path)
     results = load_phase0_results(results_path)
     summary = {

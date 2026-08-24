@@ -11,9 +11,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Merge semantic-user-question and strict-reference judge reports without calling a model."
     )
-    parser.add_argument("--semantic-dir", required=True, help="Agreement or consensus directory for semantic policy.")
-    parser.add_argument("--strict-dir", required=True, help="Agreement or consensus directory for strict policy.")
-    parser.add_argument("--output-dir", required=True, help="Output directory for dual-policy report artifacts.")
+    parser.add_argument(
+        "--semantic-dir",
+        required=True,
+        help="Agreement or consensus directory for semantic policy.",
+    )
+    parser.add_argument(
+        "--strict-dir", required=True, help="Agreement or consensus directory for strict policy."
+    )
+    parser.add_argument(
+        "--output-dir", required=True, help="Output directory for dual-policy report artifacts."
+    )
     return parser
 
 

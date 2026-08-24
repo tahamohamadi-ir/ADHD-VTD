@@ -11,8 +11,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate a Phase 11 ablation comparison report from a real ablation manifest."
     )
-    parser.add_argument("manifest_path", help="Path to results/ablation/<run>/ablation_manifest.json.")
-    parser.add_argument("--output-dir", help="Optional output directory. Defaults to the manifest directory.")
+    parser.add_argument(
+        "manifest_path", help="Path to results/ablation/<run>/ablation_manifest.json."
+    )
+    parser.add_argument(
+        "--output-dir", help="Optional output directory. Defaults to the manifest directory."
+    )
     return parser
 
 

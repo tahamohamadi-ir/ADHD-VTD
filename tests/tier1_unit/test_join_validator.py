@@ -1,5 +1,6 @@
 from src.sql_validation.join_validator import SQLJoinValidator
 
+
 class TestSQLJoinValidator:
     def test_valid_join(self):
         validator = SQLJoinValidator()

@@ -84,9 +84,7 @@ def _require_packaging_ready_dual_policy(
 
     common_cases = _positive_int(summary.get("common_cases"))
     if common_cases is None:
-        raise ValueError(
-            "Dual-policy evidence must record a positive common_cases count."
-        )
+        raise ValueError("Dual-policy evidence must record a positive common_cases count.")
     if common_cases != len(cases):
         raise ValueError(
             f"Dual-policy common_cases {common_cases} does not match case rows {len(cases)}."
@@ -94,9 +92,7 @@ def _require_packaging_ready_dual_policy(
 
     blocking_counts = _dual_policy_blocking_counts(summary, cases)
     if blocking_counts:
-        raise ValueError(
-            f"Dual-policy evidence contains unresolved labels: {blocking_counts}."
-        )
+        raise ValueError(f"Dual-policy evidence contains unresolved labels: {blocking_counts}.")
 
 
 def _require_verified_artifacts(benchmark_dir: Path, dual_policy_dir: Path) -> None:
@@ -140,9 +136,7 @@ def build_dual_policy_evidence_package(
     dual_cases = read_jsonl(dual_cases_path)
     _require_packaging_ready_dual_policy(dual_summary, dual_cases)
 
-    predictions_by_id = {
-        str(row.get("id") or row.get("case_id")): row for row in predictions
-    }
+    predictions_by_id = {str(row.get("id") or row.get("case_id")): row for row in predictions}
     case_rows: list[dict[str, Any]] = []
     for row in dual_cases:
         case_id = str(row.get("case_id"))
@@ -192,9 +186,7 @@ def build_dual_policy_evidence_package(
             "selected_cases_hash": config.get("selected_cases_hash"),
         },
         "benchmark_metrics": {
-            "execution_accuracy": _metric_value(
-                benchmark_summary, "execution_accuracy"
-            ),
+            "execution_accuracy": _metric_value(benchmark_summary, "execution_accuracy"),
             "valid_sql_rate": _metric_value(benchmark_summary, "valid_sql_rate"),
             "sql2nl_paraphrase_robustness": _metric_value(
                 benchmark_summary, "sql2nl_paraphrase_robustness"
@@ -206,22 +198,16 @@ def build_dual_policy_evidence_package(
             "common_cases": dual_summary.get("common_cases"),
             "semantic_correct": _safe_count(semantic_counts, "correct"),
             "semantic_incorrect": _safe_count(semantic_counts, "incorrect"),
-            "semantic_adjudication_required": _safe_count(
-                semantic_counts, "adjudication_required"
-            ),
+            "semantic_adjudication_required": _safe_count(semantic_counts, "adjudication_required"),
             "strict_correct": _safe_count(strict_counts, "correct"),
             "strict_incorrect": _safe_count(strict_counts, "incorrect"),
-            "strict_adjudication_required": _safe_count(
-                strict_counts, "adjudication_required"
-            ),
+            "strict_adjudication_required": _safe_count(strict_counts, "adjudication_required"),
             "both_correct": _safe_count(combined_counts, "both_correct"),
             "both_incorrect": _safe_count(combined_counts, "both_incorrect"),
             "semantic_correct_strict_incorrect": _safe_count(
                 combined_counts, "semantic_correct_strict_incorrect"
             ),
-            "combined_adjudication_required": _safe_count(
-                combined_counts, "adjudication_required"
-            ),
+            "combined_adjudication_required": _safe_count(combined_counts, "adjudication_required"),
         },
         "anti_fake_policy": (
             "This package reads existing benchmark and dual-policy artifacts only. "
@@ -237,14 +223,10 @@ def build_dual_policy_evidence_package(
 
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    summary_path = write_json(
-        output_root / "paper_evidence_summary.json", package_summary
-    )
+    summary_path = write_json(output_root / "paper_evidence_summary.json", package_summary)
     cases_path = _write_case_csv(output_root / "paper_evidence_cases.csv", case_rows)
     report_path = output_root / "paper_evidence_table.md"
-    report_path.write_text(
-        _render_markdown(package_summary, case_rows), encoding="utf-8"
-    )
+    report_path.write_text(_render_markdown(package_summary, case_rows), encoding="utf-8")
     return {"summary": summary_path, "cases_csv": cases_path, "report": report_path}
 
 

@@ -54,10 +54,8 @@ class SqlCandidate:
             candidate_id=str(record.get("candidate_id") or f"candidate_{index}"),
             sql=record.get("sql") or record.get("generated_sql"),
             valid_sql=record.get("valid_sql"),
-            execution_passed=record.get("execution_passed")
-            or record.get("execution_ok"),
-            result_hash=record.get("result_hash")
-            or record.get("execution_result_hash"),
+            execution_passed=record.get("execution_passed") or record.get("execution_ok"),
+            result_hash=record.get("result_hash") or record.get("execution_result_hash"),
             metadata={
                 key: value
                 for key, value in record.items()
@@ -204,9 +202,7 @@ def _add_signature_disagreement_issues(
     }
     for key, code in dimensions.items():
         values = {
-            _hashable_signature_value(
-                signatures.get(candidate.candidate_id, {}).get(key)
-            )
+            _hashable_signature_value(signatures.get(candidate.candidate_id, {}).get(key))
             for candidate in candidates
         }
         if len(values) > 1:
@@ -263,28 +259,18 @@ def _sql_signature(sql: str | None) -> dict[str, Any]:
         from sqlglot import exp
 
         parsed = sqlglot.parse_one(sql, read="sqlite")
-        tables = sorted(
-            {table.name.lower() for table in parsed.find_all(exp.Table) if table.name}
-        )
+        tables = sorted({table.name.lower() for table in parsed.find_all(exp.Table) if table.name})
         columns = sorted(
-            {
-                column.name.lower()
-                for column in parsed.find_all(exp.Column)
-                if column.name
-            }
+            {column.name.lower() for column in parsed.find_all(exp.Column) if column.name}
         )
         aggregations = sorted(
-            node.key.lower()
-            for node in parsed.find_all(exp.AggFunc)
-            if getattr(node, "key", None)
+            node.key.lower() for node in parsed.find_all(exp.AggFunc) if getattr(node, "key", None)
         )
         group = parsed.args.get("group")
         group_columns: list[str] = []
         if group is not None:
             group_columns = sorted(
-                column.name.lower()
-                for column in group.find_all(exp.Column)
-                if column.name
+                column.name.lower() for column in group.find_all(exp.Column) if column.name
             )
         where = parsed.args.get("where")
         where_fingerprint = _normalize_sql_fragment(

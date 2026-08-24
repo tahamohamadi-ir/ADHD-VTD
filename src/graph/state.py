@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from src.config.settings import SETTINGS
+from src.core.query_ir import QueryIR
 
 
 class SQLAttempt(BaseModel):
@@ -55,9 +56,6 @@ class ReliabilityState(BaseModel):
     confidence: float | None = None
     warnings: list[str] = Field(default_factory=list)
     signals: dict[str, Any] = Field(default_factory=dict)
-
-
-from src.core.query_ir import QueryIR
 
 
 class VTDState(BaseModel):
@@ -115,6 +113,9 @@ class VTDState(BaseModel):
 
     final_answer: str | None = None
     explanation: str | None = None
+    narrative: str | None = None
+    recommended_visual: str | None = None
+    chart_reason: str | None = None
     actual_action: str | None = None
     benchmark_record: dict[str, Any] | None = None
 

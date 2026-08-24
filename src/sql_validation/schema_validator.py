@@ -6,8 +6,15 @@ from sqlglot import exp
 from src.schema.schema_registry import SchemaRegistry
 from src.sql_validation.validation_result import ValidationIssue, ValidationResult
 
+
 class SQLSchemaValidator:
-    OLD_TABLES = {"individuals_core", "student_metrics", "clinical_assessments", "lifestyle_risk_factors", "global_benchmarks"}
+    OLD_TABLES = {
+        "individuals_core",
+        "student_metrics",
+        "clinical_assessments",
+        "lifestyle_risk_factors",
+        "global_benchmarks",
+    }
 
     def __init__(self, registry: SchemaRegistry | None = None) -> None:
         self.registry = registry or SchemaRegistry()
@@ -20,7 +27,9 @@ class SQLSchemaValidator:
         try:
             tree = sqlglot.parse_one(normalized, read="sqlite")
         except Exception as exc:
-            return ValidationResult.fail("PARSE_ERROR", f"Cannot parse SQL for schema validation: {exc}")
+            return ValidationResult.fail(
+                "PARSE_ERROR", f"Cannot parse SQL for schema validation: {exc}"
+            )
 
         # Get CTEs
         ctes = {cte.alias for cte in tree.find_all(exp.CTE)}
@@ -37,7 +46,11 @@ class SQLSchemaValidator:
             tables[alias] = table_name
             tables[table_name] = table_name
             if table_name in self.OLD_TABLES:
-                issues.append(ValidationIssue("OLD_TABLE_REFERENCE", f"Old/non-current table referenced: {table.name}"))
+                issues.append(
+                    ValidationIssue(
+                        "OLD_TABLE_REFERENCE", f"Old/non-current table referenced: {table.name}"
+                    )
+                )
             elif not self.registry.has_table(table_name):
                 issues.append(ValidationIssue("UNKNOWN_TABLE", f"Unknown table: {table.name}"))
 
@@ -49,10 +62,20 @@ class SQLSchemaValidator:
                 continue
             if table_ref:
                 real_table = tables.get(table_ref, table_ref)
-                if self.registry.has_table(real_table) and not self.registry.has_column(real_table, col_name):
-                    issues.append(ValidationIssue("UNKNOWN_COLUMN", f"Unknown column: {column.table}.{column.name}"))
+                if self.registry.has_table(real_table) and not self.registry.has_column(
+                    real_table, col_name
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            "UNKNOWN_COLUMN", f"Unknown column: {column.table}.{column.name}"
+                        )
+                    )
             else:
                 if not any(self.registry.has_column(t, col_name) for t in used_table_names):
-                    issues.append(ValidationIssue("UNKNOWN_COLUMN", f"Unknown unqualified column: {column.name}"))
+                    issues.append(
+                        ValidationIssue(
+                            "UNKNOWN_COLUMN", f"Unknown unqualified column: {column.name}"
+                        )
+                    )
 
         return ValidationResult(not issues, issues, normalized)

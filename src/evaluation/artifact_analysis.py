@@ -124,9 +124,19 @@ def _docs06_from_validation_codes(codes: list[str]) -> str | None:
     if not joined:
         return None
 
-    if any(token in joined for token in ("UNSUPPORTED", "PERCENTILE", "WITHIN_GROUP", "SQLITE_DIALECT")):
+    if any(
+        token in joined for token in ("UNSUPPORTED", "PERCENTILE", "WITHIN_GROUP", "SQLITE_DIALECT")
+    ):
         return "SQL_SYNTAX_ERROR"
-    if any(token in joined for token in ("UNKNOWN_TABLE", "UNKNOWN_COLUMN", "MISSING_LONG_PREVALENCE_TABLE", "MISSING_PREVALENCE_LONG_COLUMNS")):
+    if any(
+        token in joined
+        for token in (
+            "UNKNOWN_TABLE",
+            "UNKNOWN_COLUMN",
+            "MISSING_LONG_PREVALENCE_TABLE",
+            "MISSING_PREVALENCE_LONG_COLUMNS",
+        )
+    ):
         return "SCHEMA_LINKING_ERROR"
     if "JOIN" in joined:
         return "JOIN_ERROR"
@@ -134,7 +144,10 @@ def _docs06_from_validation_codes(codes: list[str]) -> str | None:
         return "FILTER_ERROR"
     if any(token in joined for token in ("CHANGE_MEASURE", "RATE_FORMULA", "POSITIVES", "METRIC")):
         return "SEMANTIC_METRIC_ERROR"
-    if any(token in joined for token in ("GROUP", "COUNT", "AVERAGE", "BINNING", "AGGREGATE", "RISK_KEY")):
+    if any(
+        token in joined
+        for token in ("GROUP", "COUNT", "AVERAGE", "BINNING", "AGGREGATE", "RISK_KEY")
+    ):
         return "AGGREGATION_ERROR"
     if any(code.startswith("ANALYTICAL_SHAPE") for code in normalized):
         return "AGGREGATION_ERROR"
@@ -187,10 +200,14 @@ def requires_semantic_review(record: dict[str, Any]) -> bool:
 
 
 def _is_failure(record: dict[str, Any]) -> bool:
-    return not bool(record.get("ok") or record.get("execution_correct") or record.get("result_match"))
+    return not bool(
+        record.get("ok") or record.get("execution_correct") or record.get("result_match")
+    )
 
 
-def build_error_rows(predictions: list[dict[str, Any]], *, max_examples: int = 20) -> list[dict[str, Any]]:
+def build_error_rows(
+    predictions: list[dict[str, Any]], *, max_examples: int = 20
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in predictions:
         if not _is_failure(record):
@@ -451,9 +468,17 @@ def analyze_benchmark_artifact(
             "total_predictions": len(predictions),
             "total_attempts": len(attempts),
             "total_failures_analyzed": len(error_rows),
-            "research_error_counts": dict(Counter(row["research_error"] for row in error_rows).most_common()),
-            "docs06_error_counts": dict(Counter(row["docs06_error"] for row in error_rows if row.get("docs06_error")).most_common()),
-            "semantic_review_required_count": sum(1 for row in error_rows if row.get("requires_semantic_review")),
+            "research_error_counts": dict(
+                Counter(row["research_error"] for row in error_rows).most_common()
+            ),
+            "docs06_error_counts": dict(
+                Counter(
+                    row["docs06_error"] for row in error_rows if row.get("docs06_error")
+                ).most_common()
+            ),
+            "semantic_review_required_count": sum(
+                1 for row in error_rows if row.get("requires_semantic_review")
+            ),
         },
     )
     return {"report": report_path, "failure_cases": cases_path, "summary": summary_path}

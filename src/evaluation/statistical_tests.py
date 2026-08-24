@@ -92,7 +92,13 @@ def bootstrap_ci(
 
 
 def _case_id(record: dict[str, Any]) -> str:
-    return str(record.get("id") or record.get("case_id") or record.get("audit_id") or record.get("source_id") or "")
+    return str(
+        record.get("id")
+        or record.get("case_id")
+        or record.get("audit_id")
+        or record.get("source_id")
+        or ""
+    )
 
 
 def _is_correct(record: dict[str, Any], correctness_key: str) -> bool:
@@ -151,7 +157,11 @@ def mcnemar_test(
     else:
         statistic = (abs(b - c) - 1) ** 2 / discordant
         p_value = _chi_square_df1_survival(statistic)
-        exact_p_value = _two_sided_binomial_p_value(min(b, c), discordant) if discordant <= exact_threshold else None
+        exact_p_value = (
+            _two_sided_binomial_p_value(min(b, c), discordant)
+            if discordant <= exact_threshold
+            else None
+        )
 
     warning = None
     if not common_ids:
@@ -168,6 +178,8 @@ def mcnemar_test(
         statistic=round(statistic, 6),
         p_value=round(p_value, 6),
         exact_p_value=round(exact_p_value, 6) if exact_p_value is not None else None,
-        method="exact_binomial" if exact_p_value is not None else "mcnemar_chi_square_continuity_corrected",
+        method="exact_binomial"
+        if exact_p_value is not None
+        else "mcnemar_chi_square_continuity_corrected",
         warning=warning,
     )

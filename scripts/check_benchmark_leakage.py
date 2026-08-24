@@ -60,7 +60,13 @@ def extract_cases(raw: Any) -> list[dict[str, Any]]:
     if isinstance(raw, list):
         return raw
     if isinstance(raw, dict):
-        for key in ("cases", "examples", "positive_examples", "behavioral_evaluation_examples", "items"):
+        for key in (
+            "cases",
+            "examples",
+            "positive_examples",
+            "behavioral_evaluation_examples",
+            "items",
+        ):
             value = raw.get(key)
             if isinstance(value, list):
                 return value
@@ -90,7 +96,9 @@ def sql_skeleton(sql: str) -> str:
 
 def record_from_case(source: str, case: dict[str, Any]) -> AuditRecord:
     record_id = str(case.get("id") or case.get("case_id") or case.get("audit_id") or "")
-    question = str(case.get("question_fa") or case.get("question") or case.get("user_utterance_fa") or "")
+    question = str(
+        case.get("question_fa") or case.get("question") or case.get("user_utterance_fa") or ""
+    )
     sql = str(case.get("sql") or case.get("gold_sql") or case.get("expected_sql") or "")
     return AuditRecord(
         source=source,
@@ -114,19 +122,27 @@ def load_records() -> list[AuditRecord]:
     return records
 
 
-def add_case(cases: list[dict[str, Any]], issue_type: str, left: AuditRecord, right: AuditRecord, **extra: Any) -> None:
-    cases.append({
-        "issue_type": issue_type,
-        "left_source": left.source,
-        "left_id": left.id,
-        "left_base_id": left.base_id,
-        "left_question": left.question,
-        "right_source": right.source,
-        "right_id": right.id,
-        "right_base_id": right.base_id,
-        "right_question": right.question,
-        **extra,
-    })
+def add_case(
+    cases: list[dict[str, Any]],
+    issue_type: str,
+    left: AuditRecord,
+    right: AuditRecord,
+    **extra: Any,
+) -> None:
+    cases.append(
+        {
+            "issue_type": issue_type,
+            "left_source": left.source,
+            "left_id": left.id,
+            "left_base_id": left.base_id,
+            "left_question": left.question,
+            "right_source": right.source,
+            "right_id": right.id,
+            "right_base_id": right.base_id,
+            "right_question": right.question,
+            **extra,
+        }
+    )
 
 
 def is_cross_source(left: AuditRecord, right: AuditRecord) -> bool:
@@ -139,7 +155,7 @@ def run_audit(records: list[AuditRecord]) -> tuple[dict[str, Any], list[dict[str
     reference_sources = set(REFERENCE_SOURCES)
 
     for i, left in enumerate(records):
-        for right in records[i + 1:]:
+        for right in records[i + 1 :]:
             if not is_cross_source(left, right):
                 continue
             if left.id and left.id == right.id:
@@ -153,9 +169,13 @@ def run_audit(records: list[AuditRecord]) -> tuple[dict[str, Any], list[dict[str
                 and right.normalized_question
                 and (left.source in benchmark_sources or right.source in benchmark_sources)
             ):
-                score = SequenceMatcher(None, left.normalized_question, right.normalized_question).ratio()
+                score = SequenceMatcher(
+                    None, left.normalized_question, right.normalized_question
+                ).ratio()
                 if score >= 0.92 and left.normalized_question != right.normalized_question:
-                    add_case(cases, "near_duplicate_question", left, right, similarity=round(score, 4))
+                    add_case(
+                        cases, "near_duplicate_question", left, right, similarity=round(score, 4)
+                    )
             if (
                 left.sql_skeleton
                 and right.sql_skeleton
@@ -206,24 +226,28 @@ def write_report(path: Path, summary: dict[str, Any], cases: list[dict[str, Any]
             lines.append(f"- `{issue}`: {count}")
     else:
         lines.append("- no observable overlap detected")
-    lines.extend([
-        "",
-        "## High-Risk Examples",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## High-Risk Examples",
+            "",
+        ]
+    )
     for case in cases[:30]:
         lines.append(
             f"- `{case['issue_type']}`: `{case['left_source']}:{case['left_id']}` "
             f"<-> `{case['right_source']}:{case['right_id']}`"
         )
-    lines.extend([
-        "",
-        "## Required Follow-Up",
-        "",
-        "- Treat `base_id_overlap`, exact question duplicate, and SQL skeleton overlap involving dev/test as benchmark leakage risk.",
-        "- If RAG or few-shot examples overlap with dev/test, add an exclude-self policy before final paper benchmarks.",
-        "- Keep paper claims conservative: this audit is evidence, not proof of no overfit.",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Required Follow-Up",
+            "",
+            "- Treat `base_id_overlap`, exact question duplicate, and SQL skeleton overlap involving dev/test as benchmark leakage risk.",
+            "- If RAG or few-shot examples overlap with dev/test, add an exclude-self policy before final paper benchmarks.",
+            "- Keep paper claims conservative: this audit is evidence, not proof of no overfit.",
+        ]
+    )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

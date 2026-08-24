@@ -131,9 +131,7 @@ class SQLSafetyValidator:
             inner = getattr(projection, "this", None)
             if isinstance(inner, exp.Star):
                 return True
-            if isinstance(inner, exp.Column) and isinstance(
-                getattr(inner, "this", None), exp.Star
-            ):
+            if isinstance(inner, exp.Column) and isinstance(getattr(inner, "this", None), exp.Star):
                 return True
 
         return False
@@ -147,9 +145,7 @@ class SQLSafetyValidator:
         # sqlglot parses WITH ... SELECT as an exp.Select whose expressions are
         # the final output projection. CTE body projections should not be used
         # for the top-level privacy decision.
-        select_expr = (
-            parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
-        )
+        select_expr = parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
         if select_expr is None:
             return False
 
@@ -167,9 +163,7 @@ class SQLSafetyValidator:
         if exp is None:
             return set()
         return {
-            str(column.name).lower()
-            for column in projection.find_all(exp.Column)
-            if column.name
+            str(column.name).lower() for column in projection.find_all(exp.Column) if column.name
         }
 
     def _projection_is_aggregate(self, projection: Any) -> bool:
@@ -196,9 +190,7 @@ class SQLSafetyValidator:
 
     def _is_identifier_column(self, column_name: str) -> bool:
         name = column_name.lower()
-        return name in self.IDENTIFIER_COLUMN_NAMES or name.endswith(
-            self.IDENTIFIER_SUFFIXES
-        )
+        return name in self.IDENTIFIER_COLUMN_NAMES or name.endswith(self.IDENTIFIER_SUFFIXES)
 
     def _is_sensitive_column(self, column_name: str) -> bool:
         name = column_name.lower()
@@ -207,9 +199,7 @@ class SQLSafetyValidator:
     def _source_table_names(self, parsed: Any) -> set[str]:
         if exp is None or parsed is None:
             return set()
-        cte_names = {
-            str(cte.alias).lower() for cte in parsed.find_all(exp.CTE) if cte.alias
-        }
+        cte_names = {str(cte.alias).lower() for cte in parsed.find_all(exp.CTE) if cte.alias}
         table_names: set[str] = set()
         for table in parsed.find_all(exp.Table):
             name = str(table.name).lower()
@@ -219,9 +209,7 @@ class SQLSafetyValidator:
 
     def _reads_only_public_aggregate_sources(self, parsed: Any) -> bool:
         source_tables = self._source_table_names(parsed)
-        return bool(source_tables) and source_tables.issubset(
-            self.PUBLIC_AGGREGATE_SOURCE_TABLES
-        )
+        return bool(source_tables) and source_tables.issubset(self.PUBLIC_AGGREGATE_SOURCE_TABLES)
 
     def _raw_row_limit_issues(self, parsed: Any, sql: str) -> list[ValidationIssue]:
         if not self.require_limit_for_raw:
@@ -321,32 +309,24 @@ class SQLSafetyValidator:
         # Multiple statement check: semicolon inside remaining SQL is disallowed.
         if ";" in s:
             issues.append(
-                ValidationIssue(
-                    "MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed."
-                )
+                ValidationIssue("MULTIPLE_STATEMENTS", "Multiple SQL statements are not allowed.")
             )
 
         lower = s.lower()
         if "--" in lower or "/*" in lower or "*/" in lower:
             issues.append(
-                ValidationIssue(
-                    "SQL_COMMENT", "SQL comments are not allowed in generated queries."
-                )
+                ValidationIssue("SQL_COMMENT", "SQL comments are not allowed in generated queries.")
             )
 
         for keyword in self.FORBIDDEN:
             if re.search(rf"\b{keyword}\b", lower):
                 issues.append(
-                    ValidationIssue(
-                        "FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}"
-                    )
+                    ValidationIssue("FORBIDDEN_KEYWORD", f"Forbidden SQL keyword: {keyword}")
                 )
 
         if not re.match(r"^\s*(select|with)\b", lower):
             issues.append(
-                ValidationIssue(
-                    "NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed."
-                )
+                ValidationIssue("NOT_SELECT", "Only SELECT or WITH ... SELECT queries are allowed.")
             )
 
         parsed = None
@@ -354,19 +334,13 @@ class SQLSafetyValidator:
             try:
                 parsed = sqlglot.parse_one(s, read="sqlite")
                 if parsed is None:
-                    issues.append(
-                        ValidationIssue("PARSE_ERROR", "sqlglot could not parse SQL.")
-                    )
+                    issues.append(ValidationIssue("PARSE_ERROR", "sqlglot could not parse SQL."))
                 elif not (isinstance(parsed, exp.Select) or parsed.find(exp.Select)):
                     issues.append(
-                        ValidationIssue(
-                            "NOT_SELECT_AST", "Parsed SQL is not a SELECT query."
-                        )
+                        ValidationIssue("NOT_SELECT_AST", "Parsed SQL is not a SELECT query.")
                     )
             except Exception as exc:
-                issues.append(
-                    ValidationIssue("PARSE_ERROR", f"SQL parse failed: {exc}")
-                )
+                issues.append(ValidationIssue("PARSE_ERROR", f"SQL parse failed: {exc}"))
 
         if self._top_level_select_has_star(parsed, s):
             issues.append(

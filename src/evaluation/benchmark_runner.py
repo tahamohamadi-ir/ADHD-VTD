@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.evaluation.dataset_loader import load_dataset, load_phase0_50q_cases, write_json
+from src.evaluation.dataset_loader import load_phase0_50q_cases, write_json
 from src.evaluation.metrics import aggregate_basic_metrics
 from src.evaluation.reliability_metrics import reliability_score
 
@@ -30,7 +30,9 @@ class BenchmarkRun:
         }
 
 
-def run_benchmark(cases: list[dict[str, Any]], predict: PredictionFn, *, name: str = "benchmark") -> BenchmarkRun:
+def run_benchmark(
+    cases: list[dict[str, Any]], predict: PredictionFn, *, name: str = "benchmark"
+) -> BenchmarkRun:
     records: list[dict[str, Any]] = []
     for case in cases:
         pred = predict(case)

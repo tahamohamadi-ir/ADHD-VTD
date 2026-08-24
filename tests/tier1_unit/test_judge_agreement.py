@@ -100,12 +100,24 @@ def test_analyze_judge_agreement_records_case_mismatch(tmp_path):
     _write_judgment_dir(
         left,
         model="a",
-        rows=[{"case_id": "left-only", "verdict": "business_incorrect", "semantic_business_correct": False}],
+        rows=[
+            {
+                "case_id": "left-only",
+                "verdict": "business_incorrect",
+                "semantic_business_correct": False,
+            }
+        ],
     )
     _write_judgment_dir(
         right,
         model="b",
-        rows=[{"case_id": "right-only", "verdict": "business_incorrect", "semantic_business_correct": False}],
+        rows=[
+            {
+                "case_id": "right-only",
+                "verdict": "business_incorrect",
+                "semantic_business_correct": False,
+            }
+        ],
     )
 
     paths = analyze_judge_agreement(left, right, output_dir=tmp_path / "agreement")

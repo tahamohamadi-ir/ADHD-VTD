@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
+
 
 @dataclass(frozen=True)
 class SerializedResult:
@@ -11,6 +12,7 @@ class SerializedResult:
     rows: list[dict[str, Any]]
     row_count: int
     result_hash: str
+
 
 class ResultSerializer:
     @staticmethod

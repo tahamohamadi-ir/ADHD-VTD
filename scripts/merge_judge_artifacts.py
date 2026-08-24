@@ -117,9 +117,7 @@ def main() -> None:
                 if case_id in seen_cases:
                     duplicate_resolution_counts["duplicates"] += 1
                     if args.duplicate_policy == "error":
-                        raise ValueError(
-                            f"Duplicate judged case_id across chunks: {case_id}"
-                        )
+                        raise ValueError(f"Duplicate judged case_id across chunks: {case_id}")
                     if args.duplicate_policy == "keep-first":
                         duplicate_resolution_counts["kept_first"] += 1
                         continue
@@ -128,22 +126,16 @@ def main() -> None:
                         existing_authoritative = bool(existing.get("authoritative"))
                         row_authoritative = bool(row.get("authoritative"))
                         if existing_authoritative and not row_authoritative:
-                            duplicate_resolution_counts[
-                                "kept_existing_authoritative"
-                            ] += 1
+                            duplicate_resolution_counts["kept_existing_authoritative"] += 1
                             continue
                         if not existing_authoritative and row_authoritative:
-                            duplicate_resolution_counts[
-                                "replaced_with_authoritative"
-                            ] += 1
+                            duplicate_resolution_counts["replaced_with_authoritative"] += 1
                             judgments_by_case[case_id] = row
                             continue
                         if existing_authoritative and row_authoritative:
                             duplicate_resolution_counts["kept_first_authoritative"] += 1
                         else:
-                            duplicate_resolution_counts[
-                                "kept_first_non_authoritative"
-                            ] += 1
+                            duplicate_resolution_counts["kept_first_non_authoritative"] += 1
                         continue
                     duplicate_resolution_counts["kept_last"] += 1
                 seen_cases.add(case_id)

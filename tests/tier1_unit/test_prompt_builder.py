@@ -209,3 +209,35 @@ def test_each_disorder_prompt_adds_group_by_disorder_hint():
 
     assert "GROUP BY disorder" in prompt
     assert "do not filter disorder" in prompt
+
+
+def test_ranking_prompt_adds_order_by_and_limit_hint():
+    prompt = PromptBuilder().build_sql_generation_prompt(
+        question="top countries by average prevalence",
+        qir=QueryIR(
+            task_type="ranking_query",
+            dimensions=["country_name"],
+            metrics=["prevalence_pct"],
+            expected_result_shape="table",
+        ),
+        schema=_schema("country_prevalence_long"),
+    )
+
+    assert "For ranking questions" in prompt
+    assert "ORDER BY on that metric" in prompt
+    assert "LIMIT 15" in prompt
+    assert "This prompt is only for GROUPED questions" not in prompt
+
+
+def test_raw_row_prompt_adds_limit_and_no_select_star_hint():
+    prompt = PromptBuilder().build_sql_generation_prompt(
+        question="show student records",
+        qir=QueryIR(task_type="raw_retrieval_query", expected_result_shape="raw_rows"),
+        schema=_schema("student_depression"),
+    )
+
+    assert "For raw row/list requests" in prompt
+    assert "never use SELECT *" in prompt
+    assert "LIMIT 100" in prompt
+    assert "prefer clarification/refusal or an aggregate summary" in prompt
+    assert "This prompt is only for GROUPED questions" not in prompt

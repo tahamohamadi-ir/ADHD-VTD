@@ -15,7 +15,7 @@ if sys.platform == "win32":
             if p.exists():
                 cuda_path = str(p)
                 break
-    
+
     if cuda_path:
         cuda_bin = Path(cuda_path) / "bin"
         if cuda_bin.exists():
@@ -31,6 +31,7 @@ if sys.platform == "win32":
     try:
         # Try to locate the package directory
         import importlib.util
+
         spec = importlib.util.find_spec("llama_cpp")
         if spec and spec.origin:
             pkg_root = Path(spec.origin).parent
@@ -46,6 +47,7 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class LocalLLM(LLMEngine):
     """Local LLM Engine using llama-cpp-python."""
 
@@ -57,18 +59,18 @@ class LocalLLM(LLMEngine):
         seed: int = 42,
         temperature: float = 0.0,
         top_p: float = 1.0,
-        verbose: bool = False
+        verbose: bool = False,
     ) -> None:
         try:
             from llama_cpp import Llama
         except ImportError:
             raise ImportError("llama-cpp-python is required to use LocalLLM")
-            
+
         self.model_path = str(model_path)
         self.seed = seed
         self.temperature = temperature
         self.top_p = top_p
-        
+
         logger.info(f"Loading local LLM from {self.model_path} (n_ctx={n_ctx})")
         self.llm = Llama(
             model_path=self.model_path,
@@ -83,7 +85,7 @@ class LocalLLM(LLMEngine):
         top_p = kwargs.get("top_p", self.top_p)
         max_tokens = kwargs.get("max_tokens", 1024)
         stop = kwargs.get("stop", [])
-        
+
         response = self.llm(
             prompt,
             max_tokens=max_tokens,
@@ -91,7 +93,7 @@ class LocalLLM(LLMEngine):
             top_p=top_p,
             stop=stop,
             echo=False,
-            stream=False
+            stream=False,
         )
         if isinstance(response, dict):
             return response["choices"][0]["text"]
@@ -102,9 +104,9 @@ class LocalLLM(LLMEngine):
         top_p = kwargs.get("top_p", self.top_p)
         max_tokens = kwargs.get("max_tokens", 1024)
         stop = kwargs.get("stop", [])
-        
+
         from llama_cpp import LlamaGrammar
-        
+
         grammar = None
         if schema:
             grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
@@ -115,9 +117,9 @@ class LocalLLM(LLMEngine):
                 "properties": {
                     "sql": {"type": "string"},
                     "explanation": {"type": "string"},
-                    "needs_clarification": {"type": "boolean"}
+                    "needs_clarification": {"type": "boolean"},
                 },
-                "required": ["sql", "explanation", "needs_clarification"]
+                "required": ["sql", "explanation", "needs_clarification"],
             }
             grammar = LlamaGrammar.from_json_schema(json.dumps(default_schema))
 
@@ -129,7 +131,7 @@ class LocalLLM(LLMEngine):
             grammar=grammar,
             stop=stop,
             echo=False,
-            stream=False
+            stream=False,
         )
         if isinstance(response, dict):
             return response["choices"][0]["text"]

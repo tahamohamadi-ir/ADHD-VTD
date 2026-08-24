@@ -452,9 +452,9 @@ def add_bootstrap_cis(
     rows = list(records)
     metric_functions: dict[str, Callable[[list[dict[str, Any]]], float]] = {
         "execution_accuracy": lambda sample: execution_accuracy(sample).value,
-        "conservative_execution_accuracy": lambda sample: conservative_execution_accuracy(
-            sample
-        ).value,
+        "conservative_execution_accuracy": lambda sample: (
+            conservative_execution_accuracy(sample).value
+        ),
         "valid_sql_rate": lambda sample: valid_sql_rate(sample).value,
         "semantic_business_accuracy": lambda sample: semantic_business_accuracy(sample).value,
         "expected_action_accuracy": lambda sample: expected_action_accuracy(sample).value,

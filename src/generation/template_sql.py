@@ -140,10 +140,7 @@ def _is_template_safe(sql: str, norm: str) -> bool:
 
     # 3. If question compares depressed and non-depressed, avoid single-sided filters
     if _has_any(norm, ("افسرده و غیرافسرده", "افسرده و غیر افسرده", "افسرده و غیر")):
-        if (
-            "WHERE DEPRESSION_FLAG = 0" in sql_upper
-            or "WHERE DEPRESSION_FLAG = 1" in sql_upper
-        ):
+        if "WHERE DEPRESSION_FLAG = 0" in sql_upper or "WHERE DEPRESSION_FLAG = 1" in sql_upper:
             return False
 
     # 4. Dashboard / KPI queries shouldn't return a single metric
@@ -171,9 +168,9 @@ def _passes_sql_safety(sql: str) -> bool:
 
 
 def _should_abstain_sensitive_row_template(norm: str) -> bool:
-    composite_risk_ranking = _has_any(
-        norm, ("Ø±ÛŒØ³Ú© ØªØ±Ú©ÛŒØ¨ÛŒ", "composite")
-    ) and _has_any(norm, ("Ø§ÙÚ©Ø§Ø± Ø®ÙˆØ¯Ú©Ø´ÛŒ", "Ø®ÙˆØ§Ø¨ Ú©Ù…"))
+    composite_risk_ranking = _has_any(norm, ("Ø±ÛŒØ³Ú© ØªØ±Ú©ÛŒØ¨ÛŒ", "composite")) and _has_any(
+        norm, ("Ø§ÙÚ©Ø§Ø± Ø®ÙˆØ¯Ú©Ø´ÛŒ", "Ø®ÙˆØ§Ø¨ Ú©Ù…")
+    )
     hidden_at_risk_students = _has_any(
         norm, ("Ù¾Ù†Ù‡Ø§Ù† Ø¯Ø± Ø®Ø·Ø±", "Ø®ÙˆØ§Ø¨ Ú©Ù…")
     ) and _has_any(
@@ -260,9 +257,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic top cities per gender depression-rate template.",
         )
 
-    if _has_any(norm, ("گروه سنی", "age group")) and _has_any(
-        norm, ("فشار تحصیلی", "نرخ افسردگی")
-    ):
+    if _has_any(norm, ("گروه سنی", "age group")) and _has_any(norm, ("فشار تحصیلی", "نرخ افسردگی")):
         return TemplateSql(
             sql=(
                 "SELECT CASE WHEN age < 20 THEN '<20' WHEN age < 25 THEN '20-24' WHEN age < 30 THEN '25-29' ELSE '30+' END AS age_group, "
@@ -288,9 +283,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic CGPA below-average depression-rate template.",
         )
 
-    if _has_any(norm, ("ریسک ترکیبی", "composite")) and _has_any(
-        norm, ("افکار خودکشی", "خواب کم")
-    ):
+    if _has_any(norm, ("ریسک ترکیبی", "composite")) and _has_any(norm, ("افکار خودکشی", "خواب کم")):
         return TemplateSql(
             sql=(
                 "SELECT student_depression_id, age, gender, city, depression_flag, academic_pressure, suicidal_thoughts, sleep_mid_hours, "
@@ -501,9 +494,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic workplace narrative country attention rank template.",
         )
 
-    if _has_any(norm, ("پیامد منفی", "obs_consequence")) and _has_any(
-        norm, ("کشورها", "رتبه")
-    ):
+    if _has_any(norm, ("پیامد منفی", "obs_consequence")) and _has_any(norm, ("کشورها", "رتبه")):
         return TemplateSql(
             sql=(
                 "WITH country_obs AS (SELECT country, COUNT(*) AS total, 100.0 * SUM(obs_consequence) / COUNT(*) AS obs_consequence_rate_pct "
@@ -645,9 +636,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic treatment-seeking by employment status template.",
         )
-    if _has_any(norm, ("حضوری", "ریموت", "هیبرید")) and _has_any(
-        norm, ("ریسک high", "ریسک high")
-    ):
+    if _has_any(norm, ("حضوری", "ریموت", "هیبرید")) and _has_any(norm, ("ریسک high", "ریسک high")):
         return TemplateSql(
             sql=(
                 "SELECT work_environment AS group_value, COUNT(*) AS n, "
@@ -656,9 +645,9 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic high-risk rate by work model template.",
         )
-    if _has_any(
-        norm, ("ریسک سلامت روان", "خواب", "استرس", "بهره وری", "بهره‌وری")
-    ) and _has_any(norm, ("چه وضعی", "چطور")):
+    if _has_any(norm, ("ریسک سلامت روان", "خواب", "استرس", "بهره وری", "بهره‌وری")) and _has_any(
+        norm, ("چه وضعی", "چطور")
+    ):
         return TemplateSql(
             sql=(
                 "SELECT mental_health_risk AS group_value, COUNT(*) AS n, ROUND(AVG(stress_level),2) AS avg_stress, "
@@ -719,9 +708,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic Germany anxiety trend template.",
         )
-    if _has_any(norm, ("هر سال تحصیلی", "year_of_study")) and _has_any(
-        norm, ("افسردگی", "اضطراب")
-    ):
+    if _has_any(norm, ("هر سال تحصیلی", "year_of_study")) and _has_any(norm, ("افسردگی", "اضطراب")):
         return TemplateSql(
             sql=(
                 "SELECT year_of_study, COUNT(*) AS n, ROUND(100.0*SUM(depression_diagnosis)/COUNT(*),2) AS depression_rate_pct, "
@@ -730,10 +717,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic university year-of-study depression/anxiety template.",
         )
-    if (
-        _has_any(norm, ("رشته های survey", "رشته‌های survey", "course"))
-        and "اضطراب" in norm
-    ):
+    if _has_any(norm, ("رشته های survey", "رشته‌های survey", "course")) and "اضطراب" in norm:
         return TemplateSql(
             sql=(
                 "SELECT course, COUNT(*) AS n, ROUND(100.0*SUM(anxiety_diagnosis)/COUNT(*),2) AS anxiety_rate_pct "
@@ -813,9 +797,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
                     explanation="Deterministic student quartile risk-rate template.",
                 )
 
-    if _has_any(norm, ("خواب کم", "فشار بالا")) and _has_any(
-        norm, ("با بقیه", "مقایسه")
-    ):
+    if _has_any(norm, ("خواب کم", "فشار بالا")) and _has_any(norm, ("با بقیه", "مقایسه")):
         return TemplateSql(
             sql=(
                 "WITH b AS (SELECT CASE WHEN sleep_mid_hours<6 THEN 'low_sleep' ELSE 'other_sleep' END AS sleep_group, "
@@ -866,10 +848,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic above-average stress below-average sleep risk template.",
         )
-    if (
-        _has_any(norm, ("وضعیت اشتغال", "استرس", "بهره وری", "بهره‌وری"))
-        and "رتبه" in norm
-    ):
+    if _has_any(norm, ("وضعیت اشتغال", "استرس", "بهره وری", "بهره‌وری")) and "رتبه" in norm:
         return TemplateSql(
             sql=(
                 "WITH s AS (SELECT employment_status, COUNT(*) AS n, AVG(stress_level) AS avg_stress, AVG(productivity_score) AS avg_prod "
@@ -879,10 +858,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic employment stress/productivity rank template.",
         )
-    if (
-        _has_any(norm, ("دهک های بهره وری", "دهک‌های بهره‌وری", "دهک"))
-        and "استرس" in norm
-    ):
+    if _has_any(norm, ("دهک های بهره وری", "دهک‌های بهره‌وری", "دهک")) and "استرس" in norm:
         return TemplateSql(
             sql=(
                 "WITH d AS (SELECT productivity_score, stress_level, NTILE(10) OVER (ORDER BY productivity_score) AS productivity_decile "
@@ -903,9 +879,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic workplace country treatment rank template.",
         )
-    if _has_any(norm, ("wellness", "benefits")) and _has_any(
-        norm, ("سایز شرکت", "هر سایز شرکت")
-    ):
+    if _has_any(norm, ("wellness", "benefits")) and _has_any(norm, ("سایز شرکت", "هر سایز شرکت")):
         return TemplateSql(
             sql=(
                 "SELECT no_employees, COUNT(*) AS n, ROUND(100.0*COUNT(CASE WHEN wellness_program='Yes' THEN 1 END)/COUNT(*),2) AS wellness_yes_rate_pct, "
@@ -915,11 +889,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic workplace wellness/benefits by company size template.",
         )
 
-    if (
-        "ایران" in norm
-        and _has_any(norm, ("سال به سال", "سال‌به‌سال", "yoy"))
-        and "افسردگی" in norm
-    ):
+    if "ایران" in norm and _has_any(norm, ("سال به سال", "سال‌به‌سال", "yoy")) and "افسردگی" in norm:
         return TemplateSql(
             sql=(
                 "SELECT year, ROUND(prevalence_pct,4) AS depression_pct, ROUND(prevalence_pct-LAG(prevalence_pct) OVER (ORDER BY year),4) AS yoy_change "
@@ -927,10 +897,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic Iran depression year-over-year template.",
         )
-    if (
-        _has_any(norm, ("هند", "میانگین متحرک", "سه ساله", "سه‌ساله"))
-        and "اضطراب" in norm
-    ):
+    if _has_any(norm, ("هند", "میانگین متحرک", "سه ساله", "سه‌ساله")) and "اضطراب" in norm:
         return TemplateSql(
             sql=(
                 "SELECT year, ROUND(prevalence_pct,4) AS anxiety_pct, "
@@ -960,9 +927,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic unified data completeness by source template.",
         )
-    if _has_any(norm, ("پوشش داده خواب", "پوشش داده")) and _has_any(
-        norm, ("استرس", "منبع")
-    ):
+    if _has_any(norm, ("پوشش داده خواب", "پوشش داده")) and _has_any(norm, ("استرس", "منبع")):
         return TemplateSql(
             sql=(
                 "SELECT source_name,COUNT(*) AS total_records,ROUND(100.0*COUNT(CASE WHEN sleep_hours IS NOT NULL THEN 1 END)/COUNT(*),2) AS sleep_coverage_pct,"
@@ -1148,9 +1113,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic financial/family/suicidal aggregate template.",
         )
 
-    if _has_any(norm, ("هر degree", "هر مدرک")) and _has_any(
-        norm, ("شهری", "نرخ افسردگی")
-    ):
+    if _has_any(norm, ("هر degree", "هر مدرک")) and _has_any(norm, ("شهری", "نرخ افسردگی")):
         return TemplateSql(
             sql=(
                 "WITH dc AS (SELECT degree, city, COUNT(*) AS n, 100.0*SUM(depression_flag)/COUNT(*) AS rate "
@@ -1213,9 +1176,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic executive workplace policy by company size template.",
         )
 
-    if _has_any(
-        norm, ("policy maturity", "امنیت روانی", "policy score", "policy_segment")
-    ):
+    if _has_any(norm, ("policy maturity", "امنیت روانی", "policy score", "policy_segment")):
         if _has_any(norm, ("امنیت روانی", "safety")):
             return TemplateSql(
                 sql=(
@@ -1270,9 +1231,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic unified coverage by source template.",
         )
 
-    if _has_any(norm, ("missingness", "چک کن")) and _has_any(
-        norm, ("policy", "فیلدهای policy")
-    ):
+    if _has_any(norm, ("missingness", "چک کن")) and _has_any(norm, ("policy", "فیلدهای policy")):
         return TemplateSql(
             sql=(
                 "SELECT 'benefits' AS column_name,ROUND(100.0*COUNT(CASE WHEN benefits IS NULL THEN 1 END)/COUNT(*),2) AS missing_pct FROM workplace_mental_health_survey UNION ALL "
@@ -1297,9 +1256,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic student depression missingness template.",
         )
 
-    if "داستان داده" in norm and _has_any(
-        norm, ("ریسک دانشجویی", "اولویت بندی", "اولویت‌بندی")
-    ):
+    if "داستان داده" in norm and _has_any(norm, ("ریسک دانشجویی", "اولویت بندی", "اولویت‌بندی")):
         return TemplateSql(
             sql=(
                 "WITH city_metrics AS (SELECT city, COUNT(*) AS total, 100.0 * SUM(depression_flag) / COUNT(*) AS depression_rate_pct, "
@@ -1314,9 +1271,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic student city narrative risk priority template.",
         )
 
-    if _has_any(
-        norm, ("داشبورد عملکرد دانشجویان", "چهارک های عملکرد", "چهارک‌های عملکرد")
-    ):
+    if _has_any(norm, ("داشبورد عملکرد دانشجویان", "چهارک های عملکرد", "چهارک‌های عملکرد")):
         return TemplateSql(
             sql=(
                 "WITH q AS (SELECT *, NTILE(4) OVER (ORDER BY exam_score) AS exam_quartile FROM student_habits_performance), "
@@ -1515,12 +1470,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic low-productivity risk comparison template.",
         )
 
-    if (
-        "رتبه ایران" in norm
-        and "1990" in norm
-        and "آخرین سال" in norm
-        and "افسردگی" in norm
-    ):
+    if "رتبه ایران" in norm and "1990" in norm and "آخرین سال" in norm and "افسردگی" in norm:
         return TemplateSql(
             sql=(
                 "WITH r AS (SELECT year,country_name,prevalence_pct,RANK() OVER (PARTITION BY year ORDER BY prevalence_pct DESC) AS rk "
@@ -1530,10 +1480,7 @@ def _phase18_7_failed154_pack2(norm: str) -> TemplateSql | None:
             explanation="Deterministic Iran depression rank change template.",
         )
 
-    if (
-        _has_any(norm, ("میانگین متحرک پنج", "پنج ساله", "پنج‌ساله"))
-        and "افسردگی" in norm
-    ):
+    if _has_any(norm, ("میانگین متحرک پنج", "پنج ساله", "پنج‌ساله")) and "افسردگی" in norm:
         return TemplateSql(
             sql=(
                 "SELECT country_name,year,ROUND(prevalence_pct,4) AS depression_pct,"
@@ -1704,9 +1651,9 @@ def _phase18_7_regression_patterns(norm: str) -> TemplateSql | None:
             explanation="Deterministic university KPI dashboard template.",
         )
 
-    if _has_any(
-        norm, ("فعالیت فوق برنامه", "فعالیت فوق‌برنامه", "extracurricular")
-    ) and _has_any(norm, ("نمره امتحان", "exam_score", "مقایسه")):
+    if _has_any(norm, ("فعالیت فوق برنامه", "فعالیت فوق‌برنامه", "extracurricular")) and _has_any(
+        norm, ("نمره امتحان", "exam_score", "مقایسه")
+    ):
         return TemplateSql(
             sql=(
                 "SELECT extracurricular_participation, COUNT(*) AS total, ROUND(AVG(exam_score), 2) AS avg_exam_score, "
@@ -2126,9 +2073,7 @@ def _simple_colloquial_queries(norm: str) -> TemplateSql | None:
             sql="SELECT COUNT(*) AS n_depressed_students FROM student_depression WHERE depression_flag = 1;",
             explanation="Deterministic depressed student count template.",
         )
-    if _has_any(norm, ("افسردگی ندار", "غیرافسرده")) and _has_any(
-        norm, ("cgpa", "معدل")
-    ):
+    if _has_any(norm, ("افسردگی ندار", "غیرافسرده")) and _has_any(norm, ("cgpa", "معدل")):
         return TemplateSql(
             sql="SELECT ROUND(AVG(cgpa_10),2) AS mean_cgpa_non_depressed FROM student_depression WHERE depression_flag = 0 AND cgpa_10 IS NOT NULL;",
             explanation="Deterministic non-depressed student CGPA template.",
@@ -2201,9 +2146,7 @@ def _phase18_general_patterns(norm: str) -> TemplateSql | None:
 
     if (
         _has_any(norm, ("ماتریس", "matrix"))
-        and _has_any(
-            norm, ("کار/مطالعه", "کار مطالعه", "work_study", "work_study_hours")
-        )
+        and _has_any(norm, ("کار/مطالعه", "کار مطالعه", "work_study", "work_study_hours"))
         and _has_any(norm, ("فشار تحصیلی", "academic_pressure"))
         and _has_any(norm, ("نرخ افسردگی", "درصد افسردگی", "rate"))
     ):
@@ -2456,9 +2399,7 @@ def _phase18_general_patterns(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic colloquial benefits treatment-rate template.",
         )
-    if _has_any(norm, ("مزایای سلامت روان", "benefits")) and _has_any(
-        norm, ("درمان", "treatment")
-    ):
+    if _has_any(norm, ("مزایای سلامت روان", "benefits")) and _has_any(norm, ("درمان", "treatment")):
         return TemplateSql(
             sql=(
                 "SELECT benefits, COUNT(*) AS total, SUM(treatment) AS treatment_count, "
@@ -2467,9 +2408,7 @@ def _phase18_general_patterns(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic workplace treatment by benefits template.",
         )
-    if _has_any(norm, ("امکان مراقبت", "care_options")) and _has_any(
-        norm, ("درمان", "treatment")
-    ):
+    if _has_any(norm, ("امکان مراقبت", "care_options")) and _has_any(norm, ("درمان", "treatment")):
         return TemplateSql(
             sql=(
                 "SELECT care_options, COUNT(*) AS total, SUM(treatment) AS treatment_count, "
@@ -2489,9 +2428,9 @@ def _phase18_general_patterns(norm: str) -> TemplateSql | None:
             ),
             explanation="Deterministic university anxiety-rate by year template.",
         )
-    if _has_any(
-        norm, ("دیتاست عادت", "عادت های دانشجویی", "عادت‌های دانشجویی")
-    ) and _has_any(norm, ("میانگین کل نمره امتحان", "overall_avg_exam")):
+    if _has_any(norm, ("دیتاست عادت", "عادت های دانشجویی", "عادت‌های دانشجویی")) and _has_any(
+        norm, ("میانگین کل نمره امتحان", "overall_avg_exam")
+    ):
         group_col = _find_mapping(norm, _HABITS_GROUP_COLUMNS)
         if group_col:
             return TemplateSql(
@@ -2557,9 +2496,7 @@ def _simple_global_prevalence_queries(norm: str) -> TemplateSql | None:
             sql="SELECT country_name, COUNT(*) AS count FROM country_prevalence_long WHERE country_name IS NOT NULL GROUP BY country_name ORDER BY count DESC LIMIT 10;",
             explanation="Deterministic most frequent global prevalence countries template.",
         )
-    if _has_any(
-        norm, ("میانگین شیوع جهانی افسردگی", "mean_depression_prevalence_global")
-    ):
+    if _has_any(norm, ("میانگین شیوع جهانی افسردگی", "mean_depression_prevalence_global")):
         return TemplateSql(
             sql="SELECT ROUND(AVG(prevalence_pct),4) AS mean_depression_prevalence_global FROM country_prevalence_long WHERE disorder = 'depression';",
             explanation="Deterministic global depression prevalence average template.",
@@ -2569,9 +2506,7 @@ def _simple_global_prevalence_queries(norm: str) -> TemplateSql | None:
             sql="SELECT ROUND(AVG(prevalence_pct),4) AS mean_anxiety_prevalence_global FROM country_prevalence_long WHERE disorder = 'anxiety';",
             explanation="Deterministic global anxiety prevalence average template.",
         )
-    if _has_any(norm, ("هر اختلال", "از هر اختلال")) and _has_any(
-        norm, ("جدول long", "چند رکورد")
-    ):
+    if _has_any(norm, ("هر اختلال", "از هر اختلال")) and _has_any(norm, ("جدول long", "چند رکورد")):
         return TemplateSql(
             sql="SELECT disorder, COUNT(*) AS n_rows FROM country_prevalence_long GROUP BY disorder ORDER BY n_rows DESC;",
             explanation="Deterministic disorder row-count template.",
@@ -2738,10 +2673,7 @@ def _group_comparison_average(norm: str) -> TemplateSql | None:
                     ),
                     explanation="Deterministic internet-quality exam comparison template.",
                 )
-            if (
-                group_col == "extracurricular_participation"
-                and metric_col == "exam_score"
-            ):
+            if group_col == "extracurricular_participation" and metric_col == "exam_score":
                 return TemplateSql(
                     sql=(
                         "SELECT extracurricular_participation, COUNT(*) AS total, ROUND(AVG(exam_score), 2) AS avg_exam_score, "
@@ -3014,9 +2946,7 @@ def _benchmark_rank_above_global_average(norm: str) -> TemplateSql | None:
 def _country_change_rank(norm: str) -> TemplateSql | None:
     if not all(cue in norm for cue in ("1990", "آخرین سال")):
         return None
-    if not _has_any(norm, ("تغییر شیوع", "change")) or not _has_any(
-        norm, ("رتبه", "rank")
-    ):
+    if not _has_any(norm, ("تغییر شیوع", "change")) or not _has_any(norm, ("رتبه", "rank")):
         return None
     disorder = _find_disorder(norm)
     if not disorder:
@@ -3164,11 +3094,7 @@ def _student_habits_rank_by_group(norm: str) -> TemplateSql | None:
         return None
     if "رتبه" not in norm and "rank" not in norm:
         return None
-    if (
-        "میانگین عملکرد" not in norm
-        and "exam_score" not in norm
-        and "performance" not in norm
-    ):
+    if "میانگین عملکرد" not in norm and "exam_score" not in norm and "performance" not in norm:
         return None
     group_col = next((col for col in _HABIT_GROUP_COLUMNS if col in norm), None)
     if not group_col:
@@ -3237,8 +3163,7 @@ def _global_average_change_by_disorder(norm: str) -> TemplateSql | None:
 
 def _top_country_increase_per_disorder(norm: str) -> TemplateSql | None:
     if not all(
-        cue in norm
-        for cue in ("هر اختلال", "10 کشور", "بیشترین افزایش", "1990", "آخرین سال")
+        cue in norm for cue in ("هر اختلال", "10 کشور", "بیشترین افزایش", "1990", "آخرین سال")
     ):
         return None
     return TemplateSql(
@@ -3374,9 +3299,7 @@ def _latest_global_disorder_summary(norm: str) -> TemplateSql | None:
 
 
 def _find_country(norm: str) -> str | None:
-    for cue, value in sorted(
-        _COUNTRIES.items(), key=lambda item: len(item[0]), reverse=True
-    ):
+    for cue, value in sorted(_COUNTRIES.items(), key=lambda item: len(item[0]), reverse=True):
         if cue in norm:
             return value
     return None
@@ -3385,18 +3308,14 @@ def _find_country(norm: str) -> str | None:
 def _find_mapping(
     norm: str, mapping: dict[str, str] | dict[str, tuple[str, str]]
 ) -> str | tuple[str, str] | None:
-    for cue, value in sorted(
-        mapping.items(), key=lambda item: len(item[0]), reverse=True
-    ):
+    for cue, value in sorted(mapping.items(), key=lambda item: len(item[0]), reverse=True):
         if cue in norm:
             return value
     return None
 
 
 def _find_disorder(norm: str) -> tuple[str, str] | None:
-    for cue, value in sorted(
-        _DISORDERS.items(), key=lambda item: len(item[0]), reverse=True
-    ):
+    for cue, value in sorted(_DISORDERS.items(), key=lambda item: len(item[0]), reverse=True):
         if cue in norm:
             return value
     return None

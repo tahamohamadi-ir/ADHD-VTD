@@ -3,6 +3,7 @@
 Every module-specific exception inherits from VTDException so that
 top-level handlers can catch the entire family with a single clause.
 """
+
 from __future__ import annotations
 
 

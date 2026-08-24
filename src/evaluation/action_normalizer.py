@@ -31,7 +31,12 @@ def normalize_expected_action(action: Any, *, should_generate_sql: bool | None =
         return "refuse_unsafe_sql"
     if raw in {"refuse_hallucination", "refuse_schema_gap", "refuse_sql_explain_schema_gap"}:
         return "refuse_schema_gap"
-    if raw in {"ambiguity_clarification", "ask_clarification", "ask_clarification_and_correct_causality", "clarify"}:
+    if raw in {
+        "ambiguity_clarification",
+        "ask_clarification",
+        "ask_clarification_and_correct_causality",
+        "clarify",
+    }:
         return "ask_clarification"
     if raw in {"answer_without_sql", "answer_chart_recommendation", "no_sql", "definition_query"}:
         return "answer_without_sql"
@@ -68,9 +73,16 @@ def actions_match(expected_action: Any, actual_action: Any, *, generated_sql: An
         return True
     if expected == "generate_sql" and actual in {"generate_sql", "format_answer"}:
         return True
-    if expected == "refuse_schema_gap" and actual in {"refuse_schema_gap", "ask_clarification", "refuse_unsafe_sql"}:
+    if expected == "refuse_schema_gap" and actual in {
+        "refuse_schema_gap",
+        "ask_clarification",
+        "refuse_unsafe_sql",
+    }:
         return True
-    if expected == "answer_without_sql" and actual in {"answer_without_sql", "answer_chart_recommendation"}:
+    if expected == "answer_without_sql" and actual in {
+        "answer_without_sql",
+        "answer_chart_recommendation",
+    }:
         return True
     return False
 
@@ -79,12 +91,18 @@ def should_abstain_for_action(action: Any, *, should_generate_sql: bool | None =
     normalized = normalize_expected_action(action, should_generate_sql=should_generate_sql)
     if should_generate_sql is False:
         return True
-    return normalized.startswith(ABSTENTION_PREFIXES) or normalized in {"answer_without_sql", "controlled_failure"}
+    return normalized.startswith(ABSTENTION_PREFIXES) or normalized in {
+        "answer_without_sql",
+        "controlled_failure",
+    }
 
 
 def did_abstain_for_action(action: Any) -> bool:
     normalized = normalize_actual_action(action)
-    return normalized.startswith(ABSTENTION_PREFIXES) or normalized in {"answer_without_sql", "controlled_failure"}
+    return normalized.startswith(ABSTENTION_PREFIXES) or normalized in {
+        "answer_without_sql",
+        "controlled_failure",
+    }
 
 
 def _clean(value: Any) -> str:

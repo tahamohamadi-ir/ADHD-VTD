@@ -11,23 +11,45 @@ except Exception:  # pragma: no cover
     from number_normalizer import NumberNormalizer
     from colloquial_mapper import ColloquialMapper
 
+
 @dataclass(frozen=True)
 class PersianNormalizationResult:
     original: str
     normalized: str
     matched_colloquials: dict[str, str] = field(default_factory=dict)
 
+
 class PersianNormalizer:
     """Persian + mixed Persian/English normalizer for VTD queries."""
 
-    ARABIC_TO_PERSIAN = str.maketrans({
-        "ك": "ک", "ي": "ی", "ى": "ی", "ة": "ه", "ۀ": "ه", "ؤ": "و", "إ": "ا", "أ": "ا", "ٱ": "ا",
-    })
+    ARABIC_TO_PERSIAN = str.maketrans(
+        {
+            "ك": "ک",
+            "ي": "ی",
+            "ى": "ی",
+            "ة": "ه",
+            "ۀ": "ه",
+            "ؤ": "و",
+            "إ": "ا",
+            "أ": "ا",
+            "ٱ": "ا",
+        }
+    )
     DIACRITICS_RE = re.compile(r"[\u064B-\u065F\u0670]")
-    PUNCT_TRANSLATION = str.maketrans({
-        "؟": "?", "،": ",", "؛": ";", "٪": "%", "٫": ".", "٬": ",",
-        "“": '"', "”": '"', "‘": "'", "’": "'",
-    })
+    PUNCT_TRANSLATION = str.maketrans(
+        {
+            "؟": "?",
+            "،": ",",
+            "؛": ";",
+            "٪": "%",
+            "٫": ".",
+            "٬": ",",
+            "“": '"',
+            "”": '"',
+            "‘": "'",
+            "’": "'",
+        }
+    )
 
     TYPO_FIXES: dict[str, str] = {
         "افسوردگی": "افسردگی",

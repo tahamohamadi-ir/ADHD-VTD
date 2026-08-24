@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.graph.routes import route_after_validation, route_pre_generation
 from src.graph.state import VTDState
+from src.graph.workflow import create_workflow
 
 
 def test_route_pre_generation_skips_llm_for_non_sql_cases():
@@ -13,6 +14,24 @@ def test_route_pre_generation_skips_llm_for_non_sql_cases():
     )
 
     assert route_pre_generation(state) == "ask_clarification"
+
+
+def test_route_pre_generation_definition_query_uses_answer_without_sql_route():
+    state = VTDState(
+        trace_id="trace",
+        raw_question="افسردگی چیست؟",
+        intent="definition_query",
+        intent_confidence=0.9,
+        should_generate_sql=False,
+    )
+
+    assert route_pre_generation(state) == "answer_without_sql"
+
+
+def test_workflow_compiles_with_all_pre_generation_routes():
+    workflow = create_workflow()
+
+    assert workflow is not None
 
 
 def test_route_pre_generation_allows_sql_when_confident():

@@ -40,19 +40,27 @@ def analyze_reliability_gate_artifact(
         action = gate["action"]
         reason = gate["reason"]
         warnings = gate["warnings"]
-        multi_candidate_policy = record.get("multi_candidate_policy") if isinstance(record.get("multi_candidate_policy"), dict) else {}
+        multi_candidate_policy = (
+            record.get("multi_candidate_policy")
+            if isinstance(record.get("multi_candidate_policy"), dict)
+            else {}
+        )
         multi_candidate_enabled = bool(multi_candidate_policy.get("enabled"))
         multi_candidate_counts["enabled" if multi_candidate_enabled else "disabled"] += 1
         for trigger in multi_candidate_policy.get("triggers") or []:
             multi_candidate_trigger_counts[str(trigger)] += 1
-        execution_correct = bool(record.get("execution_correct") or record.get("result_match") or record.get("ok"))
+        execution_correct = bool(
+            record.get("execution_correct") or record.get("result_match") or record.get("ok")
+        )
         valid_sql = bool(record.get("valid_sql"))
         error = record.get("error") or ""
         action_counts[action] += 1
         reason_counts[reason] += 1
         for warning in warnings:
             warning_counts[warning] += 1
-        risk_label = _risk_label(action, execution_correct=execution_correct, valid_sql=valid_sql, error=error)
+        risk_label = _risk_label(
+            action, execution_correct=execution_correct, valid_sql=valid_sql, error=error
+        )
         risk_counts[risk_label] += 1
         rows.append(
             {
@@ -79,7 +87,9 @@ def analyze_reliability_gate_artifact(
         "predictions_path": str(predictions_path),
         "analysis_mode": "recomputed_runtime_gate" if recompute_gate else "stored_gate_annotations",
         "total_predictions": len(predictions),
-        "with_gate_annotations": sum(1 for row in rows if row["reliability_gate_action"] != "missing"),
+        "with_gate_annotations": sum(
+            1 for row in rows if row["reliability_gate_action"] != "missing"
+        ),
         "action_counts": dict(action_counts),
         "reason_counts": dict(reason_counts),
         "warning_counts": dict(warning_counts),
@@ -176,7 +186,9 @@ def _gate_view(record: dict[str, Any], *, recompute_gate: bool) -> dict[str, Any
         return {
             "action": str(record.get("reliability_gate_action") or "missing"),
             "reason": str(record.get("reliability_gate_reason") or "missing"),
-            "warnings": [str(warning) for warning in _listish(record.get("reliability_gate_warnings"))],
+            "warnings": [
+                str(warning) for warning in _listish(record.get("reliability_gate_warnings"))
+            ],
             "source": "stored",
         }
 

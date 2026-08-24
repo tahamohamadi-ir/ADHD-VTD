@@ -3,6 +3,7 @@
 Reports differences in tables, columns, types, and foreign keys.
 Exit code: 0 if identical, 1 if differences exist.
 """
+
 from __future__ import annotations
 
 import json

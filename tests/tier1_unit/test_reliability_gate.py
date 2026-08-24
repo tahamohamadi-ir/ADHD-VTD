@@ -407,13 +407,19 @@ def test_agent_prediction_records_reliability_gate_when_feature_enabled():
         },
         _FakeWorkflow(),
         _FakeExecutor(),
-        ablation_config={"reliability_gate": True, "reliability_gate_review_consistency_failures": True},
+        ablation_config={
+            "reliability_gate": True,
+            "reliability_gate_review_consistency_failures": True,
+        },
     )
 
     assert prediction["reliability_gate_action"] == "answer"
     assert prediction["reliability_gate"]["reason"] == "validated_executed_sql"
     assert prediction["reliability_gate_review_consistency_failures"] is True
-    assert prediction["reliability_gate"]["signals"]["reliability_gate_review_consistency_failures"] is True
+    assert (
+        prediction["reliability_gate"]["signals"]["reliability_gate_review_consistency_failures"]
+        is True
+    )
     assert prediction["candidate_sqls"][0]["candidate_id"] == "primary"
     assert prediction["selected_candidate_id"] == "primary"
     assert prediction["candidate_consistency"] == {"passed": True, "issues": []}

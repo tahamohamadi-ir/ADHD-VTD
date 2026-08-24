@@ -10,10 +10,13 @@ except Exception:  # pragma: no cover
     SCHEMA_GRAPH_PATH = Path("data/schema/schema_graph.json")
     SCHEMA_DIR = Path("data/schema")
 
+
 class SchemaRegistry:
     """Current-schema registry. Source of truth: schema_snapshot.json."""
 
-    def __init__(self, snapshot_path: str | Path | None = None, schema_dir: str | Path | None = None) -> None:
+    def __init__(
+        self, snapshot_path: str | Path | None = None, schema_dir: str | Path | None = None
+    ) -> None:
         self.snapshot_path = Path(snapshot_path or SCHEMA_SNAPSHOT_PATH)
         self.schema_dir = Path(schema_dir or SCHEMA_DIR)
         self.snapshot = self._load_json(self.snapshot_path)
@@ -67,5 +70,5 @@ class SchemaRegistry:
             for col in t.get("columns", []):
                 fq = f"{table}.{col['name']}"
                 if not selected_cols or fq in selected_cols or col.get("primary_key"):
-                    chunks.append(f"- {col['name']} {col.get('type','')}")
+                    chunks.append(f"- {col['name']} {col.get('type', '')}")
         return "\n".join(chunks)

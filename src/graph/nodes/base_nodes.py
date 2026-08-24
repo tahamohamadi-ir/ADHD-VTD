@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import uuid
 from typing import Any, Dict
@@ -9,7 +8,61 @@ from src.config.settings import SETTINGS
 from src.core.enums import IntentLabel
 from src.core.enums import ExpectedAction
 from src.core.query_ir import QueryIR
-from src.graph.state import VTDState, LinkedSchema, SQLAttempt
+from src.graph.state import VTDState, LinkedSchema
+from src.graph.nodes.candidate_helpers import (
+    CANDIDATE_PROMPT_SUFFIXES,
+    CANDIDATE_PROMPT_VARIANTS,
+    can_generate_extra_candidates,
+    candidate_adoption_id,
+    candidate_by_id,
+    candidate_generation_prompt,
+    candidate_is_adoption_improvement,
+    candidate_is_viable,
+    candidate_prompt_variant,
+    candidate_runtime_score,
+    first_candidate_id,
+    validation_issues_as_dict,
+)
+from src.graph.nodes.candidate_inspector import inspect_sql_candidate
+from src.graph.nodes.candidate_orchestrator import (
+    generate_sql_candidates as run_candidate_orchestrator,
+)
+from src.graph.nodes.execution_attempts import (
+    execution_needs_retry,
+    execution_state_updates,
+    update_latest_attempt_with_execution_result,
+)
+from src.graph.nodes.generation_router import route_sql_generation
+from src.graph.nodes.output_payloads import (
+    action_answer_updates,
+    clarification_answer_updates,
+    fail_gracefully_updates,
+    format_answer_updates,
+)
+from src.graph.nodes.reflexion_payloads import (
+    latest_reflexion_context,
+    reflexion_updates,
+    repair_critic_feedback,
+    repair_validation_error_text,
+    seed_transition_memory,
+    update_latest_attempt_with_reflexion,
+)
+from src.graph.nodes.sql_repair_helpers import (
+    UNKNOWN_COLUMN_ALIASES,
+    has_shape_errors,
+    patch_column_name,
+    sql_table_names,
+    try_shape_surgeon,
+    try_unknown_column_surgeon,
+    unknown_column_names,
+)
+from src.graph.nodes.validation_attempts import (
+    build_missing_sql_attempt,
+    build_validation_attempt,
+    decide_validation_retry,
+    missing_sql_validation_errors,
+    validation_errors_from_issues,
+)
 from src.nlu.persian_normalizer import PersianNormalizer
 from src.nlu.intent_classifier import IntentClassifier
 from src.nlu.term_extractor import TermExtractor
@@ -23,6 +76,11 @@ from src.generation.template_sql import try_generate_template_sql
 from src.generation.output_parser import OutputParser
 from src.retrieval.context_builder import ContextBuilder
 from src.retrieval.hybrid_retriever import HybridRetriever
+from src.retrieval.reranker import (
+    CrossEncoderReranker,
+    create_reranker,
+    is_model_backed_reranker,
+)
 from src.retrieval.retrieval_scorer import RetrievalQuery
 from src.retrieval.self_overlap import filter_self_overlaps
 from src.sql_validation.validation_pipeline import ValidationPipeline
@@ -33,9 +91,7 @@ from src.sql_validation.validation_result import ValidationResult
 from src.db.read_only_executor import ReadOnlyExecutor
 from src.utils.logging import get_logger
 from src.reflexion.critic import SQLCritic
-from src.reflexion.error_taxonomy import classify_error
 from src.reflexion.repair_planner import RepairPlanner
-from src.reflexion.retry_policy import RetryPolicy
 from src.reflexion.transition_memory import TransitionMemory
 from src.evaluation.candidate_consistency import (
     SqlCandidate as ConsistencySqlCandidate,
@@ -49,69 +105,15 @@ from src.evaluation.multi_candidate_policy import (
 from src.output.answer_formatter import format_answer as output_format_answer
 from src.output.chart_recommender import recommend_chart
 from src.output.explanation_builder import build_explanation
+from src.output.narrative_generator import generate_narrative
 
 logger = get_logger(__name__)
 _LLM_CACHE: dict[tuple[str, int], LocalLLM] = {}
 _DEFAULT_SQL_GENERATION_MAX_TOKENS = 512
-_CANDIDATE_PROMPT_VARIANTS: tuple[str, ...] = (
-    "primary",
-    "variant_2_independent_equivalent",
-    "variant_3_conservative_cte_or_alias",
-)
+_CANDIDATE_PROMPT_VARIANTS = CANDIDATE_PROMPT_VARIANTS
+_CANDIDATE_PROMPT_SUFFIXES = CANDIDATE_PROMPT_SUFFIXES
 
-_CANDIDATE_PROMPT_SUFFIXES: dict[str, str] = {
-    "variant_2_independent_equivalent": """
-
-Candidate verifier variant 2:
-Independently solve the same question for verifier comparison.
-Prefer a different safe SQLite formulation only if it preserves the exact requested semantics.
-Allowed differences include explicit aliases, equivalent aggregate expressions, or a simple CTE.
-Do not add hidden WHERE filters, hidden GROUP BY dimensions, new joins, new tables, or SELECT *.
-Return only the same JSON object schema as the original prompt.
-""",
-    "variant_3_conservative_cte_or_alias": """
-
-Candidate verifier variant 3:
-Produce a conservative alternative SQL candidate for verifier comparison.
-Keep the same query shape, requested filters, grouping keys, ranking/time grain, and schema scope.
-If no safe equivalent alternative exists, return the canonical SQL rather than changing semantics.
-Do not use destructive SQL, comments, SELECT *, or non-SQLite syntax.
-Return only the same JSON object schema as the original prompt.
-""",
-}
-
-_UNKNOWN_COLUMN_ALIASES: tuple[dict[str, Any], ...] = (
-    {
-        "table": "student_depression",
-        "unknown": "diet_quality",
-        "replacement": "dietary_habits",
-        "terms": ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc"),
-    },
-    {
-        "table": "student_habits_performance",
-        "unknown": "dietary_habits",
-        "replacement": "diet_quality",
-        "terms": ("diet", "dietary", "\u0631\u0698\u06cc\u0645", "\u063a\u0630\u0627\u06cc\u06cc"),
-    },
-    {
-        "table": "university_student_mental_health",
-        "unknown": "depression_flag",
-        "replacement": "depression_diagnosis",
-        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
-    },
-    {
-        "table": "student_depression",
-        "unknown": "depression_diagnosis",
-        "replacement": "depression_flag",
-        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
-    },
-    {
-        "table": "mental_health_general",
-        "unknown": "depression_flag",
-        "replacement": "depression_score",
-        "terms": ("depression", "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc"),
-    },
-)
+_UNKNOWN_COLUMN_ALIASES = UNKNOWN_COLUMN_ALIASES
 
 
 def _default_generation_model_path() -> str:
@@ -168,31 +170,15 @@ def _with_single_retry_slot(state: VTDState, updates: Dict[str, Any]) -> Dict[st
 
 
 def _unknown_column_names(issues: list[Any]) -> list[str]:
-    names: list[str] = []
-    for issue in issues:
-        if getattr(issue, "code", "") != "UNKNOWN_COLUMN":
-            continue
-        message = str(getattr(issue, "message", ""))
-        match = re.search(
-            r"Unknown (?:unqualified )?column: ([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)",
-            message,
-        )
-        if match:
-            names.append(match.group(1).split(".")[-1])
-    return names
+    return unknown_column_names(issues)
 
 
 def _sql_table_names(sql: str) -> set[str]:
-    return {
-        match.group(1)
-        for match in re.finditer(
-            r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", sql or "", flags=re.IGNORECASE
-        )
-    }
+    return sql_table_names(sql)
 
 
 def _patch_column_name(sql: str, unknown: str, replacement: str) -> str:
-    return re.sub(rf"(?<![A-Za-z0-9_]){re.escape(unknown)}(?![A-Za-z0-9_])", replacement, sql)
+    return patch_column_name(sql, unknown, replacement)
 
 
 def _try_unknown_column_surgeon(
@@ -202,64 +188,18 @@ def _try_unknown_column_surgeon(
     state: VTDState,
     registry: SchemaRegistry,
 ) -> tuple[str | None, ValidationResult | None, str]:
-    validator = ValidationPipeline(registry=registry)
-    initial = validator.validate(sql)
-    unknown_columns = _unknown_column_names(initial.issues)
-    if not unknown_columns:
-        return None, None, "surgeon_invoked=false"
-
-    tables = _sql_table_names(sql)
-    normalized_question = PersianNormalizer().normalize_text(question or "").lower()
-    for spec in _UNKNOWN_COLUMN_ALIASES:
-        table = str(spec["table"])
-        unknown = str(spec["unknown"])
-        replacement = str(spec["replacement"])
-        terms = tuple(str(term) for term in spec["terms"])
-        if unknown not in unknown_columns:
-            continue
-        if table not in tables:
-            continue
-        if not any(term in normalized_question for term in terms):
-            continue
-
-        patched_sql = _patch_column_name(sql, unknown, replacement)
-        if patched_sql == sql:
-            continue
-        patched_result = validator.validate(patched_sql)
-        if patched_result.ok:
-            shape_result = SQLShapeValidator().validate(
-                patched_result.normalized_sql or patched_sql,
-                question=state.raw_question,
-                qir=state.qir,
-                schema=state.schema_context,
-            )
-            if not shape_result.ok:
-                patched_result = ValidationResult(
-                    ok=False,
-                    issues=[*patched_result.issues, *shape_result.issues],
-                    normalized_sql=patched_result.normalized_sql,
-                )
-        if patched_result.ok:
-            return (
-                patched_result.normalized_sql or patched_sql,
-                patched_result,
-                f"surgeon_invoked=true; surgeon_patch_applied=true; surgeon_patch_validated=true; {unknown}->{replacement}",
-            )
-        return (
-            patched_sql,
-            patched_result,
-            f"surgeon_invoked=true; surgeon_patch_applied=true; surgeon_patch_validated=false; surgeon_fail_fast=true; {unknown}->{replacement}",
-        )
-
-    return (
-        None,
-        None,
-        "surgeon_invoked=true; surgeon_patch_applied=false; surgeon_deferred_to_single_retry=true",
+    return try_unknown_column_surgeon(
+        sql,
+        question=question,
+        state=state,
+        registry=registry,
+        validator_factory=ValidationPipeline,
+        aliases=_UNKNOWN_COLUMN_ALIASES,
     )
 
 
 def _has_shape_errors(issues: list[Any]) -> bool:
-    return any(str(getattr(issue, "code", "")).startswith("ANALYTICAL_SHAPE_") for issue in issues)
+    return has_shape_errors(issues)
 
 
 def _try_shape_surgeon(
@@ -269,34 +209,15 @@ def _try_shape_surgeon(
     registry: SchemaRegistry,
     issues: list[Any],
 ) -> tuple[str | None, ValidationResult | None, str]:
-    rewrite = rewrite_analytical_shape(
+    return try_shape_surgeon(
         sql,
-        question=state.raw_question,
-        qir=state.qir,
-        schema=state.schema_context,
+        state=state,
+        registry=registry,
         issues=issues,
+        validator_factory=ValidationPipeline,
+        shape_validator_factory=SQLShapeValidator,
+        rewrite_fn=rewrite_analytical_shape,
     )
-    if not rewrite.rewritten or not rewrite.sql:
-        return None, None, rewrite.action
-
-    validator = ValidationPipeline(registry=registry)
-    patched_result = validator.validate(rewrite.sql)
-    patched_sql = patched_result.normalized_sql or rewrite.sql
-    if patched_result.ok:
-        shape_result = SQLShapeValidator().validate(
-            patched_sql,
-            question=state.raw_question,
-            qir=state.qir,
-            schema=state.schema_context,
-        )
-        if not shape_result.ok:
-            patched_result = ValidationResult(
-                ok=False,
-                issues=[*patched_result.issues, *shape_result.issues],
-                normalized_sql=patched_sql,
-            )
-    action = f"{rewrite.action}; shape_surgeon_patch_validated={str(patched_result.ok).lower()}"
-    return patched_sql, patched_result, action
 
 
 def initialize_trace(state: VTDState) -> Dict[str, Any]:
@@ -422,6 +343,22 @@ def link_schema(state: VTDState) -> Dict[str, Any]:
     }
 
 
+def retrieve_values(state: VTDState) -> Dict[str, Any]:
+    """
+    Maps user-facing Persian values to database values over linked columns
+    (spec 02 section 10 optional node). Preserves existing value_links entries.
+    """
+    if not state.linked_schema or not state.linked_schema.columns:
+        return {}
+
+    links = ValueLinker().resolve(
+        state.normalized_question or state.raw_question,
+        list(state.linked_schema.columns),
+    )
+    resolved = {f"{link.user_value} [{link.column}]": link.resolved_value for link in links}
+    return {"value_links": {**state.value_links, **resolved}}
+
+
 def _qir_retrieval_skeleton(state: VTDState) -> str:
     qir = state.qir
     qir_dict = (
@@ -456,7 +393,13 @@ def _qir_retrieval_skeleton(state: VTDState) -> str:
         tags.extend(["order", "limit"])
     if "trend" in task_type or any(
         term in text
-        for term in ("trend", "time", "year", "\u0631\u0648\u0646\u062f", "\u0633\u0627\u0644")
+        for term in (
+            "trend",
+            "time",
+            "year",
+            "\u0631\u0648\u0646\u062f",
+            "\u0633\u0627\u0644",
+        )
     ):
         tags.append("group")
     if any(
@@ -483,6 +426,32 @@ def _qir_retrieval_skeleton(state: VTDState) -> str:
     return " ".join(dict.fromkeys(tags))
 
 
+def build_agent_retriever(
+    backend: str | None,
+    reranker_name: str | None,
+) -> tuple[HybridRetriever, CrossEncoderReranker | None]:
+    """Resolve agent-mode retrieval overrides from the ablation config.
+
+    Returns the retriever and an active model-backed reranker (or None when
+    no reranker override is set, or only the identity placeholder is available).
+    """
+    mode: str | None = None
+    if backend in {"bm25", "vector", "hybrid"}:
+        mode = backend
+    elif backend == "hybrid_rerank":
+        mode = "hybrid"
+    if mode is None:
+        retriever = HybridRetriever(use_vector_store=False)
+    else:
+        retriever = HybridRetriever(retrieval_mode=mode)
+    active_reranker: CrossEncoderReranker | None = None
+    if reranker_name:
+        candidate = create_reranker(reranker_name)
+        if is_model_backed_reranker(candidate):
+            active_reranker = candidate
+    return retriever, active_reranker
+
+
 def retrieve_context(state: VTDState) -> Dict[str, Any]:
     """
     Retrieves compact few-shot examples for CAG.
@@ -500,9 +469,16 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
     )
     # Ablation: if cag is disabled, return empty examples
     if not state.ablation_config.get("cag", True):
-        return {"retrieved_examples": [], "retrieval_context": "", "retrieval_diagnostics": []}
+        return {
+            "retrieved_examples": [],
+            "retrieval_context": "",
+            "retrieval_diagnostics": [],
+        }
 
-    retriever = HybridRetriever(use_vector_store=False)
+    retriever, active_reranker = build_agent_retriever(
+        backend=state.ablation_config.get("retrieval_backend"),
+        reranker_name=state.ablation_config.get("reranker"),
+    )
     requested_top_k = max(1, int(state.retrieval_top_k or 5))
     retrieval_top_k = (
         max(requested_top_k * 5, requested_top_k)
@@ -510,7 +486,9 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
         else requested_top_k
     )
     retrieved = retriever.retrieve(
-        retrieval_query, top_k=retrieval_top_k, candidate_pool_size=max(25, retrieval_top_k * 2)
+        retrieval_query,
+        top_k=retrieval_top_k,
+        candidate_pool_size=max(25, retrieval_top_k * 2),
     )
     removed_ids: list[str] = []
     if state.exclude_self_retrieval:
@@ -519,7 +497,9 @@ def retrieve_context(state: VTDState) -> Dict[str, Any]:
             case_id=state.benchmark_case_id,
             question=query_text,
         )
-        retrieved = retrieved[:requested_top_k]
+    if active_reranker is not None:
+        retrieved = active_reranker.rerank(retrieved, query=query_text)
+    retrieved = retrieved[:requested_top_k]
     context = ContextBuilder().build(retrieved, max_examples=requested_top_k)
 
     logger.info(f"Retrieved {len(context.examples)} CAG examples")
@@ -610,48 +590,15 @@ def generate_sql(state: VTDState) -> Dict[str, Any]:
     Invokes the Local LLM (GPU-accelerated) to generate a SQL candidate.
     Enforces JSON structure via LlamaGrammar.
     """
-    if not state.prompt:
-        return {"generated_sql": ""}
-
-    if bool(state.ablation_config.get("deterministic_templates", False)):
-        template_response = try_generate_template_sql(state.raw_question)
-        if template_response is not None:
-            return {
-                "generated_sql": template_response,
-                "raw_model_response": template_response,
-                "generation_source": "deterministic_template",
-                "generation_latency_ms": 0,
-            }
-
-    llm = _get_local_llm()
-
-    policy = state.multi_candidate_policy if isinstance(state.multi_candidate_policy, dict) else {}
-    multi_candidate_generation_flag = bool(
-        state.ablation_config.get("multi_candidate_generation", False)
+    return route_sql_generation(
+        state,
+        llm_factory=_get_local_llm,
+        template_generator=try_generate_template_sql,
+        multi_candidate_generator=_generate_sql_candidates,
+        can_generate_extra_candidates_fn=_can_generate_extra_candidates,
+        clock=time.perf_counter,
+        max_tokens_fn=_sql_generation_max_tokens,
     )
-    multi_candidate_enabled = (
-        multi_candidate_generation_flag
-        and bool(policy.get("enabled"))
-        and int(policy.get("candidate_count") or 1) > 1
-        and _can_generate_extra_candidates(state)
-    )
-
-    if multi_candidate_enabled:
-        return _generate_sql_candidates(state, llm, int(policy.get("candidate_count") or 1))
-
-    started = time.perf_counter()
-    response_text = llm.generate_json(
-        state.prompt,
-        enforce_json=True,
-        max_tokens=_sql_generation_max_tokens(),
-    )
-    generation_latency_ms = int((time.perf_counter() - started) * 1000)
-    return {
-        "generated_sql": response_text,
-        "raw_model_response": response_text,
-        "generation_source": "llm",
-        "generation_latency_ms": generation_latency_ms,
-    }
 
 
 def _generate_sql_candidates(
@@ -665,115 +612,22 @@ def _generate_sql_candidates(
     evidence remains review-only.
     """
 
-    requested = max(1, min(3, candidate_count))
-    raw_outputs: dict[str, str] = {}
-    parsed_payloads: dict[str, dict[str, Any] | None] = {}
-    candidates: list[dict[str, Any]] = []
-    started = time.perf_counter()
-    extra_generation_budget_ms = _multi_candidate_extra_generation_budget_ms(
-        state.ablation_config
+    return run_candidate_orchestrator(
+        state,
+        llm,
+        candidate_count,
+        clock=time.perf_counter,
+        max_tokens_fn=_sql_generation_max_tokens,
+        extra_generation_budget_ms_fn=_multi_candidate_extra_generation_budget_ms,
+        prompt_variant_fn=_candidate_prompt_variant,
+        candidate_prompt_fn=_candidate_generation_prompt,
+        parse_json_fn=OutputParser.extract_json,
+        inspect_candidate_fn=_inspect_sql_candidate,
+        consistency_candidate_factory=ConsistencySqlCandidate,
+        analyze_consistency_fn=analyze_candidate_consistency,
+        verify_candidates_fn=verify_sql_candidates,
+        adoption_id_fn=candidate_adoption_id,
     )
-    budget_exhausted = False
-
-    for index in range(requested):
-        candidate_id = f"candidate_{index + 1}"
-        prompt_variant = _candidate_prompt_variant(index)
-        candidate_prompt = _candidate_generation_prompt(state.prompt, prompt_variant)
-        response_text = llm.generate_json(
-            candidate_prompt,
-            enforce_json=True,
-            max_tokens=_sql_generation_max_tokens(),
-        )
-        raw_outputs[candidate_id] = response_text
-        parsed = OutputParser.extract_json(response_text)
-        parsed_payloads[candidate_id] = parsed
-        sql = parsed.get("sql") if isinstance(parsed, dict) else None
-        candidate = _inspect_sql_candidate(
-            candidate_id=candidate_id,
-            sql=sql,
-            state=state,
-            raw_model_response=response_text,
-            parsed_payload=parsed,
-            prompt_variant=prompt_variant,
-        )
-        candidates.append(candidate)
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        if (
-            extra_generation_budget_ms is not None
-            and index < requested - 1
-            and elapsed_ms >= extra_generation_budget_ms
-        ):
-            budget_exhausted = True
-            break
-
-    consistency_report = analyze_candidate_consistency(
-        [
-            ConsistencySqlCandidate(
-                candidate_id=str(candidate["candidate_id"]),
-                sql=candidate.get("sql"),
-                valid_sql=candidate.get("valid_sql"),
-                execution_passed=candidate.get("execution_passed"),
-                result_hash=candidate.get("result_hash"),
-                metadata=candidate.get("metadata") or {},
-            )
-            for candidate in candidates
-        ]
-    )
-    verifier_enabled = bool(state.ablation_config.get("multi_candidate_verifier", True))
-    verification_report = None
-    selected_candidate_id = consistency_report.selected_candidate_id
-    if verifier_enabled:
-        verification_report = verify_sql_candidates(
-            candidates,
-            consistency_report=consistency_report.as_dict(),
-            schema_context=state.schema_context,
-            value_links=state.value_links,
-        )
-        candidates = verification_report.candidates
-        selected_candidate_id = verification_report.selected_candidate_id
-
-    primary = candidates[0] if candidates else {}
-    primary_id = str(primary.get("candidate_id") or "candidate_1")
-    selected = _candidate_by_id(candidates, selected_candidate_id)
-    adoption_enabled = (
-        bool(state.ablation_config["multi_candidate_adoption"])
-        if "multi_candidate_adoption" in state.ablation_config
-        else False
-    )
-    adopted_candidate_id = (
-        str(selected_candidate_id)
-        if adoption_enabled
-        and consistency_report.passed
-        and (verification_report is None or verification_report.action == "select")
-        and selected is not None
-        and _candidate_is_viable(selected)
-        and _candidate_is_adoption_improvement(selected, primary, primary_id=primary_id)
-        else None
-    )
-    output_candidate_id = adopted_candidate_id or primary_id
-    selected_raw = raw_outputs.get(output_candidate_id) or ""
-    selected_payload = parsed_payloads.get(output_candidate_id)
-    generation_latency_ms = int((time.perf_counter() - started) * 1000)
-
-    result = {
-        "generated_sql": selected_raw,
-        "raw_model_response": selected_raw,
-        "generation_source": "llm_multi_candidate",
-        "generation_latency_ms": generation_latency_ms,
-        "candidate_sqls": candidates,
-        "selected_candidate_id": adopted_candidate_id,
-        "candidate_consistency": consistency_report.as_dict(),
-        "candidate_verification": verification_report.as_dict() if verification_report else None,
-        "parsed_payload": selected_payload,
-    }
-    if extra_generation_budget_ms is not None:
-        result["multi_candidate_generation_budget"] = {
-            "configured_budget_ms": extra_generation_budget_ms,
-            "requested_candidate_count": requested,
-            "generated_candidate_count": len(candidates),
-            "budget_exhausted": budget_exhausted,
-        }
-    return result
 
 
 def _inspect_sql_candidate(
@@ -785,109 +639,46 @@ def _inspect_sql_candidate(
     parsed_payload: dict[str, Any] | None,
     prompt_variant: str,
 ) -> dict[str, Any]:
-    metadata: dict[str, Any] = {
-        "raw_model_response": raw_model_response,
-        "parsed": parsed_payload is not None,
-        "prompt_variant": prompt_variant,
-    }
-    if not sql:
-        metadata["shape_ok"] = False
-        metadata["validation_errors"] = [
-            {
-                "code": "MISSING_SQL",
-                "message": "Missing SQL in candidate payload.",
-                "severity": "error",
-            }
-        ]
-        return {
-            "candidate_id": candidate_id,
-            "sql": sql,
-            "valid_sql": False,
-            "execution_passed": False,
-            "result_hash": None,
-            "source": "multi_candidate_generation",
-            "metadata": metadata,
-        }
-
-    registry = SchemaRegistry()
-    validator = ValidationPipeline(registry=registry)
-    sql = SQLRewriter().rewrite_for_question(sql, question=state.raw_question)
-    validation = validator.validate(sql)
-    validated_sql = validation.normalized_sql or sql
-    shape_ok = validation.ok
-    if validation.ok:
-        shape_result = SQLShapeValidator().validate(
-            validated_sql,
-            question=state.raw_question,
-            qir=state.qir,
-            schema=state.schema_context,
-        )
-        shape_ok = shape_result.ok
-        if not shape_result.ok:
-            validation = ValidationResult(
-                ok=False,
-                issues=[*validation.issues, *shape_result.issues],
-                normalized_sql=validation.normalized_sql,
-            )
-    metadata["shape_ok"] = shape_ok
-    metadata["validation_errors"] = (
-        _validation_issues_as_dict(validation.issues) if not validation.ok else []
+    return inspect_sql_candidate(
+        candidate_id=candidate_id,
+        sql=sql,
+        state=state,
+        raw_model_response=raw_model_response,
+        parsed_payload=parsed_payload,
+        prompt_variant=prompt_variant,
+        registry_factory=SchemaRegistry,
+        validator_factory=ValidationPipeline,
+        shape_validator_factory=SQLShapeValidator,
+        rewriter_factory=SQLRewriter,
+        executor_factory=lambda: ReadOnlyExecutor(db_path=SETTINGS.db_path),
+        validation_issues_formatter=_validation_issues_as_dict,
     )
-
-    result_hash = None
-    execution_passed = False
-    if validation.ok:
-        execution = ReadOnlyExecutor(db_path=SETTINGS.db_path).execute_readonly(validated_sql)
-        execution_passed = execution.ok
-        result_hash = execution.result_hash if execution.ok else None
-        metadata["execution_error"] = execution.error if not execution.ok else None
-        metadata["execution_latency_ms"] = execution.latency_ms
-    return {
-        "candidate_id": candidate_id,
-        "sql": validated_sql,
-        "valid_sql": validation.ok,
-        "execution_passed": execution_passed,
-        "result_hash": result_hash,
-        "source": "multi_candidate_generation",
-        "metadata": metadata,
-    }
 
 
 def _first_candidate_id(candidates: list[dict[str, Any]]) -> str | None:
-    if not candidates:
-        return None
-    return str(candidates[0].get("candidate_id"))
+    return first_candidate_id(candidates)
 
 
 def _candidate_by_id(
     candidates: list[dict[str, Any]], candidate_id: str | None
 ) -> dict[str, Any] | None:
-    for candidate in candidates:
-        if str(candidate.get("candidate_id")) == str(candidate_id):
-            return candidate
-    return None
+    return candidate_by_id(candidates, candidate_id)
 
 
 def _candidate_is_viable(candidate: dict[str, Any]) -> bool:
-    return (
-        bool(candidate.get("sql"))
-        and candidate.get("valid_sql") is not False
-        and candidate.get("execution_passed") is not False
-    )
+    return candidate_is_viable(candidate)
 
 
 def _candidate_prompt_variant(index: int) -> str:
-    if index < len(_CANDIDATE_PROMPT_VARIANTS):
-        return _CANDIDATE_PROMPT_VARIANTS[index]
-    return _CANDIDATE_PROMPT_VARIANTS[-1]
+    return candidate_prompt_variant(index, variants=_CANDIDATE_PROMPT_VARIANTS)
 
 
 def _candidate_generation_prompt(base_prompt: str | None, prompt_variant: str) -> str:
-    prompt = (base_prompt or "").rstrip()
-    suffix = _CANDIDATE_PROMPT_SUFFIXES.get(prompt_variant)
-    if not suffix:
-        return prompt
-    return f"{prompt}{suffix.rstrip()}"
+    return candidate_generation_prompt(
+        base_prompt,
+        prompt_variant,
+        prompt_suffixes=_CANDIDATE_PROMPT_SUFFIXES,
+    )
 
 
 def _candidate_is_adoption_improvement(
@@ -896,47 +687,19 @@ def _candidate_is_adoption_improvement(
     *,
     primary_id: str,
 ) -> bool:
-    if str(selected.get("candidate_id")) == str(primary_id):
-        return False
-    return _candidate_runtime_score(selected) > _candidate_runtime_score(primary)
+    return candidate_is_adoption_improvement(selected, primary, primary_id=primary_id)
 
 
 def _candidate_runtime_score(candidate: dict[str, Any]) -> float:
-    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    score = (
-        metadata.get("candidate_score") if isinstance(metadata.get("candidate_score"), dict) else {}
-    )
-    try:
-        return float(score.get("score"))
-    except (TypeError, ValueError):
-        return 0.0
+    return candidate_runtime_score(candidate)
 
 
 def _validation_issues_as_dict(issues: list[Any]) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for issue in issues:
-        if isinstance(issue, dict):
-            normalized.append(dict(issue))
-            continue
-        normalized.append(
-            {
-                "code": str(getattr(issue, "code", "VALIDATION_ERROR")),
-                "message": str(getattr(issue, "message", issue)),
-                "severity": str(getattr(issue, "severity", "error")),
-                "location": getattr(issue, "location", None),
-            }
-        )
-    return normalized
+    return validation_issues_as_dict(issues)
 
 
 def _can_generate_extra_candidates(state: VTDState) -> bool:
-    """Keep extra generation off the repair loop until A/B evidence improves."""
-
-    if state.retry_count > 0:
-        return False
-    if state.validation_errors or state.execution_error:
-        return False
-    return True
+    return can_generate_extra_candidates(state)
 
 
 def parse_llm_output(state: VTDState) -> Dict[str, Any]:
@@ -972,30 +735,8 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
     Records the attempt for the retry logic.
     """
     if not state.generated_sql:
-        existing_errors = list(state.validation_errors or [])
-        validation_errors = existing_errors or [
-            {"type": "VALIDATION_ERROR", "message": "No SQL to validate"}
-        ]
-        attempt = SQLAttempt(
-            iteration=state.retry_count,
-            prompt=state.prompt,
-            raw_model_response=state.raw_model_response,
-            generation_latency_ms=state.generation_latency_ms,
-            parsed_payload=state.parsed_payload,
-            sql=None,
-            parsed=bool(state.parsed_payload),
-            validation_passed=False,
-            validation_errors=validation_errors,
-            error_type=(
-                str(validation_errors[0].get("type") or "VALIDATION_ERROR")
-                if validation_errors
-                else "VALIDATION_ERROR"
-            ),
-            error_message=", ".join(
-                str(error.get("message", error)) if isinstance(error, dict) else str(error)
-                for error in validation_errors
-            ),
-        )
+        validation_errors = missing_sql_validation_errors(state.validation_errors)
+        attempt = build_missing_sql_attempt(state, validation_errors=validation_errors)
         return _with_retry_increment(
             state,
             {
@@ -1057,28 +798,14 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
                 shape_single_retry = not patched_result.ok
             else:
                 shape_single_retry = True
-    validation_errors = [{"message": str(i)} for i in result.issues] if not result.ok else []
+    validation_errors = validation_errors_from_issues(result.issues) if not result.ok else []
 
-    attempt = SQLAttempt(
-        iteration=state.retry_count,
-        prompt=state.prompt,
-        raw_model_response=state.raw_model_response,
-        generation_latency_ms=state.generation_latency_ms,
-        parsed_payload=state.parsed_payload,
+    attempt = build_validation_attempt(
+        state,
         sql=validated_sql,
-        parsed=bool(state.parsed_payload),
         validation_passed=result.ok,
         validation_errors=validation_errors,
-        error_message=", ".join([str(i) for i in result.issues]) if not result.ok else None,
-        repair_action=(
-            "shape_surgeon"
-            if surgeon_action and "shape_surgeon_patch_applied=true" in surgeon_action
-            else (
-                "schema_surgeon"
-                if surgeon_action and "patch_applied=true" in surgeon_action
-                else None
-            )
-        ),
+        issues=result.issues,
         repair_plan=surgeon_action,
     )
 
@@ -1086,14 +813,19 @@ def validate_sql(state: VTDState) -> Dict[str, Any]:
         "attempts": state.attempts + [attempt],
         "validation_errors": validation_errors,
     }
-    if not result.ok:
-        if surgeon_fail_fast:
-            updates["retry_count"] = state.max_retries
-            return updates
-        if surgeon_single_retry:
-            return _with_single_retry_slot(state, updates)
-        if shape_single_retry or _has_shape_errors(result.issues):
-            return _with_single_retry_slot(state, updates)
+    retry_decision = decide_validation_retry(
+        validation_passed=result.ok,
+        surgeon_fail_fast=surgeon_fail_fast,
+        surgeon_single_retry=surgeon_single_retry,
+        shape_single_retry=shape_single_retry,
+        has_shape_errors=_has_shape_errors(result.issues),
+    )
+    if retry_decision == "fail_fast":
+        updates["retry_count"] = state.max_retries
+        return updates
+    if retry_decision == "single_retry":
+        return _with_single_retry_slot(state, updates)
+    if retry_decision == "retry_increment":
         return _with_retry_increment(state, updates)
     updates["generated_sql"] = validated_sql
     return updates
@@ -1109,28 +841,9 @@ def execute_sql(state: VTDState) -> Dict[str, Any]:
     executor = ReadOnlyExecutor(db_path=SETTINGS.db_path)
     result = executor.execute_readonly(state.generated_sql)
 
-    attempts = state.attempts
-    if attempts:
-        latest = attempts[-1]
-        attempts = attempts[:-1] + [
-            latest.model_copy(
-                update={
-                    "execution_passed": result.ok,
-                    "execution_result_preview": result.rows[:5] if result.ok else None,
-                    "execution_result_hash": result.result_hash if result.ok else None,
-                    "latency_ms": result.latency_ms,
-                    "error_message": result.error if not result.ok else latest.error_message,
-                }
-            )
-        ]
-
-    updates = {
-        "attempts": attempts,
-        "execution_result": result.rows if result.ok else None,
-        "execution_error": result.error if not result.ok else None,
-        "semantic_passed": result.ok,
-    }
-    if not result.ok:
+    attempts = update_latest_attempt_with_execution_result(state.attempts, result)
+    updates = execution_state_updates(attempts=attempts, result=result)
+    if execution_needs_retry(result):
         return _with_retry_increment(state, updates)
     return updates
 
@@ -1139,20 +852,13 @@ def format_answer(state: VTDState) -> Dict[str, Any]:
     """
     Final node to format the execution result into a user-friendly answer.
     """
-    state_dict = state.model_dump()
-    state_dict["actual_action"] = "format_answer"
-
-    ans = output_format_answer(state_dict)
-    chart = recommend_chart(state_dict.get("execution_result", []))
-    exp = build_explanation(state_dict)
-
-    return {
-        "final_answer": ans.get("final_answer"),
-        "recommended_visual": chart.get("recommended_visual"),
-        "chart_reason": chart.get("chart_reason"),
-        "explanation": exp or state.explanation,
-        "actual_action": "format_answer",
-    }
+    return format_answer_updates(
+        state,
+        answer_formatter=output_format_answer,
+        chart_recommender=recommend_chart,
+        explanation_builder=build_explanation,
+        narrative_generator=generate_narrative,
+    )
 
 
 def fail_gracefully(state: VTDState) -> Dict[str, Any]:
@@ -1160,11 +866,7 @@ def fail_gracefully(state: VTDState) -> Dict[str, Any]:
     Fallback node when execution fails after max retries.
     """
     logger.error(f"Execution failed after {state.retry_count} retries.")
-    state_dict = state.model_dump()
-    state_dict["actual_action"] = "fail_gracefully"
-    ans = output_format_answer(state_dict)
-    ans["actual_action"] = "fail_gracefully"
-    return ans
+    return fail_gracefully_updates(state, answer_formatter=output_format_answer)
 
 
 def reflect_on_error(state: VTDState) -> Dict[str, Any]:
@@ -1175,17 +877,13 @@ def reflect_on_error(state: VTDState) -> Dict[str, Any]:
     if not state.attempts:
         return {}
 
-    latest = state.attempts[-1]
-    error_msg = latest.error_message or "Unknown failure"
-    sql = latest.sql or ""
+    error_msg, sql = latest_reflexion_context(state)
 
     critic = SQLCritic()
     planner = RepairPlanner()
     memory = TransitionMemory()
 
-    # Load memory from state.attempts
-    for a in state.attempts[:-1]:
-        memory.update(a.sql or "", a.error_message or "")
+    seed_transition_memory(state.attempts[:-1], memory)
 
     if memory.is_looping(sql, error_msg):
         logger.warning(f"Loop detected for trace {state.trace_id}. Forcing failure.")
@@ -1198,36 +896,18 @@ def reflect_on_error(state: VTDState) -> Dict[str, Any]:
 
     logger.info(f"Reflexion Feedback: {repair_plan}")
 
-    # Update latest attempt with feedback/plan
-    new_attempts = list(state.attempts)
-    if new_attempts:
-        latest = new_attempts[-1]
-        new_attempts[-1] = latest.model_copy(
-            update={"critic_feedback": feedback, "repair_plan": repair_plan}
-        )
+    new_attempts = update_latest_attempt_with_reflexion(
+        state.attempts,
+        critic_feedback=feedback,
+        repair_plan=repair_plan,
+    )
 
     # Update prompt for the next generation
     from src.generation.prompt_builder import PromptBuilder
 
     builder = PromptBuilder()
 
-    if state.validation_errors:
-        validation_err_str = "\n".join(
-            [
-                str(e.get("message", e)) if isinstance(e, dict) else str(e)
-                for e in state.validation_errors
-            ]
-        )
-    else:
-        validation_err_str = error_msg or "Unknown failure"
-        if (
-            validation_err_str == "Unknown failure"
-            and state.candidate_consistency_report
-            and not state.candidate_consistency_report.get("passed")
-        ):
-            issues = state.candidate_consistency_report.get("issues", [])
-            if issues:
-                validation_err_str = "\n".join([str(i.get("message", i)) for i in issues])
+    validation_err_str = repair_validation_error_text(state, error_msg)
 
     repair_prompt = builder.build_repair_prompt(
         question=state.raw_question,
@@ -1236,36 +916,25 @@ def reflect_on_error(state: VTDState) -> Dict[str, Any]:
         value_links=state.value_links,
         previous_sql=sql,
         validation_errors=validation_err_str,
-        critic_feedback=f"{feedback}\n\nRepair Plan: {repair_plan}",
+        critic_feedback=repair_critic_feedback(feedback, repair_plan),
     )
 
-    return {"prompt": repair_prompt, "attempts": new_attempts}
+    return reflexion_updates(prompt=repair_prompt, attempts=new_attempts)
 
 
 def ask_clarification(state: VTDState) -> Dict[str, Any]:
     """
     Node invoked when the input is ambiguous or low confidence.
     """
-    from src.core.enums import IntentLabel
-
-    state_dict = state.model_dump()
-    if state.intent == IntentLabel.DEFINITION_QUERY:
-        state_dict["actual_action"] = "answer_without_sql"
-    elif state.intent == IntentLabel.CHART_QUERY and not state.should_generate_sql:
-        state_dict["actual_action"] = "answer_chart_recommendation"
-    else:
-        state_dict["actual_action"] = "ask_clarification"
-    ans = output_format_answer(state_dict)
-    ans["actual_action"] = state_dict["actual_action"]
-    return ans
+    return clarification_answer_updates(state, answer_formatter=output_format_answer)
 
 
 def refuse_unsafe_sql(state: VTDState) -> Dict[str, Any]:
     """
     Node invoked when the safety check fails.
     """
-    state_dict = state.model_dump()
-    state_dict["actual_action"] = "refuse_unsafe_sql"
-    ans = output_format_answer(state_dict)
-    ans["actual_action"] = "refuse_unsafe_sql"
-    return ans
+    return action_answer_updates(
+        state,
+        action="refuse_unsafe_sql",
+        answer_formatter=output_format_answer,
+    )

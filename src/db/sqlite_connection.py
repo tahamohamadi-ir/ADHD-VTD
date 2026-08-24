@@ -13,11 +13,13 @@ except Exception:  # pragma: no cover
 def readonly_uri(db_path: str | Path) -> str:
     path = Path(db_path).resolve()
     # SQLite URI on Windows needs forward slashes.
-    uri_path = quote(str(path).replace("\\", "/"), safe="/:" )
+    uri_path = quote(str(path).replace("\\", "/"), safe="/:")
     return f"file:{uri_path}?mode=ro"
 
 
-def get_readonly_connection(db_path: str | Path | None = None, timeout: float = 10.0) -> sqlite3.Connection:
+def get_readonly_connection(
+    db_path: str | Path | None = None, timeout: float = 10.0
+) -> sqlite3.Connection:
     path = Path(db_path or DB_PATH)
     if not path.exists():
         raise FileNotFoundError(f"SQLite database not found: {path}")
@@ -26,3 +28,10 @@ def get_readonly_connection(db_path: str | Path | None = None, timeout: float = 
     conn.execute("PRAGMA query_only = ON;")
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
+
+
+def get_checkpoint_connection(db_path: str | Path, timeout: float = 10.0) -> sqlite3.Connection:
+    """Open a writable connection for LangGraph checkpoint storage only."""
+    path = Path(db_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(str(path), timeout=timeout, check_same_thread=False)

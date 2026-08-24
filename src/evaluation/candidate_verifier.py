@@ -192,23 +192,17 @@ def _with_candidate_score(
     schema_context: dict[str, Any],
     value_links: dict[str, Any],
 ) -> dict[str, Any]:
-    metadata = (
-        candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    )
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
     issues = _candidate_issues(candidate)
     validation_ok = candidate.get("valid_sql") is True
     execution_ok = candidate.get("execution_passed") is True
     shape_ok = _candidate_shape_ok(metadata, issues)
     unsafe_penalty = 1.0 if _has_issue_marker(issues, UNSAFE_ISSUE_MARKERS) else 0.0
-    schema_error_penalty = (
-        1.0 if _has_issue_marker(issues, SCHEMA_ISSUE_MARKERS) else 0.0
-    )
+    schema_error_penalty = 1.0 if _has_issue_marker(issues, SCHEMA_ISSUE_MARKERS) else 0.0
     shape_error_penalty = 1.0 if _has_issue_marker(issues, SHAPE_ISSUE_MARKERS) else 0.0
     schema_coverage = _schema_coverage(candidate.get("sql"), schema_context)
     value_coverage = _value_coverage(candidate.get("sql"), value_links)
-    candidate_agreement = _candidate_agreement(
-        candidate, candidates, consistency_report
-    )
+    candidate_agreement = _candidate_agreement(candidate, candidates, consistency_report)
 
     score = (
         (3.0 if validation_ok else 0.0)
@@ -238,15 +232,11 @@ def _with_candidate_score(
 
 
 def _sanitize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
-    sanitized = {
-        key: value for key, value in candidate.items() if key not in GOLD_LEAKAGE_KEYS
-    }
+    sanitized = {key: value for key, value in candidate.items() if key not in GOLD_LEAKAGE_KEYS}
     metadata = sanitized.get("metadata")
     if isinstance(metadata, dict):
         sanitized["metadata"] = {
-            key: value
-            for key, value in metadata.items()
-            if key not in GOLD_LEAKAGE_KEYS
+            key: value for key, value in metadata.items() if key not in GOLD_LEAKAGE_KEYS
         }
     return sanitized
 
@@ -269,13 +259,9 @@ def _hard_consistency_issues(report: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _candidate_issues(candidate: dict[str, Any]) -> list[dict[str, Any]]:
-    metadata = (
-        candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    )
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
     return [
-        issue
-        for issue in _listish(metadata.get("validation_errors"))
-        if isinstance(issue, dict)
+        issue for issue in _listish(metadata.get("validation_errors")) if isinstance(issue, dict)
     ]
 
 
@@ -287,9 +273,7 @@ def _candidate_shape_ok(metadata: dict[str, Any], issues: list[dict[str, Any]]) 
 
 def _has_issue_marker(issues: list[dict[str, Any]], markers: tuple[str, ...]) -> bool:
     for issue in issues:
-        text = " ".join(
-            str(issue.get(key) or "") for key in ("code", "message", "type")
-        ).upper()
+        text = " ".join(str(issue.get(key) or "") for key in ("code", "message", "type")).upper()
         if any(marker in text for marker in markers):
             return True
     return False
@@ -344,13 +328,9 @@ def _candidate_is_viable(candidate: dict[str, Any]) -> bool:
 
 
 def _candidate_score_value(candidate: dict[str, Any]) -> float:
-    metadata = (
-        candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    )
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
     score = (
-        metadata.get("candidate_score")
-        if isinstance(metadata.get("candidate_score"), dict)
-        else {}
+        metadata.get("candidate_score") if isinstance(metadata.get("candidate_score"), dict) else {}
     )
     try:
         return float(score.get("score"))

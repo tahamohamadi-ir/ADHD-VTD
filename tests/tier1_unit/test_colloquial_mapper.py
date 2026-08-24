@@ -1,4 +1,5 @@
 """Unit tests for ColloquialMapper."""
+
 from __future__ import annotations
 
 import pytest

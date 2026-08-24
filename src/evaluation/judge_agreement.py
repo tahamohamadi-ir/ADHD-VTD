@@ -73,9 +73,15 @@ def analyze_judge_agreement(
         adjudication_required = _requires_adjudication(left, right)
         if adjudication_required:
             final_label = "adjudication_required"
-        elif left.get("semantic_business_correct") is True and right.get("semantic_business_correct") is True:
+        elif (
+            left.get("semantic_business_correct") is True
+            and right.get("semantic_business_correct") is True
+        ):
             final_label = "agreed_correct"
-        elif left.get("semantic_business_correct") is False and right.get("semantic_business_correct") is False:
+        elif (
+            left.get("semantic_business_correct") is False
+            and right.get("semantic_business_correct") is False
+        ):
             final_label = "agreed_incorrect"
         else:
             final_label = "adjudication_required"
@@ -119,9 +125,11 @@ def analyze_judge_agreement(
         "right_judge_policy": right_summary.get("judge_policy"),
         "left_source_artifact": left_summary.get("source_artifact"),
         "right_source_artifact": right_summary.get("source_artifact"),
-        "same_prompt_version": left_summary.get("prompt_version") == right_summary.get("prompt_version"),
+        "same_prompt_version": left_summary.get("prompt_version")
+        == right_summary.get("prompt_version"),
         "same_judge_policy": left_summary.get("judge_policy") == right_summary.get("judge_policy"),
-        "same_source_artifact": left_summary.get("source_artifact") == right_summary.get("source_artifact"),
+        "same_source_artifact": left_summary.get("source_artifact")
+        == right_summary.get("source_artifact"),
         "left_total_judged": left_summary.get("total_judged"),
         "right_total_judged": right_summary.get("total_judged"),
         "common_cases": len(common_ids),

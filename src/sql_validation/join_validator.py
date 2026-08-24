@@ -7,6 +7,7 @@ from sqlglot import exp
 
 from src.sql_validation.validation_result import ValidationIssue, ValidationResult
 
+
 class SQLJoinValidator:
     """Validates JOIN operations against the semantic schema graph."""
 
@@ -29,10 +30,10 @@ class SQLJoinValidator:
         issues: list[ValidationIssue] = []
         if sqlglot is None:
             return ValidationResult.pass_(normalized)
-            
+
         try:
             tree = sqlglot.parse_one(normalized, read="sqlite")
-        except Exception as exc:
+        except Exception:
             # Syntax/Parse errors are handled by syntax validator
             return ValidationResult.pass_(normalized)
 
@@ -49,11 +50,11 @@ class SQLJoinValidator:
             base_table_node = select.args.get("from_")
             if base_table_node is None:
                 continue
-                
+
             base_table = None
             if isinstance(base_table_node.this, exp.Table):
-                 base_table = base_table_node.this.name
-            
+                base_table = base_table_node.this.name
+
             # For each JOIN
             joins = select.args.get("joins", [])
             for join in joins:
@@ -61,27 +62,33 @@ class SQLJoinValidator:
                 if not isinstance(join_table_node, exp.Table):
                     continue
                 join_table = join_table_node.name
-                
+
                 # Implicit cross join check: no ON clause and not explicitly CROSS JOIN
-                if not join.args.get("on") and not join.args.get("using") and join.args.get("kind") != "CROSS":
+                if (
+                    not join.args.get("on")
+                    and not join.args.get("using")
+                    and join.args.get("kind") != "CROSS"
+                ):
                     # But even CROSS JOIN might be restricted, let's stick to the graph.
                     pass
-                
+
                 if base_table and join_table:
                     # Resolve real names
                     real_base = tables.get(base_table, base_table)
                     real_join = tables.get(join_table, join_table)
-                    
+
                     if real_base in ctes or real_join in ctes:
-                        continue # Skip checking CTE joins for now
-                        
+                        continue  # Skip checking CTE joins for now
+
                     edge = frozenset([real_base, real_join])
                     if edge not in self.allowed_edges:
-                        issues.append(ValidationIssue(
-                            "ILLEGAL_JOIN", 
-                            f"Join between '{real_base}' and '{real_join}' is not allowed by the semantic graph."
-                        ))
-                
+                        issues.append(
+                            ValidationIssue(
+                                "ILLEGAL_JOIN",
+                                f"Join between '{real_base}' and '{real_join}' is not allowed by the semantic graph.",
+                            )
+                        )
+
                 # Update base_table for chained joins (A join B join C -> base can be A or B)
                 # To be safe, we check if the new table is joined to ANY of the previously seen tables
                 # Since we don't do full join-tree analysis, checking against base is a heuristic.

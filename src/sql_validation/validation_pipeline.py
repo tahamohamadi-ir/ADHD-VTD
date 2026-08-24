@@ -10,9 +10,10 @@ from src.sql_validation.semantic_validator import SQLSemanticValidator
 from src.sql_validation.sql_rewriter import SQLRewriter
 from src.sql_validation.validation_result import ValidationResult
 
+
 class ValidationPipeline:
     """Orchestrates all SQL validators in sequence.
-    
+
     Order:
     1. Rewrite (Syntax cleanup & basic typing fixes)
     2. Syntax Validator
@@ -25,15 +26,15 @@ class ValidationPipeline:
     def __init__(self, registry: SchemaRegistry | None = None) -> None:
         self.registry = registry or SchemaRegistry()
         self.rewriter = SQLRewriter()
-        
+
         self.validators = [
             ("syntax", SQLSyntaxValidator()),
             ("safety", SQLSafetyValidator()),
             ("schema", SQLSchemaValidator(registry=self.registry)),
             ("join", SQLJoinValidator()),
-            ("aggregation", SQLAggregationValidator(registry=self.registry))
+            ("aggregation", SQLAggregationValidator(registry=self.registry)),
         ]
-        
+
         self.semantic_validator = SQLSemanticValidator()
 
     def validate(self, sql: str, benchmark_case: dict | None = None) -> ValidationResult:
@@ -42,11 +43,11 @@ class ValidationPipeline:
             rewritten_sql = self.rewriter.rewrite(sql)
         except Exception:
             rewritten_sql = sql
-            
+
         current_sql = rewritten_sql
         all_issues = []
         is_valid = True
-        
+
         # Step 2: Run core validators sequentially
         for name, validator in self.validators:
             result = validator.validate(current_sql)
@@ -56,10 +57,12 @@ class ValidationPipeline:
                 # If a fundamental validator fails, we can stop early
                 if name in ("syntax", "safety"):
                     break
-        
+
         # Step 3: Run semantic benchmark validator if case is provided
         if is_valid and benchmark_case:
-            semantic_result = self.semantic_validator.validate_against_case(current_sql, benchmark_case)
+            semantic_result = self.semantic_validator.validate_against_case(
+                current_sql, benchmark_case
+            )
             all_issues.extend(semantic_result.issues)
             if not semantic_result.ok:
                 is_valid = False

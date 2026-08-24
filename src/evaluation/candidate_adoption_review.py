@@ -105,9 +105,7 @@ def build_candidate_adoption_review_package(
         "valid_sql_cases": sum(1 for row in rows if row["valid_sql"] is True),
         "unsafe_sql_cases": sum(1 for row in rows if row["unsafe_sql"] is True),
         "single_viable_candidate_cases": sum(
-            1
-            for row in rows
-            if "SINGLE_VIABLE_CANDIDATE" in row["verifier_issue_codes"]
+            1 for row in rows if "SINGLE_VIABLE_CANDIDATE" in row["verifier_issue_codes"]
         ),
         "gold_reference_fields_redacted": True,
         "strict_reference_fields_included": False,
@@ -127,13 +125,9 @@ def build_candidate_adoption_review_package(
 
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    summary_path = write_json(
-        output_root / "candidate_adoption_review_summary.json", summary
-    )
+    summary_path = write_json(output_root / "candidate_adoption_review_summary.json", summary)
     rows_path = write_jsonl(output_root / "candidate_adoption_review_cases.jsonl", rows)
-    csv_path = _write_review_csv(
-        output_root / "candidate_adoption_review_cases.csv", rows
-    )
+    csv_path = _write_review_csv(output_root / "candidate_adoption_review_cases.csv", rows)
     report_path = output_root / "candidate_adoption_review_report.md"
     report_path.write_text(_render_report(summary, rows), encoding="utf-8")
     instructions_path = output_root / "REVIEW_INSTRUCTIONS.md"
@@ -166,9 +160,7 @@ def import_candidate_adoption_review_labels(
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    status = (
-        "invalid_labels" if invalid else "pending_review" if pending else "complete"
-    )
+    status = "invalid_labels" if invalid else "pending_review" if pending else "complete"
     summary = {
         "schema_version": "pars_sql_candidate_adoption_review_import_v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -219,13 +211,9 @@ def import_candidate_adoption_review_labels(
         ),
     }
     dual_cases_path = write_jsonl(output_root / "dual_policy_cases.jsonl", dual_cases)
-    dual_summary_path = write_json(
-        output_root / "dual_policy_summary.json", dual_summary
-    )
+    dual_summary_path = write_json(output_root / "dual_policy_summary.json", dual_summary)
     report_path = output_root / "dual_policy_report.md"
-    report_path.write_text(
-        _render_import_report(dual_summary, dual_cases), encoding="utf-8"
-    )
+    report_path.write_text(_render_import_report(dual_summary, dual_cases), encoding="utf-8")
     paths.update(
         {
             "dual_policy_summary": dual_summary_path,
@@ -280,12 +268,8 @@ def validate_candidate_adoption_review_package(
     checked["csv_rows"] = len(csv_rows)
     checked["authoritative"] = summary.get("authoritative")
     checked["paper_metric_allowed"] = summary.get("paper_metric_allowed")
-    checked["gold_reference_fields_redacted"] = summary.get(
-        "gold_reference_fields_redacted"
-    )
-    checked["strict_reference_fields_included"] = summary.get(
-        "strict_reference_fields_included"
-    )
+    checked["gold_reference_fields_redacted"] = summary.get("gold_reference_fields_redacted")
+    checked["strict_reference_fields_included"] = summary.get("strict_reference_fields_included")
 
     if summary.get("authoritative") is not False:
         issues.append(
@@ -347,9 +331,7 @@ def _load_benchmark_artifact(root: str | Path) -> dict[str, Any]:
 
 
 def _first_file(root: Path, pattern: str) -> Path:
-    matches = sorted(
-        path for path in root.glob(pattern) if "_partial_" not in path.name
-    )
+    matches = sorted(path for path in root.glob(pattern) if "_partial_" not in path.name)
     if not matches:
         matches = sorted(root.glob(pattern))
     if not matches:
@@ -438,9 +420,7 @@ def _combined_label(semantic_label: str, strict_label: str) -> str:
 
 
 def _dual_policy_case(row: dict[str, Any]) -> dict[str, Any]:
-    semantic_review = _clean_review_label(
-        row.get("reviewer_semantic_user_question_label")
-    )
+    semantic_review = _clean_review_label(row.get("reviewer_semantic_user_question_label"))
     strict_review = _clean_review_label(row.get("reviewer_strict_reference_label"))
     semantic_label = _policy_label(semantic_review)
     strict_label = _policy_label(strict_review)
@@ -488,27 +468,19 @@ def _review_row(record: dict[str, Any]) -> dict[str, Any]:
         ),
         "selected_candidate_id": selected_id,
         "verifier_action": verification_dict.get("action"),
-        "verifier_selected_candidate_id": verification_dict.get(
-            "selected_candidate_id"
-        ),
+        "verifier_selected_candidate_id": verification_dict.get("selected_candidate_id"),
         "verifier_reason": verification_dict.get("reason"),
         "verifier_issue_codes": issue_codes,
         "primary_valid_sql": bool(primary.get("valid_sql")) if primary else None,
-        "primary_execution_passed": bool(primary.get("execution_passed"))
-        if primary
-        else None,
+        "primary_execution_passed": bool(primary.get("execution_passed")) if primary else None,
         "primary_score": _candidate_score(primary),
         "primary_prompt_variant": _candidate_prompt_variant(primary),
         "primary_sql": primary.get("sql") if primary else None,
         "selected_valid_sql": bool(selected.get("valid_sql")) if selected else None,
-        "selected_execution_passed": (
-            bool(selected.get("execution_passed")) if selected else None
-        ),
+        "selected_execution_passed": (bool(selected.get("execution_passed")) if selected else None),
         "selected_score": _candidate_score(selected),
         "selected_prompt_variant": _candidate_prompt_variant(selected),
-        "selected_sql": selected.get("sql")
-        if selected
-        else record.get("generated_sql"),
+        "selected_sql": selected.get("sql") if selected else record.get("generated_sql"),
         "generated_sql": record.get("generated_sql"),
         "reviewer_semantic_user_question_label": "",
         "reviewer_strict_reference_label": "",
@@ -519,10 +491,7 @@ def _review_row(record: dict[str, Any]) -> dict[str, Any]:
 
 def _question(record: dict[str, Any]) -> str:
     return str(
-        record.get("question_fa")
-        or record.get("question")
-        or record.get("user_utterance_fa")
-        or ""
+        record.get("question_fa") or record.get("question") or record.get("user_utterance_fa") or ""
     )
 
 
@@ -530,10 +499,7 @@ def _candidate_by_id(candidates: Any, candidate_id: str) -> dict[str, Any] | Non
     if not isinstance(candidates, list):
         return None
     for candidate in candidates:
-        if (
-            isinstance(candidate, dict)
-            and str(candidate.get("candidate_id")) == candidate_id
-        ):
+        if isinstance(candidate, dict) and str(candidate.get("candidate_id")) == candidate_id:
             return candidate
     return None
 
@@ -541,13 +507,9 @@ def _candidate_by_id(candidates: Any, candidate_id: str) -> dict[str, Any] | Non
 def _candidate_score(candidate: dict[str, Any] | None) -> float | None:
     if not candidate:
         return None
-    metadata = (
-        candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    )
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
     score = (
-        metadata.get("candidate_score")
-        if isinstance(metadata.get("candidate_score"), dict)
-        else {}
+        metadata.get("candidate_score") if isinstance(metadata.get("candidate_score"), dict) else {}
     )
     value = score.get("score")
     try:
@@ -559,9 +521,7 @@ def _candidate_score(candidate: dict[str, Any] | None) -> float | None:
 def _candidate_prompt_variant(candidate: dict[str, Any] | None) -> str | None:
     if not candidate:
         return None
-    metadata = (
-        candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
-    )
+    metadata = candidate.get("metadata") if isinstance(candidate.get("metadata"), dict) else {}
     value = metadata.get("prompt_variant")
     return str(value) if value else None
 

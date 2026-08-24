@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-import sqlglot
 from sqlglot import exp
+
 
 class SQLRewriter:
     """Small deterministic rewrites. Never turns unsafe SQL into safe SQL; validators run separately.
@@ -61,7 +61,10 @@ class SQLRewriter:
             real_table = tables.get(table_ref, table_ref) if table_ref else None
             if real_table and (real_table, col_name) in self.TABLE_SCOPED_COLUMN_FIXES:
                 replacement = self.TABLE_SCOPED_COLUMN_FIXES[(real_table, col_name)]
-                col.set("this", exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")))
+                col.set(
+                    "this",
+                    exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")),
+                )
                 continue
             if (
                 not table_ref
@@ -70,36 +73,45 @@ class SQLRewriter:
                 and "student_depression" in used_tables
             ):
                 replacement = self.TABLE_SCOPED_COLUMN_FIXES[("student_depression", col_name)]
-                col.set("this", exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")))
+                col.set(
+                    "this",
+                    exp.Identifier(this=replacement, quoted=col.this.args.get("quoted")),
+                )
                 continue
             if col_name in self.COLUMN_FIXES:
                 # Replace with correct name
-                col.set("this", exp.Identifier(this=self.COLUMN_FIXES[col_name], quoted=col.this.args.get("quoted")))
+                col.set(
+                    "this",
+                    exp.Identifier(
+                        this=self.COLUMN_FIXES[col_name],
+                        quoted=col.this.args.get("quoted"),
+                    ),
+                )
         return tree
 
     def ensure_limit_ast(self, tree: exp.Expression, limit: int = 100) -> exp.Expression:
         """Ensure LIMIT is present for raw SELECT queries using AST."""
         if not isinstance(tree, exp.Select):
             return tree
-            
+
         # If there's already a limit, do nothing
         if tree.args.get("limit"):
             return tree
-            
+
         # If there's a GROUP BY, do nothing
         if tree.args.get("group"):
             return tree
-            
+
         # If there's an aggregate function, do nothing
         has_agg = False
         for node in tree.walk():
             if isinstance(node, (exp.Count, exp.Avg, exp.Sum, exp.Min, exp.Max)):
                 has_agg = True
                 break
-                
+
         if not has_agg:
             tree = tree.limit(limit)
-            
+
         return tree
 
     def normalize_decimal_aggregates_ast(self, tree: exp.Expression) -> exp.Expression:
@@ -130,7 +142,9 @@ class SQLRewriter:
         return tree
 
     def _should_round_projection(self, expression: exp.Expression) -> bool:
-        if isinstance(expression, exp.Round) or any(isinstance(node, exp.Round) for node in expression.walk()):
+        if isinstance(expression, exp.Round) or any(
+            isinstance(node, exp.Round) for node in expression.walk()
+        ):
             return False
         if any(isinstance(node, exp.Window) for node in expression.walk()):
             return False
@@ -156,20 +170,19 @@ class SQLRewriter:
         """
         s = self.strip_markdown_fences(sql)
         s = self.strip_trailing_semicolon(s)
-        
+
         try:
             import sqlglot
-            from sqlglot import exp
-            
+
             tree = sqlglot.parse_one(s, read="sqlite")
             tree = self.fix_column_names_ast(tree)
             tree = self.normalize_decimal_aggregates_ast(tree)
-            
+
             if add_limit:
                 tree = self.ensure_limit_ast(tree, limit=limit)
-                
+
             return tree.sql(dialect="sqlite")
-            
+
         except Exception:
             # Fallback to string manipulation if parse fails (for partial safety)
             # Just do basic cleanup

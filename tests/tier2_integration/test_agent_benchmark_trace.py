@@ -51,7 +51,9 @@ class RaisingWorkflow(MockWorkflow):
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def test_mocked_agent_benchmark_writes_trace_artifacts(tmp_path, monkeypatch):
@@ -166,35 +168,44 @@ def test_agent_error_classification_distinguishes_sql_failures(monkeypatch):
 
     import run_benchmark  # type: ignore
 
-    assert run_benchmark.classify_agent_error(
-        expected_action="generate_sql",
-        actual_action="ask_clarification",
-        generated_sql="SELECT ...",
-        gold_sql="SELECT 1",
-        valid_sql=False,
-        execution_correct=False,
-        final_state={},
-    ) == "INVALID_SQL"
+    assert (
+        run_benchmark.classify_agent_error(
+            expected_action="generate_sql",
+            actual_action="ask_clarification",
+            generated_sql="SELECT ...",
+            gold_sql="SELECT 1",
+            valid_sql=False,
+            execution_correct=False,
+            final_state={},
+        )
+        == "INVALID_SQL"
+    )
 
-    assert run_benchmark.classify_agent_error(
-        expected_action="generate_sql",
-        actual_action="format_answer",
-        generated_sql="SELECT COUNT(*) FROM student_depression",
-        gold_sql="SELECT AVG(depression_flag) FROM student_depression",
-        valid_sql=True,
-        execution_correct=False,
-        final_state={},
-    ) == "RESULT_MISMATCH"
+    assert (
+        run_benchmark.classify_agent_error(
+            expected_action="generate_sql",
+            actual_action="format_answer",
+            generated_sql="SELECT COUNT(*) FROM student_depression",
+            gold_sql="SELECT AVG(depression_flag) FROM student_depression",
+            valid_sql=True,
+            execution_correct=False,
+            final_state={},
+        )
+        == "RESULT_MISMATCH"
+    )
 
-    assert run_benchmark.classify_agent_error(
-        expected_action="safety_refusal",
-        actual_action="format_answer",
-        generated_sql="SELECT 1",
-        gold_sql=None,
-        valid_sql=True,
-        execution_correct=False,
-        final_state={},
-    ) == "ACTION_MISMATCH"
+    assert (
+        run_benchmark.classify_agent_error(
+            expected_action="safety_refusal",
+            actual_action="format_answer",
+            generated_sql="SELECT 1",
+            gold_sql=None,
+            valid_sql=True,
+            execution_correct=False,
+            final_state={},
+        )
+        == "ACTION_MISMATCH"
+    )
 
 
 def test_agent_benchmark_records_per_case_exception(tmp_path, monkeypatch):
@@ -295,4 +306,6 @@ def test_self_overlap_detection_uses_base_id_and_normalized_question():
         case_id="VTD-999",
         question="درصد دانشجویان افسرده چقدر است؟",
     )
-    assert normalize_overlap_question("كدام  دانشجويان؟") == normalize_overlap_question("کدام دانشجویان")
+    assert normalize_overlap_question("كدام  دانشجويان؟") == normalize_overlap_question(
+        "کدام دانشجویان"
+    )

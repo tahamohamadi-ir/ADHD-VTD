@@ -89,9 +89,7 @@ class MultiCandidateAblationValidationReport:
 
 
 def _first_file(root: Path, pattern: str) -> Path:
-    matches = sorted(
-        path for path in root.glob(pattern) if "_partial_" not in path.name
-    )
+    matches = sorted(path for path in root.glob(pattern) if "_partial_" not in path.name)
     if not matches:
         matches = sorted(root.glob(pattern))
     if not matches:
@@ -150,9 +148,7 @@ def compare_multi_candidate_ablation(
         policy = adaptive_row.get("multi_candidate_policy")
         policy_dict = policy if isinstance(policy, dict) else {}
         candidate_consistency = adaptive_row.get("candidate_consistency")
-        consistency_dict = (
-            candidate_consistency if isinstance(candidate_consistency, dict) else {}
-        )
+        consistency_dict = candidate_consistency if isinstance(candidate_consistency, dict) else {}
         selected_candidate_id = _selected_candidate_id(adaptive_row, consistency_dict)
         baseline_components = _component_latency_record(baseline_row)
         adaptive_components = _component_latency_record(adaptive_row)
@@ -194,24 +190,14 @@ def compare_multi_candidate_ablation(
                 "baseline_component_latency_ms": baseline_components,
                 "adaptive_component_latency_ms": adaptive_components,
                 "adaptive_multi_candidate_enabled": bool(policy_dict.get("enabled")),
-                "adaptive_multi_candidate_candidate_count": policy_dict.get(
-                    "candidate_count"
-                ),
-                "adaptive_multi_candidate_triggers": list(
-                    policy_dict.get("triggers") or []
-                ),
-                "adaptive_candidate_sql_count": len(
-                    adaptive_row.get("candidate_sqls") or []
-                ),
+                "adaptive_multi_candidate_candidate_count": policy_dict.get("candidate_count"),
+                "adaptive_multi_candidate_triggers": list(policy_dict.get("triggers") or []),
+                "adaptive_candidate_sql_count": len(adaptive_row.get("candidate_sqls") or []),
                 "adaptive_selected_candidate_id": selected_candidate_id,
                 "adaptive_candidate_consistency_passed": consistency_dict.get("passed"),
                 "adaptive_candidate_consistency_issue_codes": issue_codes,
-                "baseline_reliability_gate_action": baseline_row.get(
-                    "reliability_gate_action"
-                ),
-                "adaptive_reliability_gate_action": adaptive_row.get(
-                    "reliability_gate_action"
-                ),
+                "baseline_reliability_gate_action": baseline_row.get("reliability_gate_action"),
+                "adaptive_reliability_gate_action": adaptive_row.get("reliability_gate_action"),
                 "baseline_semantic_policy_label": baseline_policy_label.get(
                     "semantic_policy_label"
                 ),
@@ -219,12 +205,8 @@ def compare_multi_candidate_ablation(
                     "semantic_policy_label"
                 ),
                 "semantic_policy_change": semantic_change,
-                "baseline_strict_policy_label": baseline_policy_label.get(
-                    "strict_policy_label"
-                ),
-                "adaptive_strict_policy_label": adaptive_policy_label.get(
-                    "strict_policy_label"
-                ),
+                "baseline_strict_policy_label": baseline_policy_label.get("strict_policy_label"),
+                "adaptive_strict_policy_label": adaptive_policy_label.get("strict_policy_label"),
                 "strict_policy_change": strict_change,
             }
         )
@@ -273,8 +255,7 @@ def compare_multi_candidate_ablation(
         == _config(adaptive).get("selected_cases_hash"),
         "baseline_selected_cases_hash": _config(baseline).get("selected_cases_hash"),
         "adaptive_selected_cases_hash": _config(adaptive).get("selected_cases_hash"),
-        "same_model": _config(baseline).get("model_name")
-        == _config(adaptive).get("model_name"),
+        "same_model": _config(baseline).get("model_name") == _config(adaptive).get("model_name"),
         "baseline_total_predictions": len(baseline["predictions"]),
         "adaptive_total_predictions": len(adaptive["predictions"]),
         "common_cases": len(common_ids),
@@ -304,12 +285,8 @@ def compare_multi_candidate_ablation(
 
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    cases_path = write_jsonl(
-        output_root / "multi_candidate_ablation_cases.jsonl", cases
-    )
-    summary_path = write_json(
-        output_root / "multi_candidate_ablation_summary.json", summary
-    )
+    cases_path = write_jsonl(output_root / "multi_candidate_ablation_cases.jsonl", cases)
+    summary_path = write_json(output_root / "multi_candidate_ablation_summary.json", summary)
     report_path = output_root / "multi_candidate_ablation_report.md"
     report_path.write_text(_render_report(summary, cases), encoding="utf-8")
     return {"summary": summary_path, "cases": cases_path, "report": report_path}
@@ -328,12 +305,9 @@ def validate_multi_candidate_ablation_artifact(
     issues: list[MultiCandidateAblationIssue] = []
     checked: dict[str, Any] = {"artifact_dir": str(artifact_root)}
     required_paths = {
-        name: artifact_root / relative
-        for name, relative in COMPARISON_REQUIRED_FILES.items()
+        name: artifact_root / relative for name, relative in COMPARISON_REQUIRED_FILES.items()
     }
-    checked["required_files"] = {
-        name: str(path) for name, path in required_paths.items()
-    }
+    checked["required_files"] = {name: str(path) for name, path in required_paths.items()}
     missing = [name for name, path in required_paths.items() if not path.exists()]
     checked["missing_files"] = missing
     for name in missing:
@@ -396,10 +370,7 @@ def validate_multi_candidate_ablation_artifact(
             )
             continue
         anti_tuning_policy = str(payload.get("anti_tuning_policy") or "").lower()
-        if (
-            "aggregate" not in anti_tuning_policy
-            or "gold sql" not in anti_tuning_policy
-        ):
+        if "aggregate" not in anti_tuning_policy or "gold sql" not in anti_tuning_policy:
             issues.append(
                 MultiCandidateAblationIssue(
                     code="COMPARISON_ANTI_TUNING_POLICY_MISSING",
@@ -421,52 +392,38 @@ def validate_multi_candidate_ablation_artifact(
                 )
             )
         if key == "latency_diagnostics":
-            missing_latency_keys = sorted(
-                LATENCY_DIAGNOSTIC_REQUIRED_KEYS - set(payload)
-            )
-            checked[
-                "latency_diagnostics_required_keys_present"
-            ] = not missing_latency_keys
+            missing_latency_keys = sorted(LATENCY_DIAGNOSTIC_REQUIRED_KEYS - set(payload))
+            checked["latency_diagnostics_required_keys_present"] = not missing_latency_keys
             checked["latency_diagnostics_missing_required_keys"] = missing_latency_keys
             for missing_key in missing_latency_keys:
                 issues.append(
                     MultiCandidateAblationIssue(
                         code="COMPARISON_LATENCY_DIAGNOSTIC_KEY_MISSING",
                         message=(
-                            "Latency diagnostics must include aggregate grouping "
-                            f"{missing_key!r}."
+                            f"Latency diagnostics must include aggregate grouping {missing_key!r}."
                         ),
                         path=str(summary_path),
                     )
                 )
         if key == "component_latency_summary":
-            missing_component_keys = sorted(
-                COMPONENT_LATENCY_REQUIRED_KEYS - set(payload)
-            )
-            checked[
-                "component_latency_required_keys_present"
-            ] = not missing_component_keys
+            missing_component_keys = sorted(COMPONENT_LATENCY_REQUIRED_KEYS - set(payload))
+            checked["component_latency_required_keys_present"] = not missing_component_keys
             checked["component_latency_missing_required_keys"] = missing_component_keys
             for missing_key in missing_component_keys:
                 issues.append(
                     MultiCandidateAblationIssue(
                         code="COMPARISON_COMPONENT_LATENCY_KEY_MISSING",
                         message=(
-                            "Component latency summary must include aggregate key "
-                            f"{missing_key!r}."
+                            f"Component latency summary must include aggregate key {missing_key!r}."
                         ),
                         path=str(summary_path),
                     )
                 )
 
     acceptance = summary.get("acceptance_checks")
-    acceptance_status = (
-        acceptance.get("status") if isinstance(acceptance, dict) else None
-    )
+    acceptance_status = acceptance.get("status") if isinstance(acceptance, dict) else None
     semantic_evidence_available = (
-        acceptance.get("semantic_evidence_available")
-        if isinstance(acceptance, dict)
-        else None
+        acceptance.get("semantic_evidence_available") if isinstance(acceptance, dict) else None
     )
     checked["acceptance_status"] = acceptance_status
     checked["semantic_evidence_available"] = semantic_evidence_available
@@ -494,22 +451,17 @@ def validate_multi_candidate_ablation_artifact(
                 path=str(summary_path),
             )
         )
-    if isinstance(acceptance, dict) and not isinstance(
-        semantic_evidence_available, bool
-    ):
+    if isinstance(acceptance, dict) and not isinstance(semantic_evidence_available, bool):
         issues.append(
             MultiCandidateAblationIssue(
                 code="COMPARISON_SEMANTIC_EVIDENCE_FLAG_INVALID",
                 message=(
-                    "Comparison acceptance_checks.semantic_evidence_available "
-                    "must be a boolean."
+                    "Comparison acceptance_checks.semantic_evidence_available must be a boolean."
                 ),
                 path=str(summary_path),
             )
         )
-    raw_blockers = (
-        acceptance.get("blocker_reasons") if isinstance(acceptance, dict) else []
-    )
+    raw_blockers = acceptance.get("blocker_reasons") if isinstance(acceptance, dict) else []
     acceptance_blockers = raw_blockers if isinstance(raw_blockers, list) else []
     checked["acceptance_blockers"] = acceptance_blockers
     if isinstance(acceptance, dict):
@@ -527,9 +479,7 @@ def validate_multi_candidate_ablation_artifact(
                     path=str(summary_path),
                 )
             )
-    latency_budget = (
-        acceptance.get("latency_budget") if isinstance(acceptance, dict) else None
-    )
+    latency_budget = acceptance.get("latency_budget") if isinstance(acceptance, dict) else None
     checked["latency_budget_configured"] = bool(
         latency_budget.get("configured") if isinstance(latency_budget, dict) else False
     )
@@ -554,10 +504,7 @@ def validate_multi_candidate_ablation_artifact(
     )
     anti_fake_policy = str(summary.get("anti_fake_policy") or "").lower()
     checked["anti_fake_policy_present"] = bool(anti_fake_policy)
-    if (
-        "does not run a model" not in anti_fake_policy
-        or "gold sql" not in anti_fake_policy
-    ):
+    if "does not run a model" not in anti_fake_policy or "gold sql" not in anti_fake_policy:
         issues.append(
             MultiCandidateAblationIssue(
                 code="COMPARISON_ANTI_FAKE_POLICY_INCOMPLETE",
@@ -568,9 +515,7 @@ def validate_multi_candidate_ablation_artifact(
                 path=str(summary_path),
             )
         )
-    checked["report_mentions_aggregate_policy"] = (
-        "Aggregate Diagnostic Policy" in report_text
-    )
+    checked["report_mentions_aggregate_policy"] = "Aggregate Diagnostic Policy" in report_text
     if "Aggregate Diagnostic Policy" not in report_text:
         issues.append(
             MultiCandidateAblationIssue(
@@ -580,9 +525,7 @@ def validate_multi_candidate_ablation_artifact(
             )
         )
 
-    return MultiCandidateAblationValidationReport(
-        ok=not issues, issues=issues, checked=checked
-    )
+    return MultiCandidateAblationValidationReport(ok=not issues, issues=issues, checked=checked)
 
 
 def _comparison_promotion_blockers(
@@ -605,9 +548,7 @@ def _comparison_promotion_blockers(
 
 def _aggregate_forbidden_markers(payload: dict[str, Any]) -> list[str]:
     serialized = json_safe_dumps(payload).lower()
-    return sorted(
-        marker for marker in AGGREGATE_FORBIDDEN_MARKERS if marker in serialized
-    )
+    return sorted(marker for marker in AGGREGATE_FORBIDDEN_MARKERS if marker in serialized)
 
 
 def json_safe_dumps(payload: Any) -> str:
@@ -691,20 +632,14 @@ def _dual_policy_blocking_counts(summary: dict[str, Any]) -> dict[str, int]:
 
 
 def _config(artifact: dict[str, Any]) -> dict[str, Any]:
-    summary = (
-        artifact.get("summary") if isinstance(artifact.get("summary"), dict) else {}
-    )
+    summary = artifact.get("summary") if isinstance(artifact.get("summary"), dict) else {}
     config = summary.get("config")
     return config if isinstance(config, dict) else {}
 
 
 def _benchmark_metrics(summary: dict[str, Any]) -> dict[str, Any]:
     metrics = summary.get("metrics") if isinstance(summary.get("metrics"), dict) else {}
-    reliability = (
-        summary.get("reliability")
-        if isinstance(summary.get("reliability"), dict)
-        else {}
-    )
+    reliability = summary.get("reliability") if isinstance(summary.get("reliability"), dict) else {}
     latency = summary.get("latency") if isinstance(summary.get("latency"), dict) else {}
     dataset = summary.get("dataset") if isinstance(summary.get("dataset"), dict) else {}
     return {
@@ -726,23 +661,17 @@ def _metric_value(metrics: dict[str, Any], name: str) -> Any:
     return None
 
 
-def _metric_deltas(
-    baseline: dict[str, Any], adaptive: dict[str, Any]
-) -> dict[str, Any]:
+def _metric_deltas(baseline: dict[str, Any], adaptive: dict[str, Any]) -> dict[str, Any]:
     deltas: dict[str, Any] = {}
     for key, baseline_value in baseline.items():
         adaptive_value = adaptive.get(key)
-        if isinstance(baseline_value, (int, float)) and isinstance(
-            adaptive_value, (int, float)
-        ):
+        if isinstance(baseline_value, (int, float)) and isinstance(adaptive_value, (int, float)):
             deltas[key] = round(float(adaptive_value) - float(baseline_value), 6)
     return deltas
 
 
 def _execution_correct(row: dict[str, Any]) -> bool:
-    return bool(
-        row.get("execution_correct") or row.get("result_match") or row.get("ok")
-    )
+    return bool(row.get("execution_correct") or row.get("result_match") or row.get("ok"))
 
 
 def _binary_change_label(before: bool, after: bool) -> str:
@@ -787,9 +716,7 @@ def _multi_candidate_activation(predictions: list[dict[str, Any]]) -> dict[str, 
         enabled = bool(policy_dict.get("enabled"))
         policy_counts["enabled" if enabled else "disabled"] += 1
         candidate_count_distribution[str(policy_dict.get("candidate_count") or 0)] += 1
-        generated_candidate_count_distribution[
-            str(len(record.get("candidate_sqls") or []))
-        ] += 1
+        generated_candidate_count_distribution[str(len(record.get("candidate_sqls") or []))] += 1
         for trigger in policy_dict.get("triggers") or []:
             trigger_counts[str(trigger)] += 1
     total = len(predictions)
@@ -797,18 +724,12 @@ def _multi_candidate_activation(predictions: list[dict[str, Any]]) -> dict[str, 
         "policy_counts": dict(policy_counts),
         "trigger_counts": dict(trigger_counts),
         "policy_candidate_count_distribution": dict(candidate_count_distribution),
-        "generated_candidate_count_distribution": dict(
-            generated_candidate_count_distribution
-        ),
-        "activation_rate": round(policy_counts.get("enabled", 0) / total, 6)
-        if total
-        else 0.0,
+        "generated_candidate_count_distribution": dict(generated_candidate_count_distribution),
+        "activation_rate": round(policy_counts.get("enabled", 0) / total, 6) if total else 0.0,
     }
 
 
-def _selected_candidate_id(
-    row: dict[str, Any], consistency: dict[str, Any]
-) -> str | None:
+def _selected_candidate_id(row: dict[str, Any], consistency: dict[str, Any]) -> str | None:
     direct = row.get("selected_candidate_id")
     if direct:
         return str(direct)
@@ -829,18 +750,10 @@ def _candidate_diversity_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
     trigger_counts: Counter[str] = Counter()
     issue_counts: Counter[str] = Counter()
     for row in cases:
-        enabled_counts[
-            "enabled" if row["adaptive_multi_candidate_enabled"] else "disabled"
-        ] += 1
-        policy_candidate_counts[
-            str(row.get("adaptive_multi_candidate_candidate_count") or 0)
-        ] += 1
-        generated_candidate_counts[
-            str(row.get("adaptive_candidate_sql_count") or 0)
-        ] += 1
-        selected_rank_counts[
-            _candidate_rank_label(row.get("adaptive_selected_candidate_id"))
-        ] += 1
+        enabled_counts["enabled" if row["adaptive_multi_candidate_enabled"] else "disabled"] += 1
+        policy_candidate_counts[str(row.get("adaptive_multi_candidate_candidate_count") or 0)] += 1
+        generated_candidate_counts[str(row.get("adaptive_candidate_sql_count") or 0)] += 1
+        selected_rank_counts[_candidate_rank_label(row.get("adaptive_selected_candidate_id"))] += 1
         consistency_counts[
             _consistency_label(row.get("adaptive_candidate_consistency_passed"))
         ] += 1
@@ -852,9 +765,7 @@ def _candidate_diversity_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "total_common_cases": len(cases),
         "adaptive_multi_candidate_policy_counts": dict(enabled_counts),
         "adaptive_policy_candidate_count_distribution": dict(policy_candidate_counts),
-        "adaptive_generated_candidate_count_distribution": dict(
-            generated_candidate_counts
-        ),
+        "adaptive_generated_candidate_count_distribution": dict(generated_candidate_counts),
         "adaptive_selected_candidate_rank_counts": dict(selected_rank_counts),
         "adaptive_non_primary_selection_count": selected_rank_counts.get(
             "non_primary_candidate", 0
@@ -916,13 +827,9 @@ def _candidate_issue_outcome_summary(cases: list[dict[str, Any]]) -> dict[str, A
             "case_count": int(group["case_count"]),
             "execution_change_counts": dict(group["execution_change_counts"]),
             "valid_sql_change_counts": dict(group["valid_sql_change_counts"]),
-            "selected_candidate_rank_counts": dict(
-                group["selected_candidate_rank_counts"]
-            ),
+            "selected_candidate_rank_counts": dict(group["selected_candidate_rank_counts"]),
             "candidate_consistency_counts": dict(group["candidate_consistency_counts"]),
-            "reliability_gate_action_counts": dict(
-                group["reliability_gate_action_counts"]
-            ),
+            "reliability_gate_action_counts": dict(group["reliability_gate_action_counts"]),
         }
 
     return {
@@ -1025,8 +932,7 @@ def _latency_diagnostics(
             [
                 row
                 for row in cases
-                if issue_code
-                in (row.get("adaptive_candidate_consistency_issue_codes") or [])
+                if issue_code in (row.get("adaptive_candidate_consistency_issue_codes") or [])
             ]
         )
         for issue_code in issue_codes
@@ -1059,9 +965,7 @@ def _latency_diagnostics(
 
 def _component_latency_record(row: dict[str, Any]) -> dict[str, float]:
     attempts = [item for item in row.get("attempts") or [] if isinstance(item, dict)]
-    candidates = [
-        item for item in row.get("candidate_sqls") or [] if isinstance(item, dict)
-    ]
+    candidates = [item for item in row.get("candidate_sqls") or [] if isinstance(item, dict)]
     candidate_verification = _payload_dict(row.get("candidate_verification"))
     reliability_gate = _payload_dict(row.get("reliability_gate"))
     reliability_decision = _payload_dict(row.get("reliability_decision"))
@@ -1099,9 +1003,7 @@ def _candidate_execution_latency(candidate: dict[str, Any]) -> Any:
 
 def _sum_numbers(values: Iterable[Any]) -> float | None:
     numbers = [
-        number
-        for number in (_optional_number(value) for value in values)
-        if number is not None
+        number for number in (_optional_number(value) for value in values) if number is not None
     ]
     return round(sum(numbers), 3) if numbers else None
 
@@ -1120,12 +1022,8 @@ def _component_latency_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
     )
     available_component_stats: dict[str, dict[str, Any]] = {}
     for component in component_names:
-        baseline_values = _component_values(
-            cases, "baseline_component_latency_ms", component
-        )
-        adaptive_values = _component_values(
-            cases, "adaptive_component_latency_ms", component
-        )
+        baseline_values = _component_values(cases, "baseline_component_latency_ms", component)
+        adaptive_values = _component_values(cases, "adaptive_component_latency_ms", component)
         deltas = _component_deltas(cases, component)
         available_component_stats[component] = {
             "baseline_ms": _latency_stats(baseline_values),
@@ -1173,14 +1071,8 @@ def _latency_regression_summary(
     p95_regression_threshold_ms: float = 0.0,
     mean_regression_threshold_ms: float = 0.0,
 ) -> dict[str, Any]:
-    overall = (
-        latency_diagnostics.get("overall")
-        if isinstance(latency_diagnostics, dict)
-        else {}
-    )
-    overall_delta = (
-        overall.get("latency_delta_ms") if isinstance(overall, dict) else {}
-    ) or {}
+    overall = latency_diagnostics.get("overall") if isinstance(latency_diagnostics, dict) else {}
+    overall_delta = (overall.get("latency_delta_ms") if isinstance(overall, dict) else {}) or {}
     p95_delta = _optional_number(overall_delta.get("p95_ms"))
     mean_delta = _optional_number(overall_delta.get("mean_ms"))
     signals: list[str] = []
@@ -1206,9 +1098,7 @@ def _latency_regression_summary(
         "regression_signals": signals,
         "overall_latency_delta_ms": overall_delta,
         "top_latency_delta_groups": _top_latency_delta_groups(latency_diagnostics),
-        "component_delta_contributors": _component_delta_contributors(
-            component_latency_summary
-        ),
+        "component_delta_contributors": _component_delta_contributors(component_latency_summary),
         "unavailable_components": (
             component_latency_summary.get("unavailable_components", {})
             if isinstance(component_latency_summary, dict)
@@ -1255,9 +1145,7 @@ def _top_latency_delta_groups(
                     "case_count": int(group_summary.get("case_count") or 0),
                     "p95_delta_ms": p95_delta,
                     "mean_delta_ms": mean_delta,
-                    "p95_adaptive_latency_ms": _optional_number(
-                        adaptive_stats.get("p95_ms")
-                    ),
+                    "p95_adaptive_latency_ms": _optional_number(adaptive_stats.get("p95_ms")),
                 }
             )
     return sorted(
@@ -1298,9 +1186,7 @@ def _component_delta_contributors(
                 "observed_delta_cases": int(stats.get("observed_delta_cases") or 0),
                 "p95_delta_ms": p95_delta,
                 "mean_delta_ms": mean_delta,
-                "p95_adaptive_latency_ms": _optional_number(
-                    adaptive_stats.get("p95_ms")
-                ),
+                "p95_adaptive_latency_ms": _optional_number(adaptive_stats.get("p95_ms")),
             }
         )
     return sorted(
@@ -1314,9 +1200,7 @@ def _component_delta_contributors(
     )[:limit]
 
 
-def _component_values(
-    cases: list[dict[str, Any]], side: str, component: str
-) -> list[float]:
+def _component_values(cases: list[dict[str, Any]], side: str, component: str) -> list[float]:
     values = [
         _optional_number((row.get(side) or {}).get(component))
         for row in cases
@@ -1329,16 +1213,12 @@ def _component_deltas(cases: list[dict[str, Any]], component: str) -> list[float
     deltas: list[float] = []
     for row in cases:
         baseline = (
-            _optional_number(
-                (row.get("baseline_component_latency_ms") or {}).get(component)
-            )
+            _optional_number((row.get("baseline_component_latency_ms") or {}).get(component))
             if isinstance(row.get("baseline_component_latency_ms"), dict)
             else None
         )
         adaptive = (
-            _optional_number(
-                (row.get("adaptive_component_latency_ms") or {}).get(component)
-            )
+            _optional_number((row.get("adaptive_component_latency_ms") or {}).get(component))
             if isinstance(row.get("adaptive_component_latency_ms"), dict)
             else None
         )
@@ -1405,29 +1285,25 @@ def _acceptance_checks(
     max_latency_p95_delta_ms: float | None,
     max_latency_mean_delta_ms: float | None,
 ) -> dict[str, Any]:
-    same_selected = _config(baseline).get("selected_cases_hash") == _config(
-        adaptive
-    ).get("selected_cases_hash")
-    unsafe_delta = _number_or_none(
-        adaptive_metrics.get("unsafe_sql"), 0
-    ) - _number_or_none(baseline_metrics.get("unsafe_sql"), 0)
-    valid_sql_delta = _number_or_none(
-        adaptive_metrics.get("valid_sql_rate"), 0
-    ) - _number_or_none(baseline_metrics.get("valid_sql_rate"), 0)
+    same_selected = _config(baseline).get("selected_cases_hash") == _config(adaptive).get(
+        "selected_cases_hash"
+    )
+    unsafe_delta = _number_or_none(adaptive_metrics.get("unsafe_sql"), 0) - _number_or_none(
+        baseline_metrics.get("unsafe_sql"), 0
+    )
+    valid_sql_delta = _number_or_none(adaptive_metrics.get("valid_sql_rate"), 0) - _number_or_none(
+        baseline_metrics.get("valid_sql_rate"), 0
+    )
     semantic_regressions = [
         row["case_id"]
         for row in cases
         if row["semantic_policy_change"] == "regressed_correct_to_not_correct"
     ]
     execution_regressions = [
-        row["case_id"]
-        for row in cases
-        if row["execution_change"] == "regressed_correct_to_wrong"
+        row["case_id"] for row in cases if row["execution_change"] == "regressed_correct_to_wrong"
     ]
     valid_sql_regressions = [
-        row["case_id"]
-        for row in cases
-        if row["valid_sql_change"] == "regressed_correct_to_wrong"
+        row["case_id"] for row in cases if row["valid_sql_change"] == "regressed_correct_to_wrong"
     ]
     latency_p95_delta = _number_or_none(
         adaptive_metrics.get("latency_p95_ms"), 0
@@ -1500,12 +1376,8 @@ def _latency_budget_checks(
     max_p95_delta_ms: float | None,
     max_mean_delta_ms: float | None,
 ) -> dict[str, Any]:
-    p95_within_budget = (
-        None if max_p95_delta_ms is None else p95_delta_ms <= max_p95_delta_ms
-    )
-    mean_within_budget = (
-        None if max_mean_delta_ms is None else mean_delta_ms <= max_mean_delta_ms
-    )
+    p95_within_budget = None if max_p95_delta_ms is None else p95_delta_ms <= max_p95_delta_ms
+    mean_within_budget = None if max_mean_delta_ms is None else mean_delta_ms <= max_mean_delta_ms
     exceeded_dimensions: list[str] = []
     if p95_within_budget is False:
         exceeded_dimensions.append("p95")

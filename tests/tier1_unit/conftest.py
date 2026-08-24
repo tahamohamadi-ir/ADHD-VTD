@@ -1,4 +1,5 @@
 """Shared fixtures for tier1 unit tests."""
+
 from __future__ import annotations
 
 import pytest

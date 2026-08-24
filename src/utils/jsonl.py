@@ -3,6 +3,7 @@
 Provides helpers to read, write, and append JSONL files — the standard
 format for benchmark predictions, golden examples, and audit logs.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,9 @@ def iter_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
                 yield json.loads(stripped)
 
 
-def write_jsonl(path: str | Path, records: list[dict[str, Any]], *, ensure_ascii: bool = False) -> int:
+def write_jsonl(
+    path: str | Path, records: list[dict[str, Any]], *, ensure_ascii: bool = False
+) -> int:
     """Write a list of dicts as JSONL, overwriting the file. Returns record count."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -58,7 +61,9 @@ def append_jsonl(path: str | Path, record: dict[str, Any], *, ensure_ascii: bool
         fh.write(json.dumps(record, ensure_ascii=ensure_ascii, default=str) + "\n")
 
 
-def append_jsonl_batch(path: str | Path, records: list[dict[str, Any]], *, ensure_ascii: bool = False) -> int:
+def append_jsonl_batch(
+    path: str | Path, records: list[dict[str, Any]], *, ensure_ascii: bool = False
+) -> int:
     """Append multiple records to a JSONL file. Returns count appended."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)

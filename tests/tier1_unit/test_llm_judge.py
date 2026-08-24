@@ -5,7 +5,12 @@ import http.client
 from pathlib import Path
 
 from src.evaluation.dataset_loader import read_json, read_jsonl, write_json, write_jsonl
-from src.evaluation.llm_judge import MockJudgeProvider, OpenRouterJudgeProvider, judge_benchmark_artifact
+from src.evaluation.llm_judge import (
+    MockJudgeProvider,
+    OpenRouterJudgeProvider,
+    judge_benchmark_artifact,
+    validate_judge_artifact,
+)
 
 
 def _write_artifact(root: Path) -> None:
@@ -52,6 +57,132 @@ def _write_artifact(root: Path) -> None:
     write_jsonl(root / f"{prefix}_predictions.jsonl", predictions)
     write_jsonl(root / f"{prefix}_attempts.jsonl", [])
     write_jsonl(root / f"{prefix}_failures.jsonl", predictions[1:])
+
+
+def _write_authoritative_judge_artifact(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    judgments = [
+        {
+            "case_id": "case-1",
+            "provider": "openrouter",
+            "model": "qwen/qwen3.6-plus",
+            "prompt_version": "phase16_sql_business_logic_v1",
+            "judge_policy": "semantic_user_question",
+            "verdict": "business_correct",
+            "semantic_business_correct": True,
+            "authoritative": True,
+            "redacted": True,
+        },
+        {
+            "case_id": "case-2",
+            "provider": "openrouter",
+            "model": "qwen/qwen3.6-plus",
+            "prompt_version": "phase16_sql_business_logic_v1",
+            "judge_policy": "semantic_user_question",
+            "verdict": "business_incorrect",
+            "semantic_business_correct": False,
+            "authoritative": True,
+            "redacted": True,
+        },
+    ]
+    write_jsonl(root / "judgments.jsonl", judgments)
+    write_json(
+        root / "judge_summary.json",
+        {
+            "generated_at": "2026-06-28T00:00:00",
+            "provider": "openrouter",
+            "model": "qwen/qwen3.6-plus",
+            "prompt_version": "phase16_sql_business_logic_v1",
+            "judge_policy": "semantic_user_question",
+            "authoritative": True,
+            "authoritative_judgments": 2,
+            "non_authoritative_judgments": 0,
+            "total_predictions": 2,
+            "total_judged": 2,
+            "verdict_counts": {"business_correct": 1, "business_incorrect": 1},
+            "semantic_business_counts": {
+                "correct": 1,
+                "incorrect": 1,
+                "unjudged": 0,
+                "provider_error": 0,
+                "provider_parse_error": 0,
+            },
+            "redaction_policy": {
+                "redaction_applied": True,
+                "raw_rows_sent": False,
+                "result_previews_sent": False,
+                "prompt_response_trace_sent": False,
+            },
+            "anti_fake_policy": "Live judge artifact. No judgments are inferred or rewritten.",
+        },
+    )
+    write_json(
+        root / "judge_costs.json",
+        {
+            "provider": "openrouter",
+            "model": "qwen/qwen3.6-plus",
+            "judge_policy": "semantic_user_question",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "reasoning_tokens": 0,
+            "estimated_cost_usd": 0.01,
+            "cost_authoritative": True,
+        },
+    )
+    (root / "semantic_business_summary.csv").write_text(
+        "prompt_version,judge_policy,authoritative,total_judged,semantic_correct\n"
+        "phase16_sql_business_logic_v1,semantic_user_question,true,2,1\n",
+        encoding="utf-8",
+    )
+    (root / "judge_reasoning.md").write_text("# Judge Reasoning\n", encoding="utf-8")
+
+
+def test_validate_judge_artifact_accepts_authoritative_openrouter_artifact(tmp_path):
+    root = tmp_path / "judge"
+    _write_authoritative_judge_artifact(root)
+
+    report = validate_judge_artifact(root, require_authoritative=True)
+
+    assert report.ok
+    assert report.checked["provider"] == "openrouter"
+    assert report.checked["total_judged"] == 2
+
+
+def test_validate_judge_artifact_rejects_non_authoritative_final_claim(tmp_path):
+    root = tmp_path / "judge"
+    _write_authoritative_judge_artifact(root)
+    summary_path = root / "judge_summary.json"
+    summary = read_json(summary_path)
+    summary["authoritative"] = False
+    write_json(summary_path, summary)
+
+    report = validate_judge_artifact(root, require_authoritative=True)
+
+    assert not report.ok
+    assert {issue.code for issue in report.issues} == {"JUDGE_ARTIFACT_NOT_AUTHORITATIVE"}
+
+
+def test_validate_judge_artifact_rejects_mock_authoritative_artifact(tmp_path):
+    root = tmp_path / "judge"
+    _write_authoritative_judge_artifact(root)
+    summary_path = root / "judge_summary.json"
+    costs_path = root / "judge_costs.json"
+    summary = read_json(summary_path)
+    costs = read_json(costs_path)
+    judgments = read_jsonl(root / "judgments.jsonl")
+    summary["provider"] = "mock"
+    costs["provider"] = "mock"
+    costs["cost_authoritative"] = False
+    for row in judgments:
+        row["provider"] = "mock"
+    write_json(summary_path, summary)
+    write_json(costs_path, costs)
+    write_jsonl(root / "judgments.jsonl", judgments)
+
+    report = validate_judge_artifact(root, require_authoritative=True)
+
+    assert not report.ok
+    assert {issue.code for issue in report.issues} == {"MOCK_JUDGE_AUTHORITATIVE"}
 
 
 def test_mock_judge_does_not_invent_semantic_label_for_valid_mismatch():
@@ -242,7 +373,11 @@ def test_openrouter_provider_parses_json_response(monkeypatch):
                             }
                         }
                     ],
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "reasoning_tokens": 4},
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "reasoning_tokens": 4,
+                    },
                 }
             ).encode("utf-8")
 
@@ -291,6 +426,36 @@ def test_openrouter_provider_parses_json_response(monkeypatch):
     assert result.reasoning_tokens == 4
 
 
+def test_openrouter_provider_parses_embedded_json_after_non_json_braces(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            content = (
+                "I will return JSON after this malformed note {not json}.\n"
+                '{"verdict":"business_correct","semantic_business_correct":true,'
+                '"score":5,"reason":"The SQL answers the question.",'
+                '"needs_human_review":false}'
+            )
+            return json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: FakeResponse())
+
+    result = OpenRouterJudgeProvider(
+        api_key="test-key",
+        model_name="deepseek/deepseek-v4-flash",
+        max_retries=0,
+    ).judge({"id": "case", "generated_sql": "SELECT 1", "gold_sql": "SELECT 1"})
+
+    assert result.verdict == "business_correct"
+    assert result.semantic_business_correct is True
+    assert result.authoritative is True
+
+
 def test_judge_benchmark_artifact_records_redaction_policy(tmp_path):
     artifact = tmp_path / "benchmark"
     artifact.mkdir()
@@ -319,7 +484,9 @@ def test_openrouter_provider_can_enable_reasoning(monkeypatch):
                     "choices": [
                         {
                             "message": {
-                                "content": json.dumps({"verdict": "ok", "semantic_business_correct": True}),
+                                "content": json.dumps(
+                                    {"verdict": "ok", "semantic_business_correct": True}
+                                ),
                                 "reasoning_details": [{"type": "reasoning"}],
                             }
                         }
@@ -388,7 +555,14 @@ def test_openrouter_provider_can_use_strict_reference_policy(monkeypatch):
         api_key="test-key",
         model_name="qwen/qwen3.6-plus",
         judge_policy="strict",
-    ).judge({"id": "case", "valid_sql": True, "generated_sql": "SELECT 1", "gold_sql": "SELECT 2"})
+    ).judge(
+        {
+            "id": "case",
+            "valid_sql": True,
+            "generated_sql": "SELECT 1",
+            "gold_sql": "SELECT 2",
+        }
+    )
 
     prompt_payload = json.loads(captured["body"]["messages"][1]["content"])
     assert "strict_reference" in captured["body"]["messages"][0]["content"]
@@ -410,7 +584,9 @@ def test_openrouter_provider_turns_incomplete_read_into_provider_error(monkeypat
             raise http.client.IncompleteRead(b'{"partial": true')
 
     monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: BrokenResponse())
-    provider = OpenRouterJudgeProvider(api_key="test-key", model_name="qwen/qwen3.6-plus", max_retries=0)
+    provider = OpenRouterJudgeProvider(
+        api_key="test-key", model_name="qwen/qwen3.6-plus", max_retries=0
+    )
 
     result = provider.judge(
         {
@@ -500,7 +676,45 @@ def test_openrouter_provider_handles_empty_content_as_parse_error(monkeypatch):
     assert result.needs_human_review is True
 
 
-def test_openrouter_provider_promotes_partial_label_when_user_question_is_answered(monkeypatch):
+def test_judge_benchmark_artifact_counts_provider_parse_errors_separately(
+    tmp_path,
+    monkeypatch,
+):
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": None}}]}).encode("utf-8")
+
+    artifact = tmp_path / "benchmark"
+    artifact.mkdir()
+    output = tmp_path / "judgments"
+    _write_artifact(artifact)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: Response())
+
+    paths = judge_benchmark_artifact(
+        artifact,
+        output_dir=output,
+        provider_name="openrouter",
+        judge_model="deepseek/deepseek-v4-flash",
+        sample_size=1,
+    )
+    summary = read_json(paths["summary"])
+    report = validate_judge_artifact(output)
+
+    assert summary["semantic_business_counts"]["provider_parse_error"] == 1
+    assert summary["semantic_business_counts"].get("unjudged", 0) == 0
+    assert report.ok
+
+
+def test_openrouter_provider_promotes_partial_label_when_user_question_is_answered(
+    monkeypatch,
+):
     class Response:
         def __enter__(self):
             return self
@@ -535,7 +749,14 @@ def test_openrouter_provider_promotes_partial_label_when_user_question_is_answer
         api_key="test-key",
         model_name="qwen/qwen3.6-plus",
         max_retries=0,
-    ).judge({"id": "case", "valid_sql": True, "generated_sql": "SELECT 1", "gold_sql": "SELECT 2"})
+    ).judge(
+        {
+            "id": "case",
+            "valid_sql": True,
+            "generated_sql": "SELECT 1",
+            "gold_sql": "SELECT 2",
+        }
+    )
 
     assert result.verdict == "business_correct"
     assert result.raw_provider_verdict == "partial_match"
@@ -543,7 +764,9 @@ def test_openrouter_provider_promotes_partial_label_when_user_question_is_answer
     assert result.needs_human_review is False
 
 
-def test_openrouter_provider_keeps_partial_label_unjudged_without_semantic_boolean(monkeypatch):
+def test_openrouter_provider_keeps_partial_label_unjudged_without_semantic_boolean(
+    monkeypatch,
+):
     class Response:
         def __enter__(self):
             return self
@@ -578,14 +801,23 @@ def test_openrouter_provider_keeps_partial_label_unjudged_without_semantic_boole
         api_key="test-key",
         model_name="qwen/qwen3.6-plus",
         max_retries=0,
-    ).judge({"id": "case", "valid_sql": True, "generated_sql": "SELECT 1", "gold_sql": "SELECT 2"})
+    ).judge(
+        {
+            "id": "case",
+            "valid_sql": True,
+            "generated_sql": "SELECT 1",
+            "gold_sql": "SELECT 2",
+        }
+    )
 
     assert result.verdict == "partial_business_match"
     assert result.semantic_business_correct is None
     assert result.needs_human_review is True
 
 
-def test_openrouter_provider_demotes_partial_label_when_user_question_is_not_answered(monkeypatch):
+def test_openrouter_provider_demotes_partial_label_when_user_question_is_not_answered(
+    monkeypatch,
+):
     class Response:
         def __enter__(self):
             return self
@@ -620,7 +852,14 @@ def test_openrouter_provider_demotes_partial_label_when_user_question_is_not_ans
         api_key="test-key",
         model_name="qwen/qwen3.6-plus",
         max_retries=0,
-    ).judge({"id": "case", "valid_sql": True, "generated_sql": "SELECT 1", "gold_sql": "SELECT 2"})
+    ).judge(
+        {
+            "id": "case",
+            "valid_sql": True,
+            "generated_sql": "SELECT 1",
+            "gold_sql": "SELECT 2",
+        }
+    )
 
     assert result.verdict == "business_incorrect"
     assert result.semantic_business_correct is False
@@ -662,7 +901,14 @@ def test_openrouter_provider_canonicalizes_invalid_label_for_valid_sql(monkeypat
         api_key="test-key",
         model_name="deepseek/deepseek-v4-flash",
         max_retries=0,
-    ).judge({"id": "case", "valid_sql": True, "generated_sql": "SELECT 1", "gold_sql": "SELECT 2"})
+    ).judge(
+        {
+            "id": "case",
+            "valid_sql": True,
+            "generated_sql": "SELECT 1",
+            "gold_sql": "SELECT 2",
+        }
+    )
 
     assert result.verdict == "business_incorrect"
     assert result.raw_provider_verdict == "invalid"

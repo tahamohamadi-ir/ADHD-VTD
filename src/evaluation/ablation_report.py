@@ -91,8 +91,14 @@ def build_ablation_comparison(manifest_path: str | Path) -> dict[str, Any]:
 
 def render_ablation_comparison(report: dict[str, Any]) -> str:
     complete_rows = [row for row in report["rows"] if row.get("complete")]
-    all_retrieval = bool(complete_rows) and all(row.get("benchmark_mode") == "retrieval" for row in complete_rows)
-    title = "Phase 11 Retrieval Ablation Comparison" if all_retrieval else "Phase 11 A0-A7 Ablation Comparison"
+    all_retrieval = bool(complete_rows) and all(
+        row.get("benchmark_mode") == "retrieval" for row in complete_rows
+    )
+    title = (
+        "Phase 11 Retrieval Ablation Comparison"
+        if all_retrieval
+        else "Phase 11 A0-A7 Ablation Comparison"
+    )
     lines = [
         f"# {title}",
         "",
@@ -141,7 +147,9 @@ def render_ablation_comparison(report: dict[str, Any]) -> str:
         else:
             lines.append(
                 "| {config_id} | {evaluated} | {execution_accuracy} | {valid_sql_rate} | "
-                "{reliability_score} | {unsafe_sql} | {latency_mean_ms} | {latency_p95_ms} |".format(**row)
+                "{reliability_score} | {unsafe_sql} | {latency_mean_ms} | {latency_p95_ms} |".format(
+                    **row
+                )
             )
     lines.extend(
         [
@@ -154,12 +162,22 @@ def render_ablation_comparison(report: dict[str, Any]) -> str:
     )
     for row in report["rows"]:
         contract = row.get("runtime_contract") or {}
-        enforced = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_enforced") or {}).items())
+        enforced = ", ".join(
+            f"{k}={v}" for k, v in (contract.get("runtime_enforced") or {}).items()
+        )
         locked = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_locked") or {}).items())
-        runtime_parameters = ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_parameters") or {}).items()) or "none"
-        metadata_only = ", ".join(f"{k}={v}" for k, v in (contract.get("metadata_only") or {}).items()) or "none"
+        runtime_parameters = (
+            ", ".join(f"{k}={v}" for k, v in (contract.get("runtime_parameters") or {}).items())
+            or "none"
+        )
+        metadata_only = (
+            ", ".join(f"{k}={v}" for k, v in (contract.get("metadata_only") or {}).items())
+            or "none"
+        )
         warnings = "; ".join(contract.get("warnings") or []) or "none"
-        lines.append(f"| {row.get('config_id')} | {enforced} | {locked} | {runtime_parameters} | {metadata_only} | {warnings} |")
+        lines.append(
+            f"| {row.get('config_id')} | {enforced} | {locked} | {runtime_parameters} | {metadata_only} | {warnings} |"
+        )
     lines.extend(["", "## Limitations", ""])
     lines.extend(f"- {item}" for item in report["limitations"])
     return "\n".join(lines) + "\n"

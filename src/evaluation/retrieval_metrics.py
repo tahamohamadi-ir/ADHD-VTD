@@ -57,7 +57,9 @@ def summarize_retrieval(records: list[dict[str, Any]]) -> RetrievalMetricSummary
             if record.get("skeleton") or record.get("sql_skeleton"):
                 retrieved_skeletons.append(record.get("skeleton") or record.get("sql_skeleton"))
 
-        if _overlap(expected_tables, retrieved_tables) or _overlap(expected_columns, retrieved_columns):
+        if _overlap(expected_tables, retrieved_tables) or _overlap(
+            expected_columns, retrieved_columns
+        ):
             schema_hits += 1
         if expected_intent and expected_intent in retrieved_intents:
             intent_hits += 1

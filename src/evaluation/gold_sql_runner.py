@@ -69,7 +69,9 @@ def run_gold_case(case: dict[str, Any], executor: Any | None = None) -> GoldSQLR
     )
 
 
-def run_gold_cases(cases: list[dict[str, Any]] | None = None, *, output_path: str | Path | None = None) -> list[dict[str, Any]]:
+def run_gold_cases(
+    cases: list[dict[str, Any]] | None = None, *, output_path: str | Path | None = None
+) -> list[dict[str, Any]]:
     ds_cases = cases if cases is not None else load_phase0_50q_cases().cases
     executor = ReadOnlyExecutor()
     rows = [asdict(run_gold_case(case, executor)) for case in ds_cases]

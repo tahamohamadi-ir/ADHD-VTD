@@ -10,6 +10,7 @@ class QueryIR(BaseModel):
     Intermediate Representation of the user's natural language query.
     Decouples intent understanding from raw SQL syntax.
     """
+
     task_type: str | None = None
     metrics: list[str] = Field(default_factory=list)
     dimensions: list[str] = Field(default_factory=list)

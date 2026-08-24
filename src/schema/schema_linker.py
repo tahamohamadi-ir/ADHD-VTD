@@ -68,13 +68,25 @@ class SchemaLinker:
         "cgpa": ["student_depression.cgpa_10", "university_student_mental_health.cgpa_mid"],
         "نمره امتحان": ["student_habits_performance.exam_score"],
         "exam score": ["student_habits_performance.exam_score"],
-        "\u0633\u0627\u0639\u062a \u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": ["student_depression.sleep_mid_hours"],
-        "\u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": ["student_depression.sleep_mid_hours"],
-        "\u0634\u0628\u06a9\u0647 \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": ["student_habits_performance.social_media_hours"],
-        "\u0634\u0628\u06a9\u0647\u200c\u0647\u0627\u06cc \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": ["student_habits_performance.social_media_hours"],
+        "\u0633\u0627\u0639\u062a \u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": [
+            "student_depression.sleep_mid_hours"
+        ],
+        "\u062e\u0648\u0627\u0628 \u062a\u0642\u0631\u06cc\u0628\u06cc": [
+            "student_depression.sleep_mid_hours"
+        ],
+        "\u0634\u0628\u06a9\u0647 \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": [
+            "student_habits_performance.social_media_hours"
+        ],
+        "\u0634\u0628\u06a9\u0647\u200c\u0647\u0627\u06cc \u0627\u062c\u062a\u0645\u0627\u0639\u06cc": [
+            "student_habits_performance.social_media_hours"
+        ],
         "social media": ["student_habits_performance.social_media_hours"],
-        "\u0631\u062a\u0628\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": ["student_habits_performance.mental_health_rating"],
-        "\u0646\u0645\u0631\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": ["student_habits_performance.mental_health_rating"],
+        "\u0631\u062a\u0628\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": [
+            "student_habits_performance.mental_health_rating"
+        ],
+        "\u0646\u0645\u0631\u0647 \u0633\u0644\u0627\u0645\u062a \u0631\u0648\u0627\u0646": [
+            "student_habits_performance.mental_health_rating"
+        ],
         "mental health rating": ["student_habits_performance.mental_health_rating"],
         "خواب": [
             "student_depression.sleep_mid_hours",
@@ -116,8 +128,14 @@ class SchemaLinker:
         "student": ["student_depression.student_id", "student_habits_performance.student_id"],
         "ریسک": ["mental_health_general.mental_health_risk"],
         "mental health risk": ["mental_health_general.mental_health_risk"],
-        "درمان": ["mental_health_general.seeks_treatment", "workplace_mental_health_survey.treatment"],
-        "treatment": ["mental_health_general.seeks_treatment", "workplace_mental_health_survey.treatment"],
+        "درمان": [
+            "mental_health_general.seeks_treatment",
+            "workplace_mental_health_survey.treatment",
+        ],
+        "treatment": [
+            "mental_health_general.seeks_treatment",
+            "workplace_mental_health_survey.treatment",
+        ],
         "کشور": ["country_prevalence_long.country_name", "country_prevalence_wide.country_name"],
         "سال": ["country_prevalence_long.year", "country_prevalence_wide.year"],
         "شیوع": ["country_prevalence_long.prevalence_pct"],
@@ -211,6 +229,7 @@ class SchemaLinker:
             return True
         try:
             import rapidfuzz
+
             score = rapidfuzz.fuzz.partial_ratio(alias_norm, normalized_question)
             return score >= 85
         except ImportError:
@@ -298,7 +317,17 @@ class SchemaLinker:
                 continue
 
             # A real metric usually has at least one of these keys.
-            if not any(k in spec for k in ("sql_expression", "required_columns", "columns", "default_table", "aliases_fa", "aliases_en")):
+            if not any(
+                k in spec
+                for k in (
+                    "sql_expression",
+                    "required_columns",
+                    "columns",
+                    "default_table",
+                    "aliases_fa",
+                    "aliases_en",
+                )
+            ):
                 continue
 
             specs.append((str(metric_name), spec))
@@ -378,6 +407,7 @@ class SchemaLinker:
 
         try:
             from src.nlu.term_extractor import TermExtractor
+
             extractor = TermExtractor()
             extracted_terms = extractor.extract_terms(normalized)
         except Exception:
@@ -388,14 +418,18 @@ class SchemaLinker:
             if self._contains(normalized, alias):
                 matched_aliases.append(self._normalize(alias))
                 for fq_column in targets:
-                    self._safe_add_column(columns, evidence, fq_column, f"column_alias:{alias}", 1.0)
+                    self._safe_add_column(
+                        columns, evidence, fq_column, f"column_alias:{alias}", 1.0
+                    )
 
         # 2) Extra robust aliases for stress-test and common Persian/Finglish expressions
         for alias, targets in self.EXTRA_ALIASES.items():
             if self._contains(normalized, alias):
                 matched_aliases.append(self._normalize(alias))
                 for fq_column in targets:
-                    self._safe_add_column(columns, evidence, fq_column, f"extra_alias:{alias}", 0.94)
+                    self._safe_add_column(
+                        columns, evidence, fq_column, f"extra_alias:{alias}", 0.94
+                    )
 
         # 3) Business glossary preferred columns
         for term, spec in self._iter_glossary_terms():
@@ -412,14 +446,16 @@ class SchemaLinker:
                 if self._contains(normalized, alias):
                     matched_aliases.append(self._normalize(alias))
                     matched_any = True
-            
+
             if matched_any:
                 preferred = spec.get("preferred_columns", [])
                 if isinstance(preferred, str):
                     preferred = [preferred]
                 if isinstance(preferred, list):
                     for fq_column in preferred:
-                        self._safe_add_column(columns, evidence, str(fq_column), f"business_glossary:{term}", 0.92)
+                        self._safe_add_column(
+                            columns, evidence, str(fq_column), f"business_glossary:{term}", 0.92
+                        )
 
         # 4) Metrics
         for metric_name, spec in self._iter_metric_specs():
@@ -440,9 +476,18 @@ class SchemaLinker:
             if matched_any:
                 if metric_name not in metrics:
                     metrics.append(metric_name)
-                    evidence.append({"type": "metric", "value": metric_name, "source": "metric_definitions", "score": 0.9})
+                    evidence.append(
+                        {
+                            "type": "metric",
+                            "value": metric_name,
+                            "source": "metric_definitions",
+                            "score": 0.9,
+                        }
+                    )
                 for fq_column in self._extract_columns_from_metric(spec):
-                    self._safe_add_column(columns, evidence, fq_column, f"metric:{metric_name}", 0.88)
+                    self._safe_add_column(
+                        columns, evidence, fq_column, f"metric:{metric_name}", 0.88
+                    )
 
         # 5) Direct column/table mention
         for fq_column in sorted(self.valid_columns):
@@ -470,7 +515,8 @@ class SchemaLinker:
                 evidence = [
                     item
                     for item in evidence
-                    if item.get("type") != "column" or str(item.get("value", "")).startswith(f"{prefix}.")
+                    if item.get("type") != "column"
+                    or str(item.get("value", "")).startswith(f"{prefix}.")
                 ]
 
         if (
@@ -479,19 +525,48 @@ class SchemaLinker:
             or "دانشجویان افسردگی" in normalized
         ):
             filter_columns_by_prefix("student_depression")
-            self._safe_add_column(columns, evidence, "student_depression.student_depression_id", "hard_gate:student_depression", 0.96)
+            self._safe_add_column(
+                columns,
+                evidence,
+                "student_depression.student_depression_id",
+                "hard_gate:student_depression",
+                0.96,
+            )
         elif self._is_student_habits_context(normalized):
             filter_columns_by_prefix("student_habits_performance")
-            self._safe_add_column(columns, evidence, "student_habits_performance.habit_id", "hard_gate:student_habits", 0.96)
+            self._safe_add_column(
+                columns,
+                evidence,
+                "student_habits_performance.habit_id",
+                "hard_gate:student_habits",
+                0.96,
+            )
         elif self._is_university_mental_health_context(normalized):
             filter_columns_by_prefix("university_student_mental_health")
-            self._safe_add_column(columns, evidence, "university_student_mental_health.student_id", "hard_gate:university", 0.96)
-        elif self._is_general_mental_health_dataset_context(normalized) or "دیتاست عمومی" in normalized:
+            self._safe_add_column(
+                columns,
+                evidence,
+                "university_student_mental_health.student_id",
+                "hard_gate:university",
+                0.96,
+            )
+        elif (
+            self._is_general_mental_health_dataset_context(normalized)
+            or "دیتاست عمومی" in normalized
+        ):
             filter_columns_by_prefix("mental_health_general")
-            self._safe_add_column(columns, evidence, "mental_health_general.general_row_id", "hard_gate:general", 0.96)
+            self._safe_add_column(
+                columns, evidence, "mental_health_general.general_row_id", "hard_gate:general", 0.96
+            )
         elif self._is_workplace_context(normalized):
             filter_columns_by_prefix("workplace_mental_health_survey")
-            self._safe_add_column(columns, evidence, "workplace_mental_health_survey.survey_id", "hard_gate:workplace", 0.96)
+            self._safe_add_column(
+                columns,
+                evidence,
+                "workplace_mental_health_survey.survey_id",
+                "hard_gate:workplace",
+                0.96,
+            )
 
         tables: list[str] = []
         for fq_column in columns:
@@ -517,6 +592,7 @@ class SchemaLinker:
         unresolved_terms: list[str] = []
         try:
             import rapidfuzz
+
             for term in extracted_terms:
                 term_lower = term.lower()
                 matched = False
@@ -566,9 +642,14 @@ class SchemaLinker:
         )
 
     def _is_student_depression_analysis_context(self, normalized: str) -> bool:
-        if self._is_university_mental_health_context(normalized) or self._is_general_mental_health_dataset_context(normalized):
+        if self._is_university_mental_health_context(
+            normalized
+        ) or self._is_general_mental_health_dataset_context(normalized):
             return False
-        if "country_prevalence" in normalized or "\u0634\u06cc\u0648\u0639 \u062c\u0647\u0627\u0646\u06cc" in normalized:
+        if (
+            "country_prevalence" in normalized
+            or "\u0634\u06cc\u0648\u0639 \u062c\u0647\u0627\u0646\u06cc" in normalized
+        ):
             return False
         student_terms = (
             "\u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646",

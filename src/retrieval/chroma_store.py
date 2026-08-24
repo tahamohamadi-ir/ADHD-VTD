@@ -81,7 +81,12 @@ class ChromaStore:
         embeddings: list[list[float]] = []
         metadatas: list[dict[str, str]] = []
         for index, record in enumerate(records):
-            text = str(record.get("text_for_embedding") or record.get("question_fa") or record.get("question") or "")
+            text = str(
+                record.get("text_for_embedding")
+                or record.get("question_fa")
+                or record.get("question")
+                or ""
+            )
             ids.append(self._record_id(record, index))
             documents.append(text)
             embeddings.append(self._encode_one(text))

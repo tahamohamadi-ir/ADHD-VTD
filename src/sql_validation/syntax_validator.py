@@ -10,6 +10,7 @@ try:
 except Exception:  # pragma: no cover
     from validation_result import ValidationResult
 
+
 class SQLSyntaxValidator:
     def validate(self, sql: str) -> ValidationResult:
         normalized = (sql or "").strip().rstrip(";").strip()
@@ -21,7 +22,9 @@ class SQLSyntaxValidator:
         try:
             expressions = sqlglot.parse(normalized, read="sqlite")
             if len(expressions) != 1:
-                return ValidationResult.fail("MULTIPLE_STATEMENTS", "Exactly one SQL statement is required.")
+                return ValidationResult.fail(
+                    "MULTIPLE_STATEMENTS", "Exactly one SQL statement is required."
+                )
             return ValidationResult.pass_(normalized)
         except Exception as exc:
             return ValidationResult.fail("PARSE_ERROR", f"SQL parse failed: {exc}")

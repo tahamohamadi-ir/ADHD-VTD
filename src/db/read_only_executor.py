@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover
     from result_serializer import ResultSerializer
     from safety_validator import SQLSafetyValidator
 
+
 @dataclass(frozen=True)
 class QueryExecutionResult:
     ok: bool
@@ -25,18 +26,25 @@ class QueryExecutionResult:
     latency_ms: int = 0
     error: str | None = None
 
+
 class ReadOnlyExecutor:
-    def __init__(self, db_path: str | Path | None = None, timeout: float = 10.0, max_rows: int = 1000) -> None:
+    def __init__(
+        self, db_path: str | Path | None = None, timeout: float = 10.0, max_rows: int = 1000
+    ) -> None:
         self.db_path = db_path
         self.timeout = timeout
         self.max_rows = max_rows
         self.safety = SQLSafetyValidator(require_limit_for_raw=False)
 
-    def execute_readonly(self, sql: str, params: dict | tuple | None = None, max_rows: int | None = None) -> QueryExecutionResult:
+    def execute_readonly(
+        self, sql: str, params: dict | tuple | None = None, max_rows: int | None = None
+    ) -> QueryExecutionResult:
         started = time.perf_counter()
         validation = self.safety.validate(sql)
         if not validation.ok:
-            return QueryExecutionResult(False, sql, error="; ".join(i.message for i in validation.issues))
+            return QueryExecutionResult(
+                False, sql, error="; ".join(i.message for i in validation.issues)
+            )
 
         limit = max_rows or self.max_rows
         try:
@@ -63,7 +71,9 @@ class ReadOnlyExecutor:
     def execute_gold_sql(self, case: dict) -> QueryExecutionResult:
         sql = case.get("gold_sql") or case.get("sql") or case.get("expected_sql")
         if not sql:
-            return QueryExecutionResult(False, "", error="Case does not contain gold_sql/sql/expected_sql.")
+            return QueryExecutionResult(
+                False, "", error="Case does not contain gold_sql/sql/expected_sql."
+            )
         return self.execute_readonly(sql)
 
     def compare_results(self, generated_sql: str, gold_sql: str) -> dict[str, Any]:

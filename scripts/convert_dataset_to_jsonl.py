@@ -3,6 +3,7 @@
 Converts the examples array from each JSON file into a JSONL file
 stored alongside the original.
 """
+
 from __future__ import annotations
 
 import json

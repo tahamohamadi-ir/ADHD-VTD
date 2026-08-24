@@ -70,13 +70,9 @@ def build_dual_policy_judge_ablation_plan(
     model_list = list(judge_models)
     policy_list = list(judge_policies)
     if len(model_list) < 2:
-        raise ValueError(
-            "At least two judge models are required for agreement/consensus planning."
-        )
+        raise ValueError("At least two judge models are required for agreement/consensus planning.")
     if set(policy_list) != {"semantic", "strict"}:
-        raise ValueError(
-            "Plan requires exactly the semantic and strict judge policies."
-        )
+        raise ValueError("Plan requires exactly the semantic and strict judge policies.")
 
     commands: list[PlannedCommand] = []
     judgment_dirs: dict[str, dict[str, dict[str, Path]]] = {
@@ -103,9 +99,7 @@ def build_dual_policy_judge_ablation_plan(
                     model,
                     "--judge-policy",
                     policy,
-                    "--no-judge-reasoning"
-                    if not judge_reasoning
-                    else "--judge-reasoning",
+                    "--no-judge-reasoning" if not judge_reasoning else "--judge-reasoning",
                 ]
                 if all_predictions:
                     command.insert(-1, "--all-predictions")
@@ -152,10 +146,7 @@ def build_dual_policy_judge_ablation_plan(
                     command=[
                         python_executable,
                         "scripts\\analyze_judge_consensus.py",
-                        *[
-                            str(path)
-                            for path in judgment_dirs[variant][policy].values()
-                        ],
+                        *[str(path) for path in judgment_dirs[variant][policy].values()],
                         "--output-dir",
                         str(consensus_output),
                     ],
@@ -254,9 +245,7 @@ def validate_dual_policy_judge_ablation_plan(
                 path=str(manifest_path),
             )
         )
-        return JudgeAblationPlanValidationReport(
-            ok=False, issues=issues, checked=checked
-        )
+        return JudgeAblationPlanValidationReport(ok=False, issues=issues, checked=checked)
 
     try:
         manifest = read_json(manifest_path)
@@ -268,9 +257,7 @@ def validate_dual_policy_judge_ablation_plan(
                 path=str(manifest_path),
             )
         )
-        return JudgeAblationPlanValidationReport(
-            ok=False, issues=issues, checked=checked
-        )
+        return JudgeAblationPlanValidationReport(ok=False, issues=issues, checked=checked)
 
     if not isinstance(manifest, dict):
         issues.append(
@@ -280,9 +267,7 @@ def validate_dual_policy_judge_ablation_plan(
                 path=str(manifest_path),
             )
         )
-        return JudgeAblationPlanValidationReport(
-            ok=False, issues=issues, checked=checked
-        )
+        return JudgeAblationPlanValidationReport(ok=False, issues=issues, checked=checked)
 
     _validate_plan_header(manifest, issues, manifest_path, checked)
     commands = manifest.get("commands")
@@ -360,11 +345,7 @@ def _validate_plan_header(
     policies = manifest.get("judge_policies")
     checked["judge_model_count"] = len(models) if isinstance(models, list) else 0
     checked["judge_policies"] = policies if isinstance(policies, list) else []
-    if (
-        not isinstance(models, list)
-        or len(models) < 2
-        or len(set(models)) != len(models)
-    ):
+    if not isinstance(models, list) or len(models) < 2 or len(set(models)) != len(models):
         issues.append(
             JudgeAblationPlanIssue(
                 code="PLAN_JUDGE_MODELS_INVALID",
@@ -396,9 +377,7 @@ def _validate_plan_header(
         "infer semantic labels",
         "create benchmark outcomes",
     ]
-    missing = [
-        fragment for fragment in required_fragments if fragment not in anti_fake_policy
-    ]
+    missing = [fragment for fragment in required_fragments if fragment not in anti_fake_policy]
     if missing:
         issues.append(
             JudgeAblationPlanIssue(
@@ -416,11 +395,7 @@ def _validate_plan_commands(
     manifest_path: Path,
     checked: dict[str, Any],
 ) -> None:
-    models = (
-        manifest.get("judge_models")
-        if isinstance(manifest.get("judge_models"), list)
-        else []
-    )
+    models = manifest.get("judge_models") if isinstance(manifest.get("judge_models"), list) else []
     expected_total = 4 * len(models) + 11 if models else None
     labels: list[str] = []
     judge_policy_counts = {"semantic": 0, "strict": 0}
@@ -444,12 +419,7 @@ def _validate_plan_commands(
         labels.append(label)
         if raw_command.get("network_required") is True:
             network_required_count += 1
-        if (
-            not label
-            or not isinstance(command, list)
-            or not output_dir
-            or not completion_file
-        ):
+        if not label or not isinstance(command, list) or not output_dir or not completion_file:
             issues.append(
                 JudgeAblationPlanIssue(
                     code="PLAN_COMMAND_INCOMPLETE",
@@ -526,9 +496,7 @@ def _validate_single_plan_command(
                 issues, manifest_path, label, "must use the openrouter judge provider"
             )
         if _command_option_value(command, "--judge-model") is None:
-            _append_command_issue(
-                issues, manifest_path, label, "must record a judge model"
-            )
+            _append_command_issue(issues, manifest_path, label, "must record a judge model")
         if policy not in {"semantic", "strict"}:
             _append_command_issue(
                 issues, manifest_path, label, "must use semantic or strict policy"
@@ -543,9 +511,7 @@ def _validate_single_plan_command(
             )
         has_all_predictions = "--all-predictions" in command
         if all_predictions and not has_all_predictions:
-            _append_command_issue(
-                issues, manifest_path, label, "must include --all-predictions"
-            )
+            _append_command_issue(issues, manifest_path, label, "must include --all-predictions")
         if not all_predictions and has_all_predictions:
             _append_command_issue(
                 issues, manifest_path, label, "must not include --all-predictions"
@@ -585,15 +551,11 @@ def _validate_single_plan_command(
                 issues, manifest_path, label, "must keep dual-policy inputs explicit"
             )
     else:
-        _append_command_issue(
-            issues, manifest_path, label, "has an unknown command role"
-        )
+        _append_command_issue(issues, manifest_path, label, "has an unknown command role")
         return
     expected_script, expected_completion = expected
     if expected_script not in command:
-        _append_command_issue(
-            issues, manifest_path, label, f"must call {expected_script}"
-        )
+        _append_command_issue(issues, manifest_path, label, f"must call {expected_script}")
     if completion_file != expected_completion:
         _append_command_issue(
             issues, manifest_path, label, f"must complete with {expected_completion}"

@@ -1,17 +1,18 @@
-# پوشه `src/graph/nodes`
+# `src/graph/nodes`
 
-این پوشه nodeهای LangGraph را نگه می‌دارد.
+This package contains LangGraph node entry points and graph-local helper modules.
 
-## وضعیت فعلی
+## Current Pattern
 
-- `base_nodes.py`: پیاده‌سازی عملیاتی nodeهای اصلی از initialize تا format.
-- فایل‌هایی مثل `retrieval_node.py`، `output_node.py`، `validation_node.py` و مشابه آن‌ها فعلاً placeholder هستند.
+- `base_nodes.py` still contains the operational node implementations for compatibility with tests, monkeypatches, and existing scripts.
+- Dedicated `*_node.py` modules expose the workflow-facing node imports. During incremental cleanup, they may re-export callables from `base_nodes.py`.
+- Helper modules such as `candidate_orchestrator.py`, `generation_router.py`, `validation_attempts.py`, `execution_attempts.py`, `output_payloads.py`, and `reflexion_payloads.py` own small pure or dependency-injected behavior with focused tests.
+- `generate_candidates_node.py` is policy-only compatibility glue. It does not call an LLM or emit SQL candidates directly.
 
-## برنامه تفکیک
+## Rules
 
-1. منطق retrieval به `retrieval_node.py`.
-2. منطق validation و repair به `validation_node.py` و `src/reflexion`.
-3. منطق output به `output_node.py` و `src/output`.
-4. منطق multi-candidate consistency به nodeهای جدید Phase 13.
-
-تا وقتی این تفکیک کامل نشده، `base_nodes.py` منبع عملیاتی nodeها است.
+- Keep `workflow.py` imports pointed at the dedicated `*_node.py` modules.
+- Preserve existing `base_nodes.py` wrapper names while external imports or tests depend on them.
+- Do not move SQL execution out of `src/db/read_only_executor.py`.
+- Do not move validation safety checks out of the validation pipeline.
+- Do not put benchmark metrics, artifact promotion, gold SQL, or paper-table logic in graph node helpers.

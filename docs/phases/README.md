@@ -15,6 +15,10 @@
 | Phase 5 | Local LLM Generation Layer | Completed | [PHASE_5_LOCAL_LLM_GENERATION.md](PHASE_5_LOCAL_LLM_GENERATION.md) |
 | Phase 6 | Milestone 1.5 Stress Test | Completed | [PHASE_6_STRESS_TEST.md](PHASE_6_STRESS_TEST.md) |
 | Phase 7 | Hybrid CAG/RAG Retrieval | Completed | [PHASE_7_RETRIEVAL.md](PHASE_7_RETRIEVAL.md) |
+| Phase 8 | LangGraph Orchestration | Completed (checkpointing + diagram export added; retrieve_values helper available) | [../graph_workflow.mmd](../graph_workflow.mmd) |
+| Phase 12 | Output, Chart, Narrative | Implemented - code/tests/narrative (behavior rerun pending user GPU run) | [`src/output/narrative_generator.py`](../../src/output/narrative_generator.py) |
+| Phase 14 | Edge Runtime Optimization | Prototype implemented (profiler/caches/EdgePipeline; comparisons pending) | [`scripts/profile_node_latency.py`](../../scripts/profile_node_latency.py) |
+| Phase 15 | Research Packaging | Tooling implemented (bundle/CI/Dockerfile/pre-commit; final packaging pending paper promotion) | [`scripts/make_release_bundle.py`](../../scripts/make_release_bundle.py) |
 | Phase 9 | Graph-Level Reflexion and SQL Repair | Basic completed | [PHASE_9_REFLEXION.md](PHASE_9_REFLEXION.md) |
 | Phase 10 | Benchmark Runner | Completed - infrastructure | [PHASE_10_BENCHMARK_RUNNER.md](PHASE_10_BENCHMARK_RUNNER.md) |
 | Phase 11 | Ablation, Error Analysis, Research Metrics | In progress | [PHASE_11_ABLATION_ERROR_ANALYSIS.md](PHASE_11_ABLATION_ERROR_ANALYSIS.md) |

@@ -60,8 +60,7 @@ def main() -> int:
         raise SystemExit(f"No ablation configs found. Checked: {args.config_dir}")
 
     jobs = [
-        build_ablation_job(path, python_executable=args.python_executable)
-        for path in config_paths
+        build_ablation_job(path, python_executable=args.python_executable) for path in config_paths
     ]
     manifest_path = run_ablation_jobs(
         jobs,

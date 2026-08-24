@@ -132,7 +132,11 @@ class RetrievalScorer:
         candidate_tables = [str(v) for v in record.get("tables", [])]
         candidate_columns = [str(v) for v in record.get("columns", [])]
         candidate_intent = record.get("intent")
-        candidate_skeleton = record.get("skeleton") or record.get("sql_skeleton") or infer_sql_skeleton(record.get("sql"))
+        candidate_skeleton = (
+            record.get("skeleton")
+            or record.get("sql_skeleton")
+            or infer_sql_skeleton(record.get("sql"))
+        )
 
         schema_overlap = max(
             overlap_score(query.tables, candidate_tables),

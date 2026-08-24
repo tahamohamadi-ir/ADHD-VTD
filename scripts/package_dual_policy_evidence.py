@@ -16,9 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("benchmark_dir", help="Benchmark artifact directory.")
-    parser.add_argument(
-        "dual_policy_dir", help="Dual-policy report artifact directory."
-    )
+    parser.add_argument("dual_policy_dir", help="Dual-policy report artifact directory.")
     parser.add_argument(
         "--output-dir", required=True, help="Output directory for evidence package."
     )

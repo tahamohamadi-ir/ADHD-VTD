@@ -39,29 +39,84 @@ def test_judge_consensus_requires_two_non_null_authoritative_votes(tmp_path):
         qwen,
         model="qwen/qwen3.6-plus",
         rows=[
-            {"case_id": "correct", "authoritative": True, "semantic_business_correct": True, "verdict": "business_correct"},
-            {"case_id": "bad", "authoritative": True, "semantic_business_correct": False, "verdict": "business_incorrect"},
-            {"case_id": "single", "authoritative": True, "semantic_business_correct": False, "verdict": "business_incorrect"},
-            {"case_id": "conflict", "authoritative": True, "semantic_business_correct": True, "verdict": "business_correct"},
-            {"case_id": "partial", "authoritative": True, "semantic_business_correct": None, "verdict": "partial_business_match"},
+            {
+                "case_id": "correct",
+                "authoritative": True,
+                "semantic_business_correct": True,
+                "verdict": "business_correct",
+            },
+            {
+                "case_id": "bad",
+                "authoritative": True,
+                "semantic_business_correct": False,
+                "verdict": "business_incorrect",
+            },
+            {
+                "case_id": "single",
+                "authoritative": True,
+                "semantic_business_correct": False,
+                "verdict": "business_incorrect",
+            },
+            {
+                "case_id": "conflict",
+                "authoritative": True,
+                "semantic_business_correct": True,
+                "verdict": "business_correct",
+            },
+            {
+                "case_id": "partial",
+                "authoritative": True,
+                "semantic_business_correct": None,
+                "verdict": "partial_business_match",
+            },
         ],
     )
     _write_judgment_dir(
         deepseek,
         model="deepseek/deepseek-v4-flash",
         rows=[
-            {"case_id": "correct", "authoritative": True, "semantic_business_correct": True, "verdict": "business_correct"},
-            {"case_id": "bad", "authoritative": True, "semantic_business_correct": None, "verdict": "requires_semantic_review"},
-            {"case_id": "single", "authoritative": False, "semantic_business_correct": False, "verdict": "provider_error"},
-            {"case_id": "conflict", "authoritative": True, "semantic_business_correct": False, "verdict": "business_incorrect"},
-            {"case_id": "partial", "authoritative": True, "semantic_business_correct": None, "verdict": "partial_business_match"},
+            {
+                "case_id": "correct",
+                "authoritative": True,
+                "semantic_business_correct": True,
+                "verdict": "business_correct",
+            },
+            {
+                "case_id": "bad",
+                "authoritative": True,
+                "semantic_business_correct": None,
+                "verdict": "requires_semantic_review",
+            },
+            {
+                "case_id": "single",
+                "authoritative": False,
+                "semantic_business_correct": False,
+                "verdict": "provider_error",
+            },
+            {
+                "case_id": "conflict",
+                "authoritative": True,
+                "semantic_business_correct": False,
+                "verdict": "business_incorrect",
+            },
+            {
+                "case_id": "partial",
+                "authoritative": True,
+                "semantic_business_correct": None,
+                "verdict": "partial_business_match",
+            },
         ],
     )
     _write_judgment_dir(
         gpt,
         model="openai/gpt-5.1",
         rows=[
-            {"case_id": "bad", "authoritative": True, "semantic_business_correct": False, "verdict": "business_incorrect"},
+            {
+                "case_id": "bad",
+                "authoritative": True,
+                "semantic_business_correct": False,
+                "verdict": "business_incorrect",
+            },
         ],
     )
 

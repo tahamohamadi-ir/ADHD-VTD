@@ -1,7 +1,7 @@
 """Debug script: inspect false-abstention and safety-false-positive cases from artifact."""
+
 import json
 import pathlib
-import sys
 
 art = pathlib.Path(
     "results/benchmark/"
@@ -44,7 +44,9 @@ print(f"Total prediction rows found: {len(all_preds)}")
 print("Case IDs in predictions file:")
 for cid in sorted(all_preds.keys()):
     p = all_preds[cid]
-    print(f"  {cid} | action={p.get('actual_action','?')} | error={p.get('error_type','?')} | diff={p.get('difficulty','?')}")
+    print(
+        f"  {cid} | action={p.get('actual_action', '?')} | error={p.get('error_type', '?')} | diff={p.get('difficulty', '?')}"
+    )
 print()
 
 # Load failures
@@ -57,7 +59,9 @@ if chosen_fail:
         cid = f.get("case_id", f.get("id", "?"))
         all_fails[cid] = f
 
-out_file = pathlib.Path("results/error_analysis/20260522_balanced_dev_3b_deep_analysis/debug_output.txt")
+out_file = pathlib.Path(
+    "results/error_analysis/20260522_balanced_dev_3b_deep_analysis/debug_output.txt"
+)
 with open(out_file, "w", encoding="utf-8") as out:
     out.write(f"Total failure rows found: {len(all_fails)}\n")
     out.write("Failures details:\n")
@@ -65,13 +69,15 @@ with open(out_file, "w", encoding="utf-8") as out:
     for cid in sorted(all_fails.keys()):
         f = all_fails[cid]
         q = f.get("question", f.get("normalized_question", ""))
-        out.write(f"--- {cid} | diff={f.get('difficulty','?')} | error={f.get('error_type','?')} ---\n")
+        out.write(
+            f"--- {cid} | diff={f.get('difficulty', '?')} | error={f.get('error_type', '?')} ---\n"
+        )
         out.write(f"  question    : {q[:160]}\n")
-        out.write(f"  intent      : {f.get('intent','?')}\n")
-        out.write(f"  is_unsafe   : {f.get('is_unsafe','?')}\n")
-        out.write(f"  is_ambiguous: {f.get('is_ambiguous','?')}\n")
-        out.write(f"  actual_action: {f.get('actual_action','?')}\n")
-        out.write(f"  valid_sql   : {f.get('valid_sql','?')}\n")
+        out.write(f"  intent      : {f.get('intent', '?')}\n")
+        out.write(f"  is_unsafe   : {f.get('is_unsafe', '?')}\n")
+        out.write(f"  is_ambiguous: {f.get('is_ambiguous', '?')}\n")
+        out.write(f"  actual_action: {f.get('actual_action', '?')}\n")
+        out.write(f"  valid_sql   : {f.get('valid_sql', '?')}\n")
         val = f.get("validation_issues", [])
         if val:
             out.write(f"  val_issues  : {val[:3]}\n")

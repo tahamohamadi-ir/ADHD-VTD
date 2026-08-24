@@ -20,9 +20,19 @@ def build_multi_candidate_series_report(
     for index, comparison_dir in enumerate(comparison_dirs, start=1):
         summary_path = Path(comparison_dir) / "multi_candidate_ablation_summary.json"
         summary = read_json(summary_path)
-        checks = summary.get("acceptance_checks") if isinstance(summary.get("acceptance_checks"), dict) else {}
-        metrics = summary.get("metric_deltas") if isinstance(summary.get("metric_deltas"), dict) else {}
-        activation = summary.get("multi_candidate_activation") if isinstance(summary.get("multi_candidate_activation"), dict) else {}
+        checks = (
+            summary.get("acceptance_checks")
+            if isinstance(summary.get("acceptance_checks"), dict)
+            else {}
+        )
+        metrics = (
+            summary.get("metric_deltas") if isinstance(summary.get("metric_deltas"), dict) else {}
+        )
+        activation = (
+            summary.get("multi_candidate_activation")
+            if isinstance(summary.get("multi_candidate_activation"), dict)
+            else {}
+        )
         status = str(checks.get("status") or "unknown")
         status_counts[status] += 1
         row = {
@@ -36,7 +46,9 @@ def build_multi_candidate_series_report(
             "unsafe_sql_delta": metrics.get("unsafe_sql"),
             "latency_p95_delta_ms": metrics.get("latency_p95_ms"),
             "activation_rate": activation.get("activation_rate"),
-            "generated_candidate_count_distribution": activation.get("generated_candidate_count_distribution", {}),
+            "generated_candidate_count_distribution": activation.get(
+                "generated_candidate_count_distribution", {}
+            ),
             "candidate_issue_counts": summary.get("candidate_issue_counts", {}),
             "semantic_evidence_available": checks.get("semantic_evidence_available"),
             "recommendation": _recommendation(summary),
@@ -66,7 +78,11 @@ def build_multi_candidate_series_report(
 
 
 def _recommendation(summary: dict[str, Any]) -> str:
-    checks = summary.get("acceptance_checks") if isinstance(summary.get("acceptance_checks"), dict) else {}
+    checks = (
+        summary.get("acceptance_checks")
+        if isinstance(summary.get("acceptance_checks"), dict)
+        else {}
+    )
     metrics = summary.get("metric_deltas") if isinstance(summary.get("metric_deltas"), dict) else {}
     status = checks.get("status")
     if status == "blocked":

@@ -58,7 +58,9 @@ def generate_phase0_markdown_report(summary: dict[str, Any] | None = None) -> st
     lines.append("")
     lines.append("## Interpretation")
     lines.append("")
-    lines.append("This report is Phase-0/Phase-1 oriented. It validates dataset executability and evaluation infrastructure before full LLM benchmarking, CAG, LangGraph, or reflexion.")
+    lines.append(
+        "This report is Phase-0/Phase-1 oriented. It validates dataset executability and evaluation infrastructure before full LLM benchmarking, CAG, LangGraph, or reflexion."
+    )
     lines.append("")
     return "\n".join(lines)
 

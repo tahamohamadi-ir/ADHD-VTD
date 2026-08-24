@@ -11,8 +11,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Build a conservative consensus report from two or more Phase 16 judgment artifacts."
     )
-    parser.add_argument("judgment_dirs", nargs="+", help="Paths to results/judgments/<run> directories.")
-    parser.add_argument("--output-dir", required=True, help="Output directory for consensus artifacts.")
+    parser.add_argument(
+        "judgment_dirs", nargs="+", help="Paths to results/judgments/<run> directories."
+    )
+    parser.add_argument(
+        "--output-dir", required=True, help="Output directory for consensus artifacts."
+    )
     parser.add_argument(
         "--min-agree",
         type=int,

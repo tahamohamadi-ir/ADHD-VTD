@@ -5,6 +5,7 @@ Checks:
 2. Duplicate questions (exact match after normalization) within each file
 3. Cross-file duplicate IDs
 """
+
 from __future__ import annotations
 
 import json
@@ -66,7 +67,9 @@ def main():
                 norm_questions.setdefault(nq, []).append(ex.get("id", "?"))
         q_dupes = {k: v for k, v in norm_questions.items() if len(v) > 1}
         for nq, ids_list in q_dupes.items():
-            issues.append(f"[{fname}] Duplicate question (normalized): '{nq[:60]}...' → IDs: {ids_list}")
+            issues.append(
+                f"[{fname}] Duplicate question (normalized): '{nq[:60]}...' → IDs: {ids_list}"
+            )
 
         # Track cross-file IDs
         for eid in ids:

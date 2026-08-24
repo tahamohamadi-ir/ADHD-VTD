@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from src.config.paths import INDEXED_EXAMPLES_PATH, RAG_DIR
 from src.retrieval.bm25_index import BM25Index
@@ -77,7 +76,9 @@ class HybridRetriever:
         if not candidate_ids:
             candidate_ids = {str(record.get("id", idx)) for idx, record in enumerate(self.records)}
 
-        records_by_id = {str(record.get("id", idx)): record for idx, record in enumerate(self.records)}
+        records_by_id = {
+            str(record.get("id", idx)): record for idx, record in enumerate(self.records)
+        }
         scored: list[RetrievedExample] = []
         for record_id in candidate_ids:
             record = records_by_id.get(record_id)
@@ -109,7 +110,9 @@ class HybridRetriever:
         schema_candidates = [item for item in candidates if item.schema_overlap_score > 0]
         if not schema_candidates:
             return selected
-        best_schema = max(schema_candidates, key=lambda item: (item.schema_overlap_score, item.score))
+        best_schema = max(
+            schema_candidates, key=lambda item: (item.schema_overlap_score, item.score)
+        )
         if best_schema.id in {item.id for item in selected}:
             return selected
         adjusted = list(selected)

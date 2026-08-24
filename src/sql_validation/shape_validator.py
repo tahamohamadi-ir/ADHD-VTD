@@ -193,10 +193,7 @@ def _has_rate_formula(sql: str, metrics: list[str]) -> bool:
     if re.search(r"\bsum\s*\([^)]*\)\s*/\s*count\s*\(", sql):
         return True
     if metrics:
-        return any(
-            metric.lower() in sql and ("avg(" in sql or "sum(" in sql)
-            for metric in metrics
-        )
+        return any(metric.lower() in sql and ("avg(" in sql or "sum(" in sql) for metric in metrics)
     return "sum(" in sql or "avg(" in sql
 
 
@@ -223,9 +220,7 @@ def _table_columns(schema: dict[str, Any] | None, table_name: str) -> set[str]:
     return names
 
 
-def _add(
-    issues: list[ValidationIssue], code: str, message: str, severity: str = "error"
-) -> None:
+def _add(issues: list[ValidationIssue], code: str, message: str, severity: str = "error") -> None:
     issues.append(ValidationIssue(code=code, message=message, severity=severity))
 
 
@@ -250,16 +245,10 @@ class SQLShapeValidator:
         issues: list[ValidationIssue] = []
 
         self._validate_sqlite_dialect(lower_sql, issues)
-        self._validate_generic_qir_shape(
-            lower_sql, lower_question, task_type, qir, issues
-        )
-        self._validate_global_change_shape(
-            lower_sql, lower_question, task_type, schema, issues
-        )
+        self._validate_generic_qir_shape(lower_sql, lower_question, task_type, qir, issues)
+        self._validate_global_change_shape(lower_sql, lower_question, task_type, schema, issues)
         self._validate_risk_summary_shape(lower_sql, lower_question, schema, issues)
-        self._validate_grouped_rate_shape(
-            lower_sql, lower_question, task_type, schema, issues
-        )
+        self._validate_grouped_rate_shape(lower_sql, lower_question, task_type, schema, issues)
         self._validate_student_sleep_diet_matrix_shape(
             lower_sql, lower_question, task_type, schema, issues
         )
@@ -283,12 +272,8 @@ class SQLShapeValidator:
         qir: QueryIR | None,
         issues: list[ValidationIssue],
     ) -> None:
-        dimensions = [
-            str(dim).lower() for dim in (getattr(qir, "dimensions", []) or [])
-        ]
-        metrics = [
-            str(metric).lower() for metric in (getattr(qir, "metrics", []) or [])
-        ]
+        dimensions = [str(dim).lower() for dim in (getattr(qir, "dimensions", []) or [])]
+        metrics = [str(metric).lower() for metric in (getattr(qir, "metrics", []) or [])]
         expected_shape = str(getattr(qir, "expected_result_shape", "") or "").lower()
         asks_grouping = (
             expected_shape == "table"
@@ -336,9 +321,7 @@ class SQLShapeValidator:
 
         two_sided = _has_any(question, _TWO_SIDED_TERMS)
         single_sided_depression_filter = bool(
-            re.search(
-                r"\bwhere\b[^;]*(depression_flag|depression_diagnosis)\s*=\s*[01]", sql
-            )
+            re.search(r"\bwhere\b[^;]*(depression_flag|depression_diagnosis)\s*=\s*[01]", sql)
             or re.search(
                 r"\bwhere\b[^;]*(part_time_job|treatment|seeks_treatment)\s*=\s*[01]",
                 sql,
@@ -363,9 +346,7 @@ class SQLShapeValidator:
                 "Multi-dimensional/matrix questions must GROUP BY at least two dimensions.",
             )
 
-        asks_ranking = task_type == "ranking_query" or _has_any(
-            question, _RANKING_TERMS
-        )
+        asks_ranking = task_type == "ranking_query" or _has_any(question, _RANKING_TERMS)
         if asks_ranking and not _has_order_by(sql):
             _add(
                 issues,
@@ -384,9 +365,7 @@ class SQLShapeValidator:
             missing_dimensions = [
                 dim
                 for dim in dimensions
-                if dim not in group_fragment
-                and dim in sql
-                and not dim.endswith("_flag")
+                if dim not in group_fragment and dim in sql and not dim.endswith("_flag")
             ]
             if missing_dimensions:
                 _add(
@@ -406,14 +385,10 @@ class SQLShapeValidator:
     ) -> None:
         has_prevalence_long = bool(_table_columns(schema, "country_prevalence_long"))
         asks_change = _has_any(question, _CHANGE_TERMS)
-        asks_dashboard = task_type == "grouping_query" or _has_any(
-            question, _DASHBOARD_TERMS
-        )
+        asks_dashboard = task_type == "grouping_query" or _has_any(question, _DASHBOARD_TERMS)
         asks_bins = _has_any(question, _QUANTILE_TERMS)
         names_disorder = _has_any(question, _DISORDER_TERMS)
-        if not (
-            has_prevalence_long and asks_change and asks_dashboard and names_disorder
-        ):
+        if not (has_prevalence_long and asks_change and asks_dashboard and names_disorder):
             return
 
         if "country_prevalence_long" not in sql:
@@ -449,13 +424,9 @@ class SQLShapeValidator:
         issues: list[ValidationIssue],
     ) -> None:
         general_cols = _table_columns(schema, "mental_health_general")
-        if not {"mental_health_risk", "stress_level", "sleep_hours"}.issubset(
-            general_cols
-        ):
+        if not {"mental_health_risk", "stress_level", "sleep_hours"}.issubset(general_cols):
             return
-        asks_risk_average = _has_any(question, _RISK_TERMS) and _has_any(
-            question, _AVERAGE_TERMS
-        )
+        asks_risk_average = _has_any(question, _RISK_TERMS) and _has_any(question, _AVERAGE_TERMS)
         if not asks_risk_average:
             return
         asks_stress_sleep_thresholds = _has_any(question, _STRESS_TERMS) and _has_any(
@@ -520,9 +491,7 @@ class SQLShapeValidator:
         asks_sleep_rate = (
             task_type == "rate_query"
             and _has_any(question, _SLEEP_TERMS)
-            and (
-                _has_any(question, _RATE_TERMS) or _has_any(question, _DEPRESSION_TERMS)
-            )
+            and (_has_any(question, _RATE_TERMS) or _has_any(question, _DEPRESSION_TERMS))
         )
         if not asks_sleep_rate:
             return

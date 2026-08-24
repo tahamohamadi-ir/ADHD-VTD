@@ -3,8 +3,11 @@
 Split: 280 train / 60 dev / 60 test (stratified by difficulty).
 Also splits the 100 behavioral examples: 40 dev / 60 test.
 """
+
 from __future__ import annotations
-import json, sys, random
+import json
+import sys
+import random
 from pathlib import Path
 from collections import defaultdict
 
@@ -19,14 +22,17 @@ MAIN_DATASET = Path("data/questions/full/vtd_question_sql_400_merged_validated.j
 SPECIAL_DATASET = Path("data/questions/special/vtd_evaluation_special_100.json")
 SEED = 42
 
+
 def load_examples(path: Path) -> list[dict]:
     data = json.loads(path.read_text(encoding="utf-8"))
     return data.get("examples", data) if isinstance(data, dict) else data
 
-def stratified_split(examples: list[dict], key: str, ratios: tuple[float,...], seed: int):
+
+def stratified_split(examples: list[dict], key: str, ratios: tuple[float, ...], seed: int):
     target_sizes = [round(len(examples) * r) for r in ratios[:-1]]
     target_sizes.append(len(examples) - sum(target_sizes))
     return stratified_split_exact(examples, key, target_sizes, seed)
+
 
 def stratified_split_exact(examples: list[dict], key: str, target_sizes: list[int], seed: int):
     if sum(target_sizes) != len(examples):
@@ -48,6 +54,7 @@ def stratified_split_exact(examples: list[dict], key: str, target_sizes: list[in
             remaining[chosen] -= 1
     return splits
 
+
 def save(examples: list[dict], dir_path: Path, name: str):
     dir_path.mkdir(parents=True, exist_ok=True)
     json_path = dir_path / f"{name}.json"
@@ -55,6 +62,7 @@ def save(examples: list[dict], dir_path: Path, name: str):
     json_path.write_text(json.dumps(examples, ensure_ascii=False, indent=2), encoding="utf-8")
     write_jsonl(jsonl_path, examples)
     print(f"  ✅ {name}: {len(examples)} → {json_path.name} + {jsonl_path.name}")
+
 
 def main():
     # Main 400 → 280/60/60
@@ -86,11 +94,14 @@ def main():
         audit_50 = audit_pool[:50]
         lines = ["id,question_fa,gold_sql,difficulty,category,manual_pass"]
         for ex in audit_50:
-            q = ex.get("question_fa","").replace('"','""')
-            s = ex.get("sql","").replace('"','""')
-            lines.append(f'"{ex.get("id","")}","{q}","{s}","{ex.get("difficulty","")}","{ex.get("category","")}",""')
+            q = ex.get("question_fa", "").replace('"', '""')
+            s = ex.get("sql", "").replace('"', '""')
+            lines.append(
+                f'"{ex.get("id", "")}","{q}","{s}","{ex.get("difficulty", "")}","{ex.get("category", "")}",""'
+            )
         audit_path.write_text("\n".join(lines), encoding="utf-8")
         print(f"\n✅ Audit CSV: {audit_path} ({len(audit_50)} cases)")
+
 
 if __name__ == "__main__":
     main()

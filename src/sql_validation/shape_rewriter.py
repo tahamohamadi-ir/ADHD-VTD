@@ -59,19 +59,25 @@ def rewrite_analytical_shape(
 
     parsed = _parse_single_table_select(sql)
     if parsed is None:
-        return ShapeRewriteResult(None, "shape_surgeon_invoked=true; shape_surgeon_skipped=not_single_table_select")
+        return ShapeRewriteResult(
+            None, "shape_surgeon_invoked=true; shape_surgeon_skipped=not_single_table_select"
+        )
 
     tree, table = parsed
     table_columns = _columns_for_table(schema, table)
     if not table_columns:
-        return ShapeRewriteResult(None, "shape_surgeon_invoked=true; shape_surgeon_skipped=no_schema_columns")
+        return ShapeRewriteResult(
+            None, "shape_surgeon_invoked=true; shape_surgeon_skipped=no_schema_columns"
+        )
 
     dimensions = _requested_dimensions(qir, table_columns)
     remove_binary_filter = "ANALYTICAL_SHAPE_SINGLE_SIDED_COMPARISON" in codes
     if not dimensions and remove_binary_filter:
         dimensions = _binary_filter_columns(tree, table_columns)
     if not dimensions:
-        return ShapeRewriteResult(None, "shape_surgeon_invoked=true; shape_surgeon_skipped=no_qir_dimensions")
+        return ShapeRewriteResult(
+            None, "shape_surgeon_invoked=true; shape_surgeon_skipped=no_qir_dimensions"
+        )
 
     asks_rate = "ANALYTICAL_SHAPE_MISSING_RATE_FORMULA" in codes or _asks_rate(question, qir)
     metric = _rate_metric(qir, table_columns, dimensions, question) if asks_rate else None
@@ -118,7 +124,11 @@ def _columns_for_table(schema: dict[str, Any] | None, table: str) -> set[str]:
     table_info = schema.get(table)
     if table_info is None:
         return set()
-    columns = table_info.get("columns", []) if isinstance(table_info, dict) else getattr(table_info, "columns", [])
+    columns = (
+        table_info.get("columns", [])
+        if isinstance(table_info, dict)
+        else getattr(table_info, "columns", [])
+    )
     if isinstance(columns, dict):
         return {str(name) for name in columns}
     names: set[str] = set()
@@ -160,7 +170,10 @@ def _rate_metric(
     preferred = list(_BINARY_RATE_COLUMNS)
     if "treatment" in lower_question or "\u062f\u0631\u0645\u0627\u0646" in lower_question:
         preferred = ["seeks_treatment", "treatment", "treatment_seeking", *preferred]
-    if "depression" in lower_question or "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc" in lower_question:
+    if (
+        "depression" in lower_question
+        or "\u0627\u0641\u0633\u0631\u062f\u06af\u06cc" in lower_question
+    ):
         preferred = ["depression_flag", "depression_diagnosis", *preferred]
     for name in preferred:
         if name in table_columns and name not in dimensions:
@@ -175,7 +188,16 @@ def _is_binary_metric(name: str) -> bool:
 def _asks_rate(question: str, qir: QueryIR | None) -> bool:
     task_type = str(getattr(qir, "task_type", "") or "").lower()
     lower = (question or "").lower()
-    return task_type == "rate_query" or any(term in lower for term in ("rate", "percent", "percentage", "\u0646\u0631\u062e", "\u062f\u0631\u0635\u062f"))
+    return task_type == "rate_query" or any(
+        term in lower
+        for term in (
+            "rate",
+            "percent",
+            "percentage",
+            "\u0646\u0631\u062e",
+            "\u062f\u0631\u0635\u062f",
+        )
+    )
 
 
 def _binary_filter_columns(tree: exp.Select, table_columns: set[str]) -> list[str]:
@@ -201,7 +223,10 @@ def _aggregate_projections(tree: exp.Select) -> list[tuple[str, str]]:
     for projection in tree.expressions:
         alias = projection.alias if isinstance(projection, exp.Alias) else ""
         expression = projection.this if isinstance(projection, exp.Alias) else projection
-        if not any(isinstance(node, (exp.Count, exp.Avg, exp.Sum, exp.Min, exp.Max)) for node in expression.walk()):
+        if not any(
+            isinstance(node, (exp.Count, exp.Avg, exp.Sum, exp.Min, exp.Max))
+            for node in expression.walk()
+        ):
             continue
         expression_sql = expression.sql(dialect="sqlite")
         if isinstance(expression, exp.Avg) and not isinstance(expression.parent, exp.Round):
@@ -242,14 +267,22 @@ def _where_without_group_filters(tree: exp.Select, dimensions_to_remove: list[st
 
 def _split_and_conditions(condition_sql: str) -> list[str]:
     # Narrow helper for simple validator-repair output; complex boolean trees are skipped upstream.
-    return [part.strip().strip("() ") for part in re.split(r"\s+AND\s+", condition_sql, flags=re.IGNORECASE) if part.strip()]
+    return [
+        part.strip().strip("() ")
+        for part in re.split(r"\s+AND\s+", condition_sql, flags=re.IGNORECASE)
+        if part.strip()
+    ]
 
 
 def _is_binary_filter_on_any(condition: str, columns: list[str]) -> bool:
     for column in columns:
         if re.fullmatch(rf"{re.escape(column)}\s*=\s*[01]", condition, flags=re.IGNORECASE):
             return True
-        if re.fullmatch(rf"[A-Za-z_][A-Za-z0-9_]*\.{re.escape(column)}\s*=\s*[01]", condition, flags=re.IGNORECASE):
+        if re.fullmatch(
+            rf"[A-Za-z_][A-Za-z0-9_]*\.{re.escape(column)}\s*=\s*[01]",
+            condition,
+            flags=re.IGNORECASE,
+        ):
             return True
     return False
 

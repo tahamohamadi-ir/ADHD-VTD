@@ -133,5 +133,8 @@ def test_reliability_review_policy_flag_is_runtime_enforced(tmp_path):
     job = build_ablation_job(config_path)
 
     assert job.runtime_contract["runtime_enforced"]["reliability_gate"] is True
-    assert job.runtime_contract["runtime_enforced"]["reliability_gate_review_consistency_failures"] is True
+    assert (
+        job.runtime_contract["runtime_enforced"]["reliability_gate_review_consistency_failures"]
+        is True
+    )
     assert job.runtime_contract["unknown"] == {}

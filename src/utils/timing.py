@@ -3,6 +3,7 @@
 Provides context managers and decorators for measuring latency
 of pipeline stages (normalization, schema linking, generation, etc.).
 """
+
 from __future__ import annotations
 
 import time
@@ -15,6 +16,7 @@ from typing import Any, Callable, Generator
 @dataclass
 class TimingRecord:
     """Holds the result of a timed operation."""
+
     stage: str
     elapsed_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)

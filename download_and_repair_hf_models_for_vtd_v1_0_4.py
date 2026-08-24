@@ -11,8 +11,8 @@ Windows PowerShell usage:
     cd D:\Project\ADHD-VTD
     .\.venv\Scripts\python.exe -m pip install -U huggingface_hub hf_transfer
 
-    $env:HF_TOKEN = "hf_xxx"                 # optional; needed for gated models
-    $env:HF_HUB_ENABLE_HF_TRANSFER = "1"     # optional; faster downloads
+    $env:HF_TOKEN = "<YOUR_HF_TOKEN>"
+    $env:HF_HUB_ENABLE_HF_TRANSFER = "1"
     $env:PYTHONIOENCODING = "utf-8"
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -246,7 +246,7 @@ def all_ok(checks: list[Check]) -> bool:
     return all(c.ok for c in checks)
 
 
-def backup_path_for(path: Path, suffix: str = "bad") -> Path:
+def backup_path_for(path: Path, suffix: str = "b/ad") -> Path:
     stamp = now_stamp()
     candidate = path.with_name(f"{path.name}.{suffix}_{stamp}")
     counter = 1

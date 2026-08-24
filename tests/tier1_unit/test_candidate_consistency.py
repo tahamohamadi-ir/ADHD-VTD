@@ -55,6 +55,46 @@ def test_candidate_consistency_flags_table_disagreement_without_gold_labels():
     assert {issue.code for issue in report.issues} == {"CANDIDATE_TABLE_DISAGREEMENT"}
     assert "case_id" not in report.signatures["student"]
     assert "gold_sql" not in report.signatures["student"]
+    assert "gold_sql" not in report.as_dict()["signatures"]["student"]
+
+
+def test_candidate_consistency_sanitizes_metadata_and_ignores_case_id_fallback():
+    candidate = SqlCandidate.from_record(
+        {
+            "id": "VTD-hidden",
+            "sql": "SELECT COUNT(*) AS n FROM student_depression",
+            "valid_sql": True,
+            "execution_passed": True,
+            "result_hash": "same-hash",
+            "gold_sql": "SELECT hidden FROM gold",
+            "execution_correct": True,
+            "semantic_policy_label": "correct",
+            "safe_runtime_note": "kept",
+        },
+        0,
+    )
+
+    assert candidate.candidate_id == "candidate_0"
+    assert candidate.metadata == {"safe_runtime_note": "kept"}
+
+    report = analyze_candidate_consistency(
+        [
+            {
+                "id": "VTD-hidden",
+                "sql": "SELECT COUNT(*) AS n FROM student_depression",
+                "valid_sql": True,
+                "execution_passed": True,
+                "result_hash": "same-hash",
+                "gold_sql": "SELECT hidden FROM gold",
+                "execution_correct": True,
+                "semantic_policy_label": "correct",
+                "safe_runtime_note": "kept",
+            }
+        ]
+    )
+
+    assert report.selected_candidate_id == "candidate_0"
+    assert report.passed is True
 
 
 def test_candidate_consistency_flags_result_hash_disagreement():

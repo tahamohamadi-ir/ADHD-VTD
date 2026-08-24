@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from src.evaluation.dataset_loader import read_jsonl, select_samples_per_level, summarize_cases, write_jsonl
+from src.evaluation.dataset_loader import (
+    read_jsonl,
+    select_samples_per_level,
+    summarize_cases,
+    write_jsonl,
+)
 from src.graph.state import LinkedSchema
 
 
@@ -34,7 +39,9 @@ def test_write_jsonl_serializes_project_runtime_objects(tmp_path):
         [
             {
                 "id": "case-1",
-                "linked_schema": LinkedSchema(tables=["student_depression"], columns=["depression_flag"]),
+                "linked_schema": LinkedSchema(
+                    tables=["student_depression"], columns=["depression_flag"]
+                ),
                 "artifact_path": output_path,
             }
         ],

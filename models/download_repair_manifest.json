@@ -1,5 +1,351 @@
 [
   {
+    "label": "Qwen2.5-Coder-0.5B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "tiny",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-0.5B-Instruct-GGUF\\qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-0.5B-Instruct-GGUF\\qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-0.5B-Instruct-GGUF\\qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=468.64 MB, min=200 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=491400064, remote=491400064"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.8
+  },
+  {
+    "label": "Qwen3-0.6B-GGUF",
+    "repo_id": "Qwen/Qwen3-0.6B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "tiny",
+    "status": "ok_existing",
+    "selected_file": "Qwen3-0.6B-Q8_0.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-0.6B-GGUF\\Qwen3-0.6B-Q8_0.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-0.6B-GGUF\\Qwen3-0.6B-Q8_0.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-0.6B-GGUF\\Qwen3-0.6B-Q8_0.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Qwen3-0.6B-Q8_0.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=609.82 MB, min=300 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=639446688, remote=639446688"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.44
+  },
+  {
+    "label": "Llama-3.2-1B-Instruct-GGUF",
+    "repo_id": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-1B-Instruct-GGUF\\Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-1B-Instruct-GGUF\\Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-1B-Instruct-GGUF\\Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=770.28 MB, min=500 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=807694464, remote=807694464"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.4
+  },
+  {
+    "label": "Gemma-3-1B-Instruct-GGUF",
+    "repo_id": "lm-kit/gemma-3-1b-instruct-gguf",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "gemma-3-it-1B-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\lm-kit__gemma-3-1b-instruct-gguf\\gemma-3-it-1B-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\lm-kit__gemma-3-1b-instruct-gguf\\gemma-3-it-1B-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\lm-kit__gemma-3-1b-instruct-gguf\\gemma-3-it-1B-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "gemma-3-it-1B-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=768.72 MB, min=500 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=806058336, remote=806058336"
+      }
+    ],
+    "warnings": [
+      "similar_local_files_found_not_used: D:\\Project\\ADHD-VTD\\models\\generation\\gemma-3-1b-it-q4_0.gguf"
+    ],
+    "error": null,
+    "seconds": 0.43
+  },
+  {
+    "label": "Qwen2.5-Coder-1.5B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-1.5B-Instruct-GGUF\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-1.5B-Instruct-GGUF\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-1.5B-Instruct-GGUF\\qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=1065.56 MB, min=700 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=1117320768, remote=1117320768"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.4
+  },
+  {
+    "label": "Qwen3-1.7B-GGUF",
+    "repo_id": "ggml-org/Qwen3-1.7B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "Qwen3-1.7B-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\ggml-org__Qwen3-1.7B-GGUF\\Qwen3-1.7B-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\ggml-org__Qwen3-1.7B-GGUF\\Qwen3-1.7B-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\ggml-org__Qwen3-1.7B-GGUF\\Qwen3-1.7B-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Qwen3-1.7B-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=1223.03 MB, min=800 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=1282439264, remote=1282439264"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.42
+  },
+  {
+    "label": "SmolLM2-1.7B-Instruct-GGUF",
+    "repo_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "smollm2-1.7b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\HuggingFaceTB__SmolLM2-1.7B-Instruct-GGUF\\smollm2-1.7b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\HuggingFaceTB__SmolLM2-1.7B-Instruct-GGUF\\smollm2-1.7b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\HuggingFaceTB__SmolLM2-1.7B-Instruct-GGUF\\smollm2-1.7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "smollm2-1.7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=1006.71 MB, min=800 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=1055609536, remote=1055609536"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.42
+  },
+  {
+    "label": "Granite-3.3-2B-Instruct-GGUF",
+    "repo_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "small",
+    "status": "ok_existing",
+    "selected_file": "granite-3.3-2b-instruct-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\ibm-granite__granite-3.3-2b-instruct-GGUF\\granite-3.3-2b-instruct-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\ibm-granite__granite-3.3-2b-instruct-GGUF\\granite-3.3-2b-instruct-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\ibm-granite__granite-3.3-2b-instruct-GGUF\\granite-3.3-2b-instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "granite-3.3-2b-instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=1473.72 MB, min=900 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=1545303328, remote=1545303328"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.54
+  },
+  {
     "label": "Qwen2.5-Coder-3B-Instruct-GGUF",
     "repo_id": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
     "kind": "generation",
@@ -40,15 +386,58 @@
     ],
     "warnings": [],
     "error": null,
-    "seconds": 0.94
+    "seconds": 0.42
   },
   {
-    "label": "Qwen3-4B-GGUF",
-    "repo_id": "ggml-org/Qwen3-4B-GGUF",
+    "label": "Phi-4-mini-instruct-GGUF",
+    "repo_id": "unsloth/Phi-4-mini-instruct-GGUF",
     "kind": "generation",
     "format": "gguf",
     "tier": "medium",
-    "status": "interrupted",
+    "status": "ok_existing",
+    "selected_file": "Phi-4-mini-instruct-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\unsloth__Phi-4-mini-instruct-GGUF\\Phi-4-mini-instruct-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\unsloth__Phi-4-mini-instruct-GGUF\\Phi-4-mini-instruct-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\unsloth__Phi-4-mini-instruct-GGUF\\Phi-4-mini-instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Phi-4-mini-instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=2376.44 MB, min=1800 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2491874272, remote=2491874272"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.41
+  },
+  {
+    "label": "Qwen3-4B-Instruct-2507-GGUF",
+    "repo_id": "Qwen/Qwen3-4B-Instruct-2507-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "skipped_repo_not_found_or_private",
     "selected_file": null,
     "local_path": null,
     "canonical_path": null,
@@ -56,7 +445,443 @@
     "backup_path": null,
     "checks": [],
     "warnings": [],
-    "error": "KeyboardInterrupt",
-    "seconds": 203.88
+    "error": "401 Client Error. (Request ID: Root=1-6a15e1d6-57b376696e475c5b28e2c2d7;5ee4faba-5f07-4ab9-a1e9-fd8c43dcf97e)\n\nRepository Not Found for url: https://huggingface.co/api/models/Qwen/Qwen3-4B-Instruct-2507-GGUF/tree/main?recursive=true&expand=false.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password.",
+    "seconds": 0.19
+  },
+  {
+    "label": "Qwen3-4B-GGUF",
+    "repo_id": "Qwen/Qwen3-4B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "ok_existing",
+    "selected_file": "Qwen3-4B-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-4B-GGUF\\Qwen3-4B-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-4B-GGUF\\Qwen3-4B-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-4B-GGUF\\Qwen3-4B-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Qwen3-4B-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=2381.59 MB, min=1800 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2497280256, remote=2497280256"
+      }
+    ],
+    "warnings": [
+      "similar_local_files_found_not_used: D:\\Project\\ADHD-VTD\\models\\generation\\Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+    ],
+    "error": null,
+    "seconds": 0.42
+  },
+  {
+    "label": "Qwen3.5-4B-GGUF",
+    "repo_id": "lmstudio-community/Qwen3.5-4B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "ok_existing",
+    "selected_file": "Qwen3.5-4B-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\lmstudio-community__Qwen3.5-4B-GGUF\\Qwen3.5-4B-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\lmstudio-community__Qwen3.5-4B-GGUF\\Qwen3.5-4B-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\lmstudio-community__Qwen3.5-4B-GGUF\\Qwen3.5-4B-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Qwen3.5-4B-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=2582.09 MB, min=1800 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2707513696, remote=2707513696"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.41
+  },
+  {
+    "label": "Llama-3.2-3B-Instruct-GGUF",
+    "repo_id": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "ok_existing",
+    "selected_file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-3B-Instruct-GGUF\\Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-3B-Instruct-GGUF\\Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-3B-Instruct-GGUF\\Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=1925.83 MB, min=1400 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2019377696, remote=2019377696"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.41
+  },
+  {
+    "label": "Qwen2.5-Coder-7B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "large",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-7B-Instruct-GGUF\\qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=4466.13 MB, min=3000 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=4683073536, remote=4683073536"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.41
+  },
+  {
+    "label": "SQLCoder-7B-GGUF",
+    "repo_id": "TheBloke/sqlcoder-7B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "large",
+    "status": "ok_existing",
+    "selected_file": "sqlcoder-7b.Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__sqlcoder-7B-GGUF\\sqlcoder-7b.Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__sqlcoder-7B-GGUF\\sqlcoder-7b.Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__sqlcoder-7B-GGUF\\sqlcoder-7b.Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "sqlcoder-7b.Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=4166.07 MB, min=3000 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=4368438976, remote=4368438976"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.41
+  },
+  {
+    "label": "NSQL-Llama-2-7B-GGUF",
+    "repo_id": "TheBloke/nsql-llama-2-7B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "large",
+    "status": "ok_existing",
+    "selected_file": "nsql-llama-2-7b.Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__nsql-llama-2-7B-GGUF\\nsql-llama-2-7b.Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__nsql-llama-2-7B-GGUF\\nsql-llama-2-7b.Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\TheBloke__nsql-llama-2-7B-GGUF\\nsql-llama-2-7b.Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "nsql-llama-2-7b.Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=3891.95 MB, min=3000 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=4081004256, remote=4081004256"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.81
+  },
+  {
+    "label": "Mistral-7B-Instruct-v0.3-GGUF",
+    "repo_id": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "large",
+    "status": "ok_existing",
+    "selected_file": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Mistral-7B-Instruct-v0.3-GGUF\\Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Mistral-7B-Instruct-v0.3-GGUF\\Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Mistral-7B-Instruct-v0.3-GGUF\\Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=4170.24 MB, min=3000 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=4372812000, remote=4372812000"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.4
+  },
+  {
+    "label": "multilingual-e5-small",
+    "repo_id": "intfloat/multilingual-e5-small",
+    "kind": "embedding",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "failed",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "ValueError(\"Invalid name 'intfloat__multilingual-e5-small.b/ad_20260526_110942'\")",
+    "seconds": 0.74
+  },
+  {
+    "label": "paraphrase-multilingual-mpnet-base-v2",
+    "repo_id": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+    "kind": "embedding",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "failed",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "ValueError(\"Invalid name 'paraphrase-multilingual-mpnet-base-v2.b/ad_20260526_110953'\")",
+    "seconds": 0.47
+  },
+  {
+    "label": "bge-m3",
+    "repo_id": "BAAI/bge-m3",
+    "kind": "embedding",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "failed",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "ValueError(\"Invalid name 'BAAI__bge-m3.b/ad_20260526_111004'\")",
+    "seconds": 0.2
+  },
+  {
+    "label": "Qwen3-Embedding-0.6B",
+    "repo_id": "Qwen/Qwen3-Embedding-0.6B",
+    "kind": "embedding",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "ok_existing",
+    "selected_file": null,
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\embeddings\\Qwen__Qwen3-Embedding-0.6B",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\embeddings\\Qwen__Qwen3-Embedding-0.6B",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_snapshot_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\embeddings\\Qwen__Qwen3-Embedding-0.6B"
+      },
+      {
+        "name": "config_or_modules_exists",
+        "ok": true,
+        "detail": "config.json=True, modules.json=True"
+      },
+      {
+        "name": "model_weight_exists",
+        "ok": true,
+        "detail": "weights=1"
+      },
+      {
+        "name": "remote_file_list_available",
+        "ok": true,
+        "detail": "expected=11 files"
+      },
+      {
+        "name": "all_expected_files_present",
+        "ok": true,
+        "detail": "missing=0"
+      },
+      {
+        "name": "all_sizes_match",
+        "ok": true,
+        "detail": "mismatches=0"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.21
+  },
+  {
+    "label": "bge-reranker-base",
+    "repo_id": "BAAI/bge-reranker-base",
+    "kind": "reranker",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "failed",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "ValueError(\"Invalid name 'bge-reranker-base.b/ad_20260526_111015'\")",
+    "seconds": 0.37
+  },
+  {
+    "label": "bge-reranker-v2-m3",
+    "repo_id": "BAAI/bge-reranker-v2-m3",
+    "kind": "reranker",
+    "format": "snapshot",
+    "tier": "retrieval",
+    "status": "failed",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "ValueError(\"Invalid name 'BAAI__bge-reranker-v2-m3.b/ad_20260526_111026'\")",
+    "seconds": 0.2
   }
 ]

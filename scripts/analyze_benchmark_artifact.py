@@ -12,8 +12,12 @@ def build_parser() -> argparse.ArgumentParser:
         description="Generate a Phase 11 error-analysis report from a real benchmark artifact."
     )
     parser.add_argument("artifact_dir", help="Path to results/benchmark/<run> directory.")
-    parser.add_argument("--output-dir", help="Optional output directory under results/error_analysis.")
-    parser.add_argument("--max-examples", type=int, default=20, help="Maximum representative failures to include.")
+    parser.add_argument(
+        "--output-dir", help="Optional output directory under results/error_analysis."
+    )
+    parser.add_argument(
+        "--max-examples", type=int, default=20, help="Maximum representative failures to include."
+    )
     return parser
 
 

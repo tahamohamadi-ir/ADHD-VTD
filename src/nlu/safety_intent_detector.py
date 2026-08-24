@@ -204,8 +204,12 @@ class SafetyIntentDetector:
 
         for phrase in self.PERSIAN_DANGEROUS:
             if phrase in norm:
-                if phrase in {"\u062d\u0630\u0641 \u06a9\u0646", "\u067e\u0627\u06a9 \u06a9\u0646"} and (
-                    self._is_analytical_exclusion_request(norm) or "\u062f\u0627\u062f\u0647 \u067e\u0631\u062a" in norm
+                if phrase in {
+                    "\u062d\u0630\u0641 \u06a9\u0646",
+                    "\u067e\u0627\u06a9 \u06a9\u0646",
+                } and (
+                    self._is_analytical_exclusion_request(norm)
+                    or "\u062f\u0627\u062f\u0647 \u067e\u0631\u062a" in norm
                 ):
                     continue
                 matched.append(phrase)
@@ -315,9 +319,13 @@ class SafetyIntentDetector:
             "column",
             "rows",
         ]
-        if any(target in norm for target in destructive_targets) and not any(cue in norm for cue in exclusion_cues[:4]):
+        if any(target in norm for target in destructive_targets) and not any(
+            cue in norm for cue in exclusion_cues[:4]
+        ):
             return False
-        return any(cue in norm for cue in exclusion_cues) and any(cue in norm for cue in analytical_cues)
+        return any(cue in norm for cue in exclusion_cues) and any(
+            cue in norm for cue in analytical_cues
+        )
 
     def _is_aggregate_request(self, norm: str) -> bool:
         aggregate_cues = [
@@ -349,7 +357,9 @@ class SafetyIntentDetector:
             "email",
             "phone",
         ]
-        return any(cue in norm for cue in aggregate_cues) and not any(cue in norm for cue in identifier_cues)
+        return any(cue in norm for cue in aggregate_cues) and not any(
+            cue in norm for cue in identifier_cues
+        )
 
     def is_safe(self, text: str) -> bool:
         return self.detect(text).is_safe

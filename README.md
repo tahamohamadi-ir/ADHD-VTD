@@ -8,21 +8,31 @@
 
 ## 1. Current Status
 
-Phase 0 با موفقیت انجام شده است:
+این پروژه از فازهای پایه عبور کرده و اکنون یک runtime پژوهشی reliability-first با گراف حالتمند دارد:
 
 ```text
-پروژه با موفقیت از فازهای پیاده‌سازی اولیه عبور کرده و اکنون دارای یک پایپ‌لاین هوشمند و شتاب‌دهی شده است:
-
-```text
-✅ Phase 0: Schema Freeze & Audit (50/50 gold SQL passed)
-✅ Phase 1-4: NLU, QIR, Schema Linking & Validation Stack (Completed)
-✅ Phase 5: Local LLM Layer (GPU-accelerated Qwen-7B, 12x speedup achieved)
-✅ Phase 8: LangGraph Orchestration (Stateful research runtime implemented)
-✅ Phase 9: Reflexion Loop (Self-correction logic for SQL repair active)
-✅ Milestone 1.5: Stress-test passed with 100% safety rejection
+✅ Phases 0-7: Schema Freeze, NLU, QIR, Schema/Value Linking, SQL Validation Stack,
+   Local LLM Layer, Stress Test, Hybrid CAG/RAG Retrieval (Completed)
+✅ Phase 8: LangGraph Orchestration (Completed; --checkpoint-db SQLite checkpointing,
+   Mermaid diagram export added; retrieve_values helper implemented, not routed)
+✅ Phase 9: Graph-Level Reflexion / SQL Repair (Basic)
+✅ Phase 10: Benchmark Runner (Completed - infrastructure; artifact contract enforced)
+🚧 Phase 11 / 13 / 16: Ablation, Reliability Gate, Semantic Judge (In progress)
+🚧 Phase 12: Output, Chart, Narrative (Implemented - code/tests/narrative;
+   behavior-benchmark rerun pending user GPU run)
+✅ Phase 17: Pipeline & Prompt Optimization (Completed)
+🚧 Phase 18.7: Anti-overfit zero/few-shot push toward strict EX >= 65% (In progress)
 ```
 
-**دستاورد کلیدی اخیر:** انتقال از یک سیستم خطی ساده به یک گراف حالتمند (Agentic) که قادر به تشخیص ابهام، خوداصلاحی در صورت بروز خطای SQL و پاسخ‌دهی سریع روی GPU لپ‌تاپ (GeForce RTX 3050) است.
+ابزارها و اجزای اخیر (fact پیاده‌سازی، نه نتیجه benchmark):
+
+- holdout ضد-overfit `phase18_7_holdout_paraphrase48.json` و retrieval ablation configs `c0/c1/c2`.
+- ablation flag ‏`reliability_gate_routing` برای مقایسه annotation-only در برابر routed gate.
+- ‏`CrossEncoderReranker` مدل‌محور با identity fallback و propagation مربوط به retrieval backend/reranker در agent mode.
+- زنجیره خروجی مطابق spec در گراف: `recommend_chart -> log_benchmark_record -> END`.
+- روایت‌ساز فارسی متصل به answer payloads؛ judge adjudication import و human spot-check package/import با Cohen's kappa.
+
+هر عدد یا ادعای کیفیت فقط از طریق artifact معتبر `results/benchmark/...` گزارش می‌شود.
 
 ---
 
@@ -64,11 +74,15 @@ The LLM is only a **candidate SQL generator**. It is never trusted as the source
 | Read-only executor | Phase 4 | Done |
 | Basic local LLM generation | Phase 5 | Done |
 | Hybrid CAG/RAG | Phase 7 | Done |
-| Reflexion / Self-Correction | Phase 9 | ✅ COMPLETED (Advanced Critic/Planner) |
-| Benchmark Runner | Phase 10 | ⚡ 90% (Full Agent Mode) |
-| Ablation & Error Analysis | Phase 11 | ⚡ 20% (Ablation Control) |
-| Multi-candidate / Reliability | Phase 13 | In Progress |
-| Edge state machine | Phase 14 | Later |
+| Reflexion / Self-Correction | Phase 9 | ✅ Basic completed |
+| Benchmark Runner | Phase 10 | ✅ Completed (infrastructure) |
+| Ablation & Error Analysis | Phase 11 | 🚧 In progress |
+| Output / Chart / Narrative | Phase 12 | 🚧 Implemented - code/tests/narrative (behavior rerun pending user GPU run) |
+| Multi-candidate / Reliability | Phase 13 | 🚧 In progress (gate routing experiment pending) |
+| Edge state machine | Phase 14 | 🚧 Prototype implemented (profiler/caches/EdgePipeline; comparisons pending) |
+| Research Packaging | Phase 15 | 🚧 Tooling implemented (bundle/CI/Dockerfile/pre-commit; final packaging pending paper promotion) |
+| Pipeline & Prompt Optimization | Phase 17 | ✅ Completed |
+| Zero-Shot Mastery Push | Phase 18.7 | 🚧 In progress (anti-overfit push toward strict EX >= 65%) |
 
 ---
 
@@ -96,6 +110,9 @@ ADHD-VTD/
 │   ├── generation/
 │   ├── retrieval/
 │   ├── evaluation/
+│   ├── graph/
+│   ├── reflexion/
+│   ├── utils/
 │   └── output/
 └── tests/
 ```
@@ -175,12 +192,13 @@ LIMIT required for raw row retrieval
 
 ## 9. Next Implementation Milestone
 
-پس از تثبیت گراف و لایه تولید، تمرکز پروژه بر روی موارد زیر است:
+تمرکز فعلی پروژه روی Phase 18.7 است و residue فازهای دیگر بعد از آن بسته می‌شود:
 
 ```text
-M2: Full Benchmark Runner & Error Analysis (Phase 10)
-M3: Ablation Studies & Research Metrics (Phase 11)
-M4: Output Formatting & Data Storytelling (Phase 12)
+Phase 18.7: anti-overfit zero/few-shot push toward strict EX >= 65%
+    (holdout paraphrase48 + retrieval c0/c1/c2 ablations + reliability_gate_routing flag)
+Phase 12 residue: behavior-benchmark rerun after output-chain integration (user GPU run)
+Phase 15 residue: final packaging after paper promotion artifacts
 ```
 
 برای اجرای سیستم در حالت فعلی:

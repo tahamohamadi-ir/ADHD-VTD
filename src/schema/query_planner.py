@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from src.core.enums import IntentLabel
@@ -39,7 +38,13 @@ _TWO_SIDED_TERMS = (
     "depressed and non-depressed",
     "depressed and non depressed",
 )
-_RATE_TERMS = ("rate", "percent", "percentage", "\u0646\u0631\u062e", "\u062f\u0631\u0635\u062f")
+_RATE_TERMS = (
+    "rate",
+    "percent",
+    "percentage",
+    "\u0646\u0631\u062e",
+    "\u062f\u0631\u0635\u062f",
+)
 _AVG_TERMS = ("avg", "average", "mean", "\u0645\u06cc\u0627\u0646\u06af\u06cc\u0646")
 _COUNT_TERMS = ("count", "\u062a\u0639\u062f\u0627\u062f", "\u0686\u0646\u062f")
 
@@ -144,16 +149,17 @@ class QueryPlanner:
         schema_link: SchemaLinkResult | None = None,
     ) -> QueryIR:
         """Build the structured QueryIR representation."""
-        
+
         # 1. Base initialization from Intent
         qir = QueryIR(
             task_type=str(intent),
-            should_generate_sql=intent not in (
+            should_generate_sql=intent
+            not in (
                 IntentLabel.UNSAFE_QUERY,
                 IntentLabel.AMBIGUOUS_QUERY,
                 IntentLabel.DEFINITION_QUERY,
                 IntentLabel.NON_SQL_REQUEST,
-            )
+            ),
         )
 
         normalized = (normalized_question or "").lower()
@@ -224,11 +230,19 @@ class QueryPlanner:
                 self._append_unique(qir.metrics, "treatment")
             elif "seeks_treatment" in columns or "mental_health_general" in tables:
                 self._append_unique(qir.metrics, "seeks_treatment")
-            qir.expected_result_shape = "table" if qir.dimensions else qir.expected_result_shape or "scalar"
+            qir.expected_result_shape = (
+                "table" if qir.dimensions else qir.expected_result_shape or "scalar"
+            )
             qir.dimensions = [dim for dim in qir.dimensions if dim not in qir.metrics]
 
         if _contains_any(normalized, _AVG_TERMS):
-            for metric in ("cgpa_10", "exam_score", "prevalence_pct", "depression_score", "anxiety_score"):
+            for metric in (
+                "cgpa_10",
+                "exam_score",
+                "prevalence_pct",
+                "depression_score",
+                "anxiety_score",
+            ):
                 if metric in columns:
                     self._append_unique(qir.metrics, metric)
 
@@ -256,14 +270,22 @@ class QueryPlanner:
             "\u0631\u06cc\u0633\u06a9": "mental_health_risk",
             "risk": "mental_health_risk",
         }
-        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(normalized, _TWO_SIDED_TERMS)
+        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(
+            normalized, _TWO_SIDED_TERMS
+        )
         if asks_grouping:
             for term, column in text_dimension_aliases.items():
-                if term in normalized and (not columns or column in columns or self._column_available_in_tables(column, tables)):
+                if term in normalized and (
+                    not columns
+                    or column in columns
+                    or self._column_available_in_tables(column, tables)
+                ):
                     self._append_unique(qir.dimensions, column)
 
     def _finalize_shape(self, qir: QueryIR, normalized: str, intent: IntentLabel) -> None:
-        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(normalized, _TWO_SIDED_TERMS)
+        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(
+            normalized, _TWO_SIDED_TERMS
+        )
         if intent in _TABLE_SHAPE_INTENTS or asks_grouping or len(qir.dimensions) > 0:
             qir.expected_result_shape = "table"
         if intent == IntentLabel.COUNT_QUERY and asks_grouping:
@@ -274,7 +296,8 @@ class QueryPlanner:
 
     def _remove_dataset_name_filters(self, qir: QueryIR, normalized: str) -> None:
         dataset_context = (
-            "\u062f\u06cc\u062a\u0627\u0633\u062a \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646 \u0627\u0641\u0633\u0631\u062f\u06af\u06cc" in normalized
+            "\u062f\u06cc\u062a\u0627\u0633\u062a \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646 \u0627\u0641\u0633\u0631\u062f\u06af\u06cc"
+            in normalized
             or "student_depression" in normalized
         )
         two_sided = _contains_any(normalized, _TWO_SIDED_TERMS)
@@ -286,8 +309,12 @@ class QueryPlanner:
             if not (filt.get("column") == "depression_flag" and filt.get("value") == 1)
         ]
 
-    def _remove_filter_only_dimensions(self, qir: QueryIR, normalized: str, intent: IntentLabel) -> None:
-        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(normalized, _TWO_SIDED_TERMS)
+    def _remove_filter_only_dimensions(
+        self, qir: QueryIR, normalized: str, intent: IntentLabel
+    ) -> None:
+        asks_grouping = _contains_any(normalized, _GROUPING_TERMS) or _contains_any(
+            normalized, _TWO_SIDED_TERMS
+        )
         if asks_grouping or intent in _TABLE_SHAPE_INTENTS:
             return
         filter_columns = {str(filt.get("column")) for filt in qir.filters}

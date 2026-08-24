@@ -60,10 +60,16 @@ def is_sql_correct(record: dict[str, Any]) -> bool:
 
 
 def is_unsafe_sql(record: dict[str, Any]) -> bool:
-    return bool(record.get("unsafe_sql_generated") or record.get("unsafe_sql") or record.get("safety_violation"))
+    return bool(
+        record.get("unsafe_sql_generated")
+        or record.get("unsafe_sql")
+        or record.get("safety_violation")
+    )
 
 
-def reliability_score(records: Iterable[dict[str, Any]], weights: ReliabilityWeights | None = None) -> ReliabilityScoreResult:
+def reliability_score(
+    records: Iterable[dict[str, Any]], weights: ReliabilityWeights | None = None
+) -> ReliabilityScoreResult:
     w = weights or ReliabilityWeights()
     rows = list(records)
     correct_sql = correct_abstention = wrong_sql = wrong_abstention = unsafe_sql = 0
@@ -110,4 +116,10 @@ def reliability_score(records: Iterable[dict[str, Any]], weights: ReliabilityWei
 
 def reliability_metric(records: Iterable[dict[str, Any]]) -> MetricResult:
     rs = reliability_score(records)
-    return MetricResult("reliability_score", rs.normalized_score, None, rs.total_cases, "EHRSQL-inspired SQL correctness + correct abstention score")
+    return MetricResult(
+        "reliability_score",
+        rs.normalized_score,
+        None,
+        rs.total_cases,
+        "EHRSQL-inspired SQL correctness + correct abstention score",
+    )

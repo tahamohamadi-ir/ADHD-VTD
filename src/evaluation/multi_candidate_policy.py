@@ -104,9 +104,7 @@ def multi_candidate_policy_from_config(
         allowed_triggers=_trigger_tuple_or_none(
             runtime_config.get("multi_candidate_allowed_triggers")
         ),
-        blocked_triggers=_trigger_tuple(
-            runtime_config.get("multi_candidate_blocked_triggers")
-        ),
+        blocked_triggers=_trigger_tuple(runtime_config.get("multi_candidate_blocked_triggers")),
     )
 
 
@@ -125,14 +123,10 @@ def _trigger_tuple(value: Any) -> tuple[str, ...]:
         raw_values = value
     else:
         raw_values = (value,)
-    return tuple(
-        sorted({str(item).strip() for item in raw_values if str(item).strip()})
-    )
+    return tuple(sorted({str(item).strip() for item in raw_values if str(item).strip()}))
 
 
-def _adaptive_triggers(
-    record: dict[str, Any], policy: MultiCandidatePolicy
-) -> list[str]:
+def _adaptive_triggers(record: dict[str, Any], policy: MultiCandidatePolicy) -> list[str]:
     triggers: list[str] = []
     retry_count = _int_or_default(record.get("retry_count"), 0)
     if retry_count > 0:
@@ -176,9 +170,7 @@ def _filter_triggers(
     triggers: list[str],
     policy: MultiCandidatePolicy,
 ) -> tuple[list[str], list[str]]:
-    allowed = (
-        set(policy.allowed_triggers) if policy.allowed_triggers is not None else None
-    )
+    allowed = set(policy.allowed_triggers) if policy.allowed_triggers is not None else None
     blocked = set(policy.blocked_triggers)
     kept = sorted(
         {
@@ -196,20 +188,15 @@ def _has_complexity_marker(record: dict[str, Any]) -> bool:
     qir_dict = qir if isinstance(qir, dict) else {}
     if qir_dict.get("chart_intent") or qir_dict.get("time_range"):
         return True
-    if (
-        len(qir_dict.get("metrics") or []) > 1
-        or len(qir_dict.get("dimensions") or []) > 1
-    ):
+    if len(qir_dict.get("metrics") or []) > 1 or len(qir_dict.get("dimensions") or []) > 1:
         return True
     if qir_dict.get("expected_result_shape") == "table" and (
-        len(qir_dict.get("dimensions") or []) >= 1
-        or len(qir_dict.get("metrics") or []) >= 1
+        len(qir_dict.get("dimensions") or []) >= 1 or len(qir_dict.get("metrics") or []) >= 1
     ):
         return True
 
     text = " ".join(
-        str(record.get(key) or "")
-        for key in ("question", "normalized_question", "raw_question")
+        str(record.get(key) or "") for key in ("question", "normalized_question", "raw_question")
     ).lower()
     markers = (
         "dashboard",

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from difflib import SequenceMatcher
+from pathlib import Path
 
 try:
     from src.config.paths import VALUE_DICTIONARY_PATH
@@ -12,6 +12,7 @@ try:
 except Exception:  # pragma: no cover
     VALUE_DICTIONARY_PATH = Path("data/schema/value_dictionary.generated.json")
     from persian_normalizer import PersianNormalizer
+
 
 @dataclass(frozen=True)
 class ValueLink:
@@ -21,6 +22,7 @@ class ValueLink:
     confidence: float
     source: str
     reason: str | None = None
+
 
 class ValueLinker:
     """Resolve natural-language values to real DB values.
@@ -42,28 +44,138 @@ class ValueLinker:
         "پسر": {"value": "Male", "columns_like": ["gender"]},
         "male": {"value": "Male", "columns_like": ["gender"]},
         # binary yes/no
-        "بله": {"value": 1, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "دارد": {"value": 1, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "دارند": {"value": 1, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "yes": {"value": 1, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "ندارد": {"value": 0, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "ندارند": {"value": 0, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "خیر": {"value": 0, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
-        "no": {"value": 0, "columns_like": ["flag", "history", "treatment", "thoughts", "diagnosis", "attack"]},
+        "بله": {
+            "value": 1,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "دارد": {
+            "value": 1,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "دارند": {
+            "value": 1,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "yes": {
+            "value": 1,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "ندارد": {
+            "value": 0,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "ندارند": {
+            "value": 0,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "خیر": {
+            "value": 0,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
+        "no": {
+            "value": 0,
+            "columns_like": [
+                "flag",
+                "history",
+                "treatment",
+                "thoughts",
+                "diagnosis",
+                "attack",
+            ],
+        },
         # depression / diagnosis flags
         # Note: PersianNormalizer/ColloquialMapper may normalize "افسرده" and "depressed" to "افسردگی".
         # Therefore both symptom/condition terms and normalized terms must resolve to the binary flag
         # when the candidate column is a flag/diagnosis column.
-        "افسرده": {"value": 1, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "افسردگی": {"value": 1, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "depressed": {"value": 1, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "افسردگی دارد": {"value": 1, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "دارای افسردگی": {"value": 1, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "غیرافسرده": {"value": 0, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "غیر افسرده": {"value": 0, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "بدون افسردگی": {"value": 0, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "افسردگی ندارد": {"value": 0, "columns_like": ["depression_flag", "depression_diagnosis"]},
-        "افسردگی ندارند": {"value": 0, "columns_like": ["depression_flag", "depression_diagnosis"]},
+        "افسرده": {
+            "value": 1,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "افسردگی": {
+            "value": 1,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "depressed": {
+            "value": 1,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "افسردگی دارد": {
+            "value": 1,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "دارای افسردگی": {
+            "value": 1,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "غیرافسرده": {
+            "value": 0,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "غیر افسرده": {
+            "value": 0,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "بدون افسردگی": {
+            "value": 0,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "افسردگی ندارد": {
+            "value": 0,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
+        "افسردگی ندارند": {
+            "value": 0,
+            "columns_like": ["depression_flag", "depression_diagnosis"],
+        },
         # risk levels
         "ریسک بالا": {"value": "High", "columns_like": ["risk"]},
         "پرریسک": {"value": "High", "columns_like": ["risk"]},
@@ -73,12 +185,14 @@ class ValueLinker:
         "ریسک پایین": {"value": "Low", "columns_like": ["risk"]},
         "low": {"value": "Low", "columns_like": ["risk"]},
         # disorders
-        "افسردگی": {"value": "depression", "columns_like": ["disorder"]},
         "اضطراب": {"value": "anxiety", "columns_like": ["disorder"]},
         "دوقطبی": {"value": "bipolar", "columns_like": ["disorder"]},
         "اسکیزوفرنی": {"value": "schizophrenia", "columns_like": ["disorder"]},
         "اختلال خوردن": {"value": "eating_disorder", "columns_like": ["disorder"]},
     }
+    MANUAL_EXTRA_ALIASES: tuple[tuple[str, dict[str, object]], ...] = (
+        ("افسردگی", {"value": "depression", "columns_like": ["disorder"]}),
+    )
 
     def __init__(self, value_dictionary_path: str | Path | None = None) -> None:
         self.path = Path(value_dictionary_path or VALUE_DICTIONARY_PATH)
@@ -118,9 +232,17 @@ class ValueLinker:
         "افسردگی ندارد" where the normalized text still contains "افسردگی".
         """
         negative_patterns = [
-            "غیرافسرده", "غیر افسرده", "بدون افسردگی", "افسردگی ندارد",
-            "افسردگی ندارند", "افسردگی نداره", "افسردگی ندارن", "not depressed",
-            "non depressed", "non-depressed", "no depression",
+            "غیرافسرده",
+            "غیر افسرده",
+            "بدون افسردگی",
+            "افسردگی ندارد",
+            "افسردگی ندارند",
+            "افسردگی نداره",
+            "افسردگی ندارن",
+            "not depressed",
+            "non depressed",
+            "non-depressed",
+            "no depression",
         ]
         return any(p in norm for p in negative_patterns)
 
@@ -154,21 +276,45 @@ class ValueLinker:
         negative_depression = self._has_negative_depression_context(norm)
         dataset_only_depression = self._is_dataset_only_depression_context(norm)
 
-        for alias, spec in sorted(self.MANUAL_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+        aliases = [*self.MANUAL_ALIASES.items(), *self.MANUAL_EXTRA_ALIASES]
+        for alias, spec in sorted(aliases, key=lambda x: len(x[0]), reverse=True):
             alias_norm = self.normalizer.normalize_text(alias).lower()
-            if alias_norm in norm and self._column_matches_alias(column, list(spec["columns_like"])):
+            if alias_norm in norm and self._column_matches_alias(
+                column, list(spec["columns_like"])
+            ):
                 value = spec["value"]
                 # If the phrase is explicitly negative for depression, do not also emit the positive
                 # normalized alias "افسردگی" for depression_flag/depression_diagnosis.
-                if negative_depression and value == 1 and self._column_matches_alias(column, ["depression_flag", "depression_diagnosis"]):
+                if (
+                    negative_depression
+                    and value == 1
+                    and self._column_matches_alias(
+                        column, ["depression_flag", "depression_diagnosis"]
+                    )
+                ):
                     continue
-                if dataset_only_depression and value == 1 and (
-                    self._column_matches_alias(column, ["depression_flag", "depression_diagnosis"])
-                    or self._column_matches_alias(column, ["disorder"])
+                if (
+                    dataset_only_depression
+                    and value == 1
+                    and (
+                        self._column_matches_alias(
+                            column, ["depression_flag", "depression_diagnosis"]
+                        )
+                        or self._column_matches_alias(column, ["disorder"])
+                    )
                 ):
                     continue
                 if self._value_exists(column, value):
-                    links.append(ValueLink(column, alias, value, 0.96, "manual_alias", f"{alias} -> {value}"))
+                    links.append(
+                        ValueLink(
+                            column,
+                            alias,
+                            value,
+                            0.96,
+                            "manual_alias",
+                            f"{alias} -> {value}",
+                        )
+                    )
 
         # Exact/fuzzy string match against profiled values
         for value in self.column_values.get(column, []):
@@ -176,11 +322,32 @@ class ValueLinker:
                 continue
             value_s = str(value).lower()
             if value_s and value_s in norm:
-                links.append(ValueLink(column, str(value), value, 0.98, "value_dictionary", "Exact value mention."))
+                links.append(
+                    ValueLink(
+                        column,
+                        str(value),
+                        value,
+                        0.98,
+                        "value_dictionary",
+                        "Exact value mention.",
+                    )
+                )
             else:
                 for token in re.findall(r"[\w\u0600-\u06FF_-]+", norm):
-                    if len(token) >= 4 and SequenceMatcher(None, token.lower(), value_s).ratio() >= 0.88:
-                        links.append(ValueLink(column, token, value, 0.82, "value_dictionary_fuzzy", "Fuzzy value match."))
+                    if (
+                        len(token) >= 4
+                        and SequenceMatcher(None, token.lower(), value_s).ratio() >= 0.88
+                    ):
+                        links.append(
+                            ValueLink(
+                                column,
+                                token,
+                                value,
+                                0.82,
+                                "value_dictionary_fuzzy",
+                                "Fuzzy value match.",
+                            )
+                        )
 
         # Deduplicate by column/resolved_value
         dedup: dict[tuple[str, str], ValueLink] = {}

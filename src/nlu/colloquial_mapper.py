@@ -3,11 +3,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+
 @dataclass(frozen=True)
 class ColloquialMappingResult:
     original: str
     normalized: str
     matched_terms: dict[str, str] = field(default_factory=dict)
+
 
 class ColloquialMapper:
     """Map colloquial Persian, Finglish, typos, and mixed English terms to canonical terms."""

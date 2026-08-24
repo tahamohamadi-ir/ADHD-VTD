@@ -53,6 +53,8 @@ def test_build_dual_policy_report_merges_agreement_reports(tmp_path):
     report = paths["report"].read_text(encoding="utf-8")
 
     assert summary["common_cases"] == 2
+    assert summary["authoritative"] is False
+    assert summary["complete_policy_labels"] is False
     assert summary["semantic_counts"] == {"correct": 1, "adjudication_required": 1}
     assert summary["strict_counts"] == {"incorrect": 1, "correct": 1}
     assert summary["combined_counts"] == {

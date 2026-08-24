@@ -55,6 +55,18 @@ Open:
 - `src/nlu/`
 - `src/schema/`
 
+## Architecture cleanup task
+
+Open:
+
+- `docs/08_PROJECT_STRUCTURE_AND_FILE_MAP.md`
+- `docs/context-hub/PROJECT_RULES.md`
+- the smallest affected module under `src/`
+- focused tests for that module
+
+Do not mix architecture cleanup with benchmark metric promotion or dataset
+changes.
+
 ## Paper claim task
 
 Open:

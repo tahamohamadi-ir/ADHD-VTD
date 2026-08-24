@@ -1,8 +1,9 @@
 """Unit tests for ReadOnlyExecutor (mock DB)."""
+
 from __future__ import annotations
-import pytest
 from unittest.mock import patch, MagicMock
 from src.db.read_only_executor import ReadOnlyExecutor
+
 
 class TestSafetyGate:
     def test_rejects_unsafe_sql(self):
@@ -15,6 +16,7 @@ class TestSafetyGate:
         executor = ReadOnlyExecutor(db_path="dummy.db")
         result = executor.execute_readonly("DELETE FROM t")
         assert not result.ok
+
 
 class TestValidExecution:
     def test_valid_sql_with_mock_db(self):
@@ -31,6 +33,7 @@ class TestValidExecution:
             executor = ReadOnlyExecutor(db_path="test.db")
             result = executor.execute_readonly("SELECT COUNT(*) as count FROM student_depression")
             assert result.ok
+
 
 class TestGoldSQL:
     def test_missing_gold_sql(self):

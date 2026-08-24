@@ -377,9 +377,7 @@ def check_release_readiness(
             for role in ("baseline_artifact_dir", "adaptive_artifact_dir"):
                 artifact_path = Path(str(report.checked.get(role) or ""))
                 artifact_report = verify_artifact(artifact_path)
-                plan_payload.setdefault("input_artifacts", {})[role] = (
-                    artifact_report.as_dict()
-                )
+                plan_payload.setdefault("input_artifacts", {})[role] = artifact_report.as_dict()
                 _extend_artifact_issues(
                     issues,
                     artifact_report.issues,
@@ -404,9 +402,7 @@ def check_release_readiness(
                 )
             )
 
-    for path in (
-        required_paths if required_paths is not None else _default_required_paths()
-    ):
+    for path in required_paths if required_paths is not None else _default_required_paths():
         required = Path(path)
         if not required.exists():
             issues.append(
@@ -418,9 +414,7 @@ def check_release_readiness(
             )
 
     stale_paths = (
-        list(reference_paths)
-        if reference_paths is not None
-        else _default_reference_paths()
+        list(reference_paths) if reference_paths is not None else _default_reference_paths()
     )
     stale_count = _check_stale_references(issues, stale_paths)
     checked["stale_reference_files_checked"] = len(stale_paths)
@@ -491,11 +485,7 @@ def _extend_artifact_issues(
         code = str(issue.code)
         if not code.startswith(prefix):
             code = f"{prefix}{code}"
-        path = (
-            f"{artifact_path} :: {dual_policy_path}"
-            if dual_policy_path
-            else str(artifact_path)
-        )
+        path = f"{artifact_path} :: {dual_policy_path}" if dual_policy_path else str(artifact_path)
         issues.append(
             ReleaseIssue(
                 code=code,
@@ -554,9 +544,7 @@ def _unique_paths(paths: Iterable[Path]) -> list[Path]:
     return unique
 
 
-def _check_stale_references(
-    issues: list[ReleaseIssue], paths: Sequence[str | Path]
-) -> int:
+def _check_stale_references(issues: list[ReleaseIssue], paths: Sequence[str | Path]) -> int:
     count = 0
     for raw_path in paths:
         path = Path(raw_path)
@@ -579,9 +567,7 @@ def _check_stale_references(
     return count
 
 
-def _check_paper_claims(
-    issues: list[ReleaseIssue], paper_docs: Sequence[str | Path]
-) -> int:
+def _check_paper_claims(issues: list[ReleaseIssue], paper_docs: Sequence[str | Path]) -> int:
     count = 0
     for raw_path in paper_docs:
         path = Path(raw_path)
@@ -705,9 +691,7 @@ def _check_paper_table_provenance(
         missing_hash_terms = [
             term for term in PAPER_TABLE_PROVENANCE_TERMS if term not in normalized
         ]
-        has_artifact_provenance = any(
-            term in normalized for term in PAPER_TABLE_ARTIFACT_TERMS
-        )
+        has_artifact_provenance = any(term in normalized for term in PAPER_TABLE_ARTIFACT_TERMS)
         if not missing_hash_terms and has_artifact_provenance:
             continue
         count += 1
@@ -798,21 +782,12 @@ def _promotion_registry_rows(text: str) -> list[dict[str, str]]:
         normalized_headers = [_normalize_column_name(header) for header in headers]
         if not PROMOTION_REQUIRED_COLUMNS.issubset(set(normalized_headers)):
             continue
-        if index + 1 >= len(lines) or not _looks_like_markdown_separator(
-            lines[index + 1]
-        ):
+        if index + 1 >= len(lines) or not _looks_like_markdown_separator(lines[index + 1]):
             continue
-        column_indexes = {
-            header: position for position, header in enumerate(normalized_headers)
-        }
+        column_indexes = {header: position for position, header in enumerate(normalized_headers)}
         row_index = index + 2
-        while row_index < len(lines) and _looks_like_markdown_table_row(
-            lines[row_index]
-        ):
-            cells = [
-                _normalize_table_cell(cell)
-                for cell in _split_markdown_row(lines[row_index])
-            ]
+        while row_index < len(lines) and _looks_like_markdown_table_row(lines[row_index]):
+            cells = [_normalize_table_cell(cell) for cell in _split_markdown_row(lines[row_index])]
             if cells:
                 rows.append(
                     {
@@ -1023,9 +998,7 @@ def _check_sql_execution_paths(
     paths: Sequence[str | Path] | None,
 ) -> tuple[int, int]:
     candidates = (
-        [Path(path) for path in paths]
-        if paths is not None
-        else _default_sql_execution_scan_paths()
+        [Path(path) for path in paths] if paths is not None else _default_sql_execution_scan_paths()
     )
     count = 0
     checked = 0
@@ -1186,11 +1159,7 @@ def _is_missing_risk_field(value: str | None) -> bool:
     if value is None:
         return True
     normalized = value.strip()
-    return (
-        not normalized
-        or normalized.startswith("<")
-        or normalized.lower() in {"todo", "tbd"}
-    )
+    return not normalized or normalized.startswith("<") or normalized.lower() in {"todo", "tbd"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1252,10 +1221,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--promotion-doc",
         action="append",
         default=[],
-        help=(
-            "Markdown document containing a paper artifact promotion registry. "
-            "Repeatable."
-        ),
+        help=("Markdown document containing a paper artifact promotion registry. Repeatable."),
     )
     parser.add_argument(
         "--fail-on-open-risks",
@@ -1270,9 +1236,7 @@ def build_parser() -> argparse.ArgumentParser:
             "as actionable_nonhuman."
         ),
     )
-    parser.add_argument(
-        "--json", action="store_true", help="Print machine-readable JSON."
-    )
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     return parser
 
 

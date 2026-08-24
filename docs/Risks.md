@@ -1,6 +1,6 @@
 # PARS-SQL Open Risks
 
-Last updated: 2026-07-05
+Last updated: 2026-07-08
 
 This file tracks unresolved risks only. Resolved items should be removed or moved
 to the relevant phase notes after the mitigation is implemented and verified.
@@ -14,6 +14,31 @@ Open risks use one blocker category:
 - `blocked_human_review`: final human review, reviewer labels, or reviewer sign-off is required.
 - `blocked_external_api`: external judge/API access is required.
 - `paper_promotion_pending`: final paper promotion/packaging is pending, but current non-human guards pass.
+
+Latest non-human gate status as of 2026-07-08:
+
+- Standard release gate with paper docs and promotion registry: `ok=True`,
+  `actionable_open_risks=0`.
+- Formatting and regression evidence: `ruff check src scripts tests` passed,
+  `ruff format --check src scripts tests` reported 261 already formatted files,
+  and `pytest tests\tier1_unit tests\artifact tests\tier2_integration -q`
+  passed with 607 tests.
+- Candidate-review guard for the runtime-guarded SPL15 review package:
+  `ok=True`, `actionable_open_risks=0`.
+- Runtime-guarded SPL15 shadow/adoption comparison guard:
+  `ok=True`, `actionable_open_risks=0`.
+- Main authoritative semantic judge artifact guard:
+  `ok=True`, `actionable_open_risks=0`.
+- Retry3 merged judge-ablation comparison and judge-artifact guard:
+  `ok=True`, `actionable_open_risks=0`.
+- Graph sync evidence: `graphify update .` rebuilt the local graph with 4,832
+  nodes, 9,436 edges, and 494 communities.
+- Forbidden-change audit: `git diff --name-only -- data results docs\paper
+  results\paper` returned no paths during the final non-human gate pass.
+
+These passes do not close human-review, external-provider, or paper-promotion
+risks. They only confirm that no currently known non-human actionable gate is
+failing.
 
 ## R1. Candidate adoption still lacks authoritative semantic evidence
 

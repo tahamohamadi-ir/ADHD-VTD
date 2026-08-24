@@ -6,6 +6,7 @@ from sqlglot import exp
 from src.schema.schema_registry import SchemaRegistry
 from src.sql_validation.validation_result import ValidationIssue, ValidationResult
 
+
 class SQLAggregationValidator:
     """Validates aggregation logic in SQL (e.g., GROUP BY, AVG on correct types)."""
 
@@ -17,7 +18,7 @@ class SQLAggregationValidator:
         issues: list[ValidationIssue] = []
         if sqlglot is None:
             return ValidationResult.pass_(normalized)
-            
+
         try:
             tree = sqlglot.parse_one(normalized, read="sqlite")
         except Exception:
@@ -33,7 +34,11 @@ class SQLAggregationValidator:
 
         # For checking column types
         def get_column_type(table_alias: str | None, col_name: str) -> str:
-            candidates = [tables[table_alias]] if table_alias and table_alias in tables else list(set(tables.values()))
+            candidates = (
+                [tables[table_alias]]
+                if table_alias and table_alias in tables
+                else list(set(tables.values()))
+            )
             for t in candidates:
                 # We fetch type from snapshot
                 t_info = self.registry.tables.get(t, {})
@@ -58,7 +63,9 @@ class SQLAggregationValidator:
                 parent = getattr(parent, "parent", None)
             return False
 
-        def inside_case_expression_before_aggregate(node: exp.Expression, aggregate: exp.Expression) -> bool:
+        def inside_case_expression_before_aggregate(
+            node: exp.Expression, aggregate: exp.Expression
+        ) -> bool:
             parent = getattr(node, "parent", None)
             while parent is not None and parent is not aggregate:
                 if isinstance(parent, exp.Case):
@@ -76,18 +83,20 @@ class SQLAggregationValidator:
                 for group_expr in group_exprs
                 if getattr(group_expr, "name", None)
             }
-            
+
             agg_funcs = []
             non_agg_cols = []
-            
+
             for expr in select_exprs:
                 # Identify if expr is aggregate or contains aggregate
                 has_agg = False
                 for node in expr.walk():
-                    if isinstance(node, (exp.Avg, exp.Sum, exp.Count, exp.Min, exp.Max)) and not inside_window(node):
+                    if isinstance(
+                        node, (exp.Avg, exp.Sum, exp.Count, exp.Min, exp.Max)
+                    ) and not inside_window(node):
                         has_agg = True
                         break
-                
+
                 if has_agg:
                     agg_funcs.append(expr)
                 else:
@@ -107,18 +116,22 @@ class SQLAggregationValidator:
                         continue
                     c_type = get_column_type(col.table, col.name)
                     if c_type == "TEXT":
-                        issues.append(ValidationIssue(
-                            "INVALID_AGGREGATION",
-                            f"Cannot compute {agg.key.upper()} over categorical/TEXT column: {col.name}"
-                        ))
+                        issues.append(
+                            ValidationIssue(
+                                "INVALID_AGGREGATION",
+                                f"Cannot compute {agg.key.upper()} over categorical/TEXT column: {col.name}",
+                            )
+                        )
 
             # If there are aggregates, ensure non-aggregated columns are in GROUP BY
             if agg_funcs and non_agg_cols:
                 if not group_by:
-                    issues.append(ValidationIssue(
-                        "MISSING_GROUP_BY",
-                        "Query contains aggregate functions but is missing a GROUP BY clause for non-aggregated columns."
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            "MISSING_GROUP_BY",
+                            "Query contains aggregate functions but is missing a GROUP BY clause for non-aggregated columns.",
+                        )
+                    )
                 else:
                     # Check if all non_agg_cols are covered in GROUP BY
                     # Basic check: just see if the column names appear in group expressions
@@ -129,9 +142,11 @@ class SQLAggregationValidator:
                                 found = True
                                 break
                         if not found:
-                            issues.append(ValidationIssue(
-                                "UNGROUPED_COLUMN",
-                                f"Column '{col.name}' must appear in the GROUP BY clause or be used in an aggregate function."
-                            ))
+                            issues.append(
+                                ValidationIssue(
+                                    "UNGROUPED_COLUMN",
+                                    f"Column '{col.name}' must appear in the GROUP BY clause or be used in an aggregate function.",
+                                )
+                            )
 
         return ValidationResult(not issues, issues, normalized)

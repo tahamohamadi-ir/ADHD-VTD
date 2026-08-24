@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+
 @dataclass(frozen=True)
 class ValidationIssue:
     code: str
     message: str
     severity: str = "error"
     location: str | None = None
+
 
 @dataclass(frozen=True)
 class ValidationResult:

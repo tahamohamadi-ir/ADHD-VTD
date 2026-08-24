@@ -401,6 +401,15 @@ src/graph/
 |   |-- reflexion_node.py
 |   |-- semantic_check_node.py
 |   |-- output_node.py
+|   |-- candidate_helpers.py
+|   |-- candidate_inspector.py
+|   |-- candidate_orchestrator.py
+|   |-- execution_attempts.py
+|   |-- generation_router.py
+|   |-- output_payloads.py
+|   |-- reflexion_payloads.py
+|   |-- sql_repair_helpers.py
+|   |-- validation_attempts.py
 |   `-- __init__.py
 `-- __init__.py
 ```
@@ -410,6 +419,46 @@ Rules:
 - `graph/` wires components together.
 - Business logic should stay inside the relevant component module.
 - Nodes should be thin wrappers around tested services.
+- Workflow imports should use the dedicated `*_node.py` modules. During
+  incremental cleanup, those modules may re-export operational callables from
+  `base_nodes.py`, and tests should lock that compatibility contract.
+- Candidate selection helpers belong in dedicated graph helper modules and
+  must not expose gold SQL, reference answers, strict labels, or semantic
+  labels in runtime candidate metadata.
+- Candidate orchestration may coordinate generation, inspection, consistency,
+  verifier scoring, latency budget accounting, and adoption gates, but must not
+  own validation, execution, artifact promotion, or paper metrics.
+- `generate_candidates_node.py` is policy-only compatibility glue. Actual
+  multi-candidate SQL generation must stay behind `generate_sql` and
+  `candidate_orchestrator.py`, where validation, inspection, and adoption gates
+  are available.
+- Candidate inspection may validate and execute candidate SQL only through
+  injected validators and `src/db/read_only_executor.py`; direct SQLite access
+  is not allowed in graph helper modules.
+- SQL generation routing belongs in `generation_router.py`. It may choose
+  between no-prompt, deterministic-template, single-LLM, and multi-candidate
+  generation using injected dependencies, but it must not own prompt building,
+  SQL validation, candidate scoring, SQL execution, artifact promotion, or
+  paper metrics.
+- Deterministic graph-local SQL repair helpers belong in dedicated helper
+  modules and must still validate patched SQL before adoption.
+- Validation attempt and retry-decision helpers belong in
+  `validation_attempts.py`. They may format validation errors, build
+  `SQLAttempt` records, and decide the retry category, but must not instantiate
+  validators, rewrite SQL, execute SQL, or alter safety rules.
+- Execution attempt helpers belong in `execution_attempts.py`. They may attach
+  read-only execution results to the latest `SQLAttempt` and build state update
+  payloads, but must not instantiate executors, open SQLite connections, retry
+  independently, or bypass `src/db/read_only_executor.py`.
+- Output payload helpers belong in `output_payloads.py`. They may coordinate
+  answer formatting, chart recommendation, explanation fallback, and graceful
+  failure payloads through injected output functions, but must not run SQL,
+  mutate attempts, compute benchmark metrics, or promote paper artifacts.
+- Reflexion payload helpers belong in `reflexion_payloads.py`. They may extract
+  the latest error context, seed retry memory, format repair error text, attach
+  critic feedback/repair plans to attempts, and build update payloads, but must
+  not alter retry routing, instantiate validators/executors, or change repair
+  prompt semantics.
 - Routes must be deterministic.
 
 ---

@@ -1,4 +1,5 @@
 """Unit tests for AmbiguityDetector."""
+
 from __future__ import annotations
 
 import pytest
@@ -85,7 +86,6 @@ class TestClearRequests:
     def test_average_score(self, detector):
         result = detector.detect("میانگین نمره اضطراب دانشجوها")
         assert not result.is_ambiguous
-
 
     def test_dashboard_with_domain_metric_is_not_ambiguous(self, detector):
         question = (

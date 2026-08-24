@@ -1,6 +1,9 @@
 """Wrapper: run all Phase 2 validation scripts in sequence."""
+
 from __future__ import annotations
-import subprocess, sys, time
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -18,12 +21,13 @@ SCRIPTS = [
     "scripts/export_schema_markdown.py",
 ]
 
+
 def main():
     results: list[tuple[str, int, float]] = []
     all_ok = True
     for script in SCRIPTS:
         name = Path(script).stem
-        print(f"\n{'='*60}\n> Running: {name}\n{'='*60}")
+        print(f"\n{'=' * 60}\n> Running: {name}\n{'=' * 60}")
         start = time.perf_counter()
         r = subprocess.run([PYTHON, script], cwd=str(Path(__file__).resolve().parent.parent))
         elapsed = (time.perf_counter() - start) * 1000
@@ -43,14 +47,15 @@ def main():
     lines.append(f"\n**Overall: {'✅ ALL PASSED' if all_ok else '❌ SOME FAILED'}**")
     (report_dir / "full_validation_summary.md").write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("VALIDATION SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for name, rc, ms in results:
         st = "✅" if rc == 0 else "❌"
         print(f"  {st} {name} ({ms:.0f}ms)")
     print(f"\n{'✅ ALL PASSED' if all_ok else '❌ SOME FAILED'}")
     sys.exit(0 if all_ok else 1)
+
 
 if __name__ == "__main__":
     main()

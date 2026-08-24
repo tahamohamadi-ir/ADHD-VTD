@@ -7,6 +7,7 @@ except Exception:  # pragma: no cover
     from schema_validator import SQLSchemaValidator
     from validation_result import ValidationIssue, ValidationResult
 
+
 class SQLSemanticValidator:
     """Lightweight semantic alignment validator for benchmark cases.
 
@@ -24,11 +25,23 @@ class SQLSemanticValidator:
 
         for table in case.get("expected_tables", []) or case.get("tables", []):
             if table and table.lower() not in lower:
-                issues.append(ValidationIssue("MISSING_EXPECTED_TABLE", f"Expected table not referenced: {table}", "warning"))
+                issues.append(
+                    ValidationIssue(
+                        "MISSING_EXPECTED_TABLE",
+                        f"Expected table not referenced: {table}",
+                        "warning",
+                    )
+                )
         for column in case.get("expected_columns", []) or case.get("columns", []):
             col_name = str(column).split(".")[-1]
             if col_name and col_name.lower() not in lower:
-                issues.append(ValidationIssue("MISSING_EXPECTED_COLUMN", f"Expected column not referenced: {column}", "warning"))
+                issues.append(
+                    ValidationIssue(
+                        "MISSING_EXPECTED_COLUMN",
+                        f"Expected column not referenced: {column}",
+                        "warning",
+                    )
+                )
 
         hard_errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(not hard_errors, issues, base.normalized_sql)

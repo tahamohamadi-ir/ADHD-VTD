@@ -6,6 +6,7 @@ For each SQL:
 3. Actual execution in read-only mode
 4. Record: OK / FAIL / SYNTAX_ERROR / SCHEMA_ERROR / EMPTY_RESULT
 """
+
 from __future__ import annotations
 
 import json
@@ -38,8 +39,15 @@ def main():
     executor = ReadOnlyExecutor(db_path=str(DB_PATH))
 
     results: list[dict] = []
-    counts = {"OK": 0, "FAIL": 0, "SYNTAX_ERROR": 0, "SCHEMA_ERROR": 0,
-              "EMPTY_RESULT": 0, "SAFETY_FAIL": 0, "NO_SQL": 0}
+    counts = {
+        "OK": 0,
+        "FAIL": 0,
+        "SYNTAX_ERROR": 0,
+        "SCHEMA_ERROR": 0,
+        "EMPTY_RESULT": 0,
+        "SAFETY_FAIL": 0,
+        "NO_SQL": 0,
+    }
     start = time.perf_counter()
 
     for ex in examples:
@@ -121,7 +129,9 @@ def main():
         emoji = "✅" if status == "OK" else ("⚠️" if status == "EMPTY_RESULT" else "❌")
         lines.append(f"| {emoji} {status} | {count} | {pct:.1f}% |")
 
-    lines.append(f"\n**Pass Rate (OK + EMPTY_RESULT): {(counts['OK'] + counts['EMPTY_RESULT']) / total * 100:.1f}%**")
+    lines.append(
+        f"\n**Pass Rate (OK + EMPTY_RESULT): {(counts['OK'] + counts['EMPTY_RESULT']) / total * 100:.1f}%**"
+    )
 
     # Failures detail
     failures = [r for r in results if r["status"] not in ("OK", "EMPTY_RESULT")]
@@ -135,7 +145,7 @@ def main():
     report_path = report_dir / "dataset_sql_validation_report.md"
     report_path.write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"  OK:           {counts['OK']:>4}")
     print(f"  EMPTY_RESULT: {counts['EMPTY_RESULT']:>4}")
     print(f"  SCHEMA_ERROR: {counts['SCHEMA_ERROR']:>4}")
@@ -143,7 +153,7 @@ def main():
     print(f"  SYNTAX_ERROR: {counts['SYNTAX_ERROR']:>4}")
     print(f"  FAIL:         {counts['FAIL']:>4}")
     print(f"  NO_SQL:       {counts['NO_SQL']:>4}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"  Pass Rate: {pass_rate:.1f}%")
     print(f"  Elapsed: {elapsed:.0f}ms")
     print(f"\nReports: {report_dir}")

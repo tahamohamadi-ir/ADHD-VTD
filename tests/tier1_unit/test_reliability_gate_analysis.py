@@ -115,5 +115,11 @@ def test_analyze_reliability_gate_artifact_can_recompute_gate_without_relabeling
     assert summary["analysis_mode"] == "recomputed_runtime_gate"
     assert summary["action_counts"] == {"needs_review": 1}
     assert cases["risk-summary-missing-context"]["reliability_gate_source"] == "recomputed"
-    assert cases["risk-summary-missing-context"]["reliability_gate_reason"] == "consistency_failed_exhausted"
-    assert cases["risk-summary-missing-context"]["posthoc_gate_risk"] == "review_or_clarify_on_incorrect"
+    assert (
+        cases["risk-summary-missing-context"]["reliability_gate_reason"]
+        == "consistency_failed_exhausted"
+    )
+    assert (
+        cases["risk-summary-missing-context"]["posthoc_gate_risk"]
+        == "review_or_clarify_on_incorrect"
+    )

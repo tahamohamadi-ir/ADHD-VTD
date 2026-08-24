@@ -7,6 +7,7 @@ from src.nlu.safety_intent_detector import SafetyIntentDetector
 from src.nlu.ambiguity_detector import AmbiguityDetector
 from src.core.enums import IntentLabel, ExpectedAction
 
+
 @dataclass(frozen=True)
 class IntentDecision:
     intent: IntentLabel
@@ -16,6 +17,7 @@ class IntentDecision:
     reasons: list[str] = field(default_factory=list)
     safety_label: str = "safe"
     ambiguity_score: float = 0.0
+
 
 class IntentClassifier:
     """Rule-based intent classifier for VTD pipeline.
@@ -106,30 +108,78 @@ class IntentClassifier:
 
         # 3. Definition or Advice query — "X چیست", "چطور" (methodology)
         # Methodology advice
-        if any(x in norm for x in ["چطور", "چگونه", "چطوری"]) and any(y in norm for y in ["انتخاب", "استفاده", "بهتر", "روش", "راهنمایی"]):
+        if any(x in norm for x in ["چطور", "چگونه", "چطوری"]) and any(
+            y in norm for y in ["انتخاب", "استفاده", "بهتر", "روش", "راهنمایی"]
+        ):
             return IntentDecision(
-                IntentLabel.DEFINITION_QUERY, 0.90, False, ExpectedAction.ANSWER_WITHOUT_SQL,
+                IntentLabel.DEFINITION_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_WITHOUT_SQL,
                 ["Methodological advice question detected — no SQL needed."],
             )
 
-        definition_cues = ["چیست", "چیه", "چی هست", "تعریف", "یعنی چی", "what is", "define", "definition"]
+        definition_cues = [
+            "چیست",
+            "چیه",
+            "چی هست",
+            "تعریف",
+            "یعنی چی",
+            "what is",
+            "define",
+            "definition",
+        ]
         if any(x in norm for x in definition_cues):
-            sql_cues = ["میانگین", "شیوع", "روند", "تغییر", "مقایسه", "نرخ", "بیشترین", "کمترین", "توزیع", "تعداد", "سال", "ماه", "دیتاست", "دیتابیس", "جدول", "درصد"]
+            sql_cues = [
+                "میانگین",
+                "شیوع",
+                "روند",
+                "تغییر",
+                "مقایسه",
+                "نرخ",
+                "بیشترین",
+                "کمترین",
+                "توزیع",
+                "تعداد",
+                "سال",
+                "ماه",
+                "دیتاست",
+                "دیتابیس",
+                "جدول",
+                "درصد",
+            ]
             if any(s in norm for s in sql_cues):
-                pass # Fall through to SQL
+                pass  # Fall through to SQL
             elif len(norm.split()) <= 5:
                 return IntentDecision(
-                    IntentLabel.DEFINITION_QUERY, 0.80, False, ExpectedAction.ANSWER_WITHOUT_SQL,
+                    IntentLabel.DEFINITION_QUERY,
+                    0.80,
+                    False,
+                    ExpectedAction.ANSWER_WITHOUT_SQL,
                     ["Short definition/explanation question detected — no SQL needed."],
                 )
             else:
-                pass # Default to SQL if it's long and has 'چیست'
+                pass  # Default to SQL if it's long and has 'چیست'
 
         # 3.5 Chart Recommendation Advice
-        if any(x in norm for x in ["چه نموداری", "کدوم نمودار", "کدام نمودار", "چه چارتی", "چی بهتره", "چی بذارم", "پیشنهاد بده"]):
+        if any(
+            x in norm
+            for x in [
+                "چه نموداری",
+                "کدوم نمودار",
+                "کدام نمودار",
+                "چه چارتی",
+                "چی بهتره",
+                "چی بذارم",
+                "پیشنهاد بده",
+            ]
+        ):
             return IntentDecision(
-                IntentLabel.CHART_QUERY, 0.90, False, ExpectedAction.ANSWER_CHART_RECOMMENDATION,
-                ["Chart recommendation advice detected — no SQL needed."]
+                IntentLabel.CHART_QUERY,
+                0.90,
+                False,
+                ExpectedAction.ANSWER_CHART_RECOMMENDATION,
+                ["Chart recommendation advice detected — no SQL needed."],
             )
 
         chart_advice_cues = [
@@ -193,7 +243,9 @@ class IntentClassifier:
             "query generation",
             "evaluation",
         ]
-        if any(cue in norm for cue in no_sql_advice_cues) and any(cue in norm for cue in no_sql_subject_cues):
+        if any(cue in norm for cue in no_sql_advice_cues) and any(
+            cue in norm for cue in no_sql_subject_cues
+        ):
             return IntentDecision(
                 IntentLabel.DEFINITION_QUERY,
                 0.90,
@@ -203,103 +255,183 @@ class IntentClassifier:
             )
 
         # 4. Comparison query — "مقایسه" / "تفاوت" / "compare"
-        if any(x in norm for x in [
-            "مقایسه", "تفاوت", "فرق", "compare", "comparison", "versus", "vs",
-            "در مقابل", "نسبت به", "بیشتر از", "کمتر از", "تضاد", "بین",
-        ]):
+        if any(
+            x in norm
+            for x in [
+                "مقایسه",
+                "تفاوت",
+                "فرق",
+                "compare",
+                "comparison",
+                "versus",
+                "vs",
+                "در مقابل",
+                "نسبت به",
+                "بیشتر از",
+                "کمتر از",
+                "تضاد",
+                "بین",
+            ]
+        ):
             return IntentDecision(
-                IntentLabel.COMPARISON_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL,
+                IntentLabel.COMPARISON_QUERY,
+                0.85,
+                True,
+                ExpectedAction.GENERATE_SQL,
                 ["Comparison between groups/metrics detected."],
             )
 
         # 5. Raw retrieval query — "لیست" / "show all" / "list"
-        if any(x in norm for x in [
-            "لیست", "فهرست", "همه", "نمایش بده", "نشان بده", "بده",
-            "list all", "show all", "show me", "get all", "retrieve",
-            "خلاصه کن", "خلاصه", "چطورن", "چطوره",
-        ]):
+        if any(
+            x in norm
+            for x in [
+                "لیست",
+                "فهرست",
+                "همه",
+                "نمایش بده",
+                "نشان بده",
+                "بده",
+                "list all",
+                "show all",
+                "show me",
+                "get all",
+                "retrieve",
+                "خلاصه کن",
+                "خلاصه",
+                "چطورن",
+                "چطوره",
+            ]
+        ):
             # Only if no stronger analytical signal; Persian requests often end with "give/show it".
-            if not any(x in norm for x in [
-                "میانگین",
-                "تعداد",
-                "درصد",
-                "نرخ",
-                "روند",
-                "تغییر",
-                "افزایش",
-                "رتبه",
-                "بیشترین",
-                "کمترین",
-                "آخرین سال",
-                "توزیع",
-                "تفکیک",
-                "بر اساس",
-                "اختلال",
-                "avg",
-                "average",
-                "count",
-                "sum",
-                "percent",
-                "rate",
-                "trend",
-                "rank",
-                "group by",
-            ]):
+            if not any(
+                x in norm
+                for x in [
+                    "میانگین",
+                    "تعداد",
+                    "درصد",
+                    "نرخ",
+                    "روند",
+                    "تغییر",
+                    "افزایش",
+                    "رتبه",
+                    "بیشترین",
+                    "کمترین",
+                    "آخرین سال",
+                    "توزیع",
+                    "تفکیک",
+                    "بر اساس",
+                    "اختلال",
+                    "avg",
+                    "average",
+                    "count",
+                    "sum",
+                    "percent",
+                    "rate",
+                    "trend",
+                    "rank",
+                    "group by",
+                ]
+            ):
                 return IntentDecision(
-                    IntentLabel.RAW_RETRIEVAL_QUERY, 0.70, True, ExpectedAction.GENERATE_SQL,
+                    IntentLabel.RAW_RETRIEVAL_QUERY,
+                    0.70,
+                    True,
+                    ExpectedAction.GENERATE_SQL,
                     ["Raw data retrieval request — will need LIMIT enforcement."],
                 )
 
         # 6. Chart/visualization query
         if any(x in norm for x in ["نمودار", "چارت", "chart", "graph", "plot", "رسم", "histogram"]):
             return IntentDecision(
-                IntentLabel.CHART_QUERY, 0.80, True, ExpectedAction.GENERATE_SQL,
+                IntentLabel.CHART_QUERY,
+                0.80,
+                True,
+                ExpectedAction.GENERATE_SQL,
                 ["Chart/visualization request detected."],
             )
 
-        if any(x in norm for x in ["matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633", "Ù…Ø§ØªØ±ÛŒØ³"]):
+        if any(
+            x in norm for x in ["matrix", "\u0645\u0627\u062a\u0631\u06cc\u0633", "Ù…Ø§ØªØ±ÛŒØ³"]
+        ):
             return IntentDecision(
-                IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
+                IntentLabel.GROUPING_QUERY,
+                0.75,
+                True,
+                ExpectedAction.GENERATE_SQL,
                 ["Matrix cue mapped to analytical SQL grouping."],
             )
 
         # 7. Dashboard/storytelling
         if any(x in norm for x in ["داشبورد", "داستان", "روایت", "story"]):
             return IntentDecision(
-                IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
+                IntentLabel.GROUPING_QUERY,
+                0.75,
+                True,
+                ExpectedAction.GENERATE_SQL,
                 ["Dashboard/storytelling cue mapped to analytical SQL grouping."],
             )
 
         # 8. Ranking. Rank requests can also mention latest-year or aggregate metrics.
-        if any(x in norm for x in ["رتبه", "بیشترین", "کمترین", "top", "اول", "بالاترین", "بهترین", "بدترین"]):
-            return IntentDecision(IntentLabel.RANKING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL, ["Ranking cue."])
+        if any(
+            x in norm
+            for x in ["رتبه", "بیشترین", "کمترین", "top", "اول", "بالاترین", "بهترین", "بدترین"]
+        ):
+            return IntentDecision(
+                IntentLabel.RANKING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL, ["Ranking cue."]
+            )
 
         # 9. Time series / trend
         if any(x in norm for x in ["روند", "سال", "آخرین سال", "time", "trend", "طی سال"]):
             return IntentDecision(
-                IntentLabel.TREND_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL,
+                IntentLabel.TREND_QUERY,
+                0.75,
+                True,
+                ExpectedAction.GENERATE_SQL,
                 ["Temporal cue."],
             )
 
         # 10. Rate / percentage
         if any(x in norm for x in ["درصد", "نرخ", "rate", "%"]):
-            return IntentDecision(IntentLabel.RATE_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL, ["Rate/percentage cue."])
+            return IntentDecision(
+                IntentLabel.RATE_QUERY,
+                0.85,
+                True,
+                ExpectedAction.GENERATE_SQL,
+                ["Rate/percentage cue."],
+            )
 
         # 11. Aggregation
         if any(x in norm for x in ["میانگین", "مجموع", "avg", "average", "sum", "min", "max"]):
-            return IntentDecision(IntentLabel.AGGREGATION_QUERY, 0.9, True, ExpectedAction.GENERATE_SQL, ["Aggregation cue."])
+            return IntentDecision(
+                IntentLabel.AGGREGATION_QUERY,
+                0.9,
+                True,
+                ExpectedAction.GENERATE_SQL,
+                ["Aggregation cue."],
+            )
 
         # 12. Count
         if any(x in norm for x in ["تعداد", "چند", "count"]):
-            return IntentDecision(IntentLabel.COUNT_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL, ["Count cue."])
+            return IntentDecision(
+                IntentLabel.COUNT_QUERY, 0.85, True, ExpectedAction.GENERATE_SQL, ["Count cue."]
+            )
 
         # 13. Grouping / distribution
         if any(x in norm for x in ["توزیع", "تفکیک", "بر اساس", "گروه", "group by"]):
-            return IntentDecision(IntentLabel.GROUPING_QUERY, 0.75, True, ExpectedAction.GENERATE_SQL, ["Grouping cue."])
+            return IntentDecision(
+                IntentLabel.GROUPING_QUERY,
+                0.75,
+                True,
+                ExpectedAction.GENERATE_SQL,
+                ["Grouping cue."],
+            )
 
         # Default
         return IntentDecision(
-            IntentLabel.UNKNOWN, 0.55, True, ExpectedAction.GENERATE_SQL,
+            IntentLabel.UNKNOWN,
+            0.55,
+            True,
+            ExpectedAction.GENERATE_SQL,
             reasons or ["Default safe SQL-capable request."],
         )
 
@@ -359,7 +491,9 @@ class IntentClassifier:
             "query generation",
             "evaluation",
         ]
-        return any(cue in norm for cue in no_sql_advice_cues) and any(cue in norm for cue in no_sql_subject_cues)
+        return any(cue in norm for cue in no_sql_advice_cues) and any(
+            cue in norm for cue in no_sql_subject_cues
+        )
 
     def _has_strong_sql_signal(self, norm: str) -> bool:
         """Detect clear analytical data requests that should not abstain as vague."""
@@ -484,9 +618,15 @@ class IntentClassifier:
         ]
 
         has_metric = any(cue in norm for cue in metric_cues)
-        has_data = any(cue in norm for cue in data_cues) or any(entity in norm for entity in named_entities)
+        has_data = any(cue in norm for cue in data_cues) or any(
+            entity in norm for entity in named_entities
+        )
         has_grouping = any(cue in norm for cue in group_cues)
-        return (has_metric and has_data) or (has_metric and has_grouping) or ("dashboard" in norm and has_data)
+        return (
+            (has_metric and has_data)
+            or (has_metric and has_grouping)
+            or ("dashboard" in norm and has_data)
+        )
 
     def _deterministic_clarification_reason(self, norm: str, raw_lower: str) -> str | None:
         """Catch high-risk Persian ambiguity patterns before SQL routing."""
@@ -506,21 +646,38 @@ class IntentClassifier:
         ):
             return "Colloquial entity reference needs clarification before SQL generation."
 
-        if any(cue in norm for cue in ["\u062d\u0627\u0644\u0627", "\u0647\u0645\u0648\u0646 \u062a\u062d\u0644\u06cc\u0644"]):
+        if any(
+            cue in norm
+            for cue in [
+                "\u062d\u0627\u0644\u0627",
+                "\u0647\u0645\u0648\u0646 \u062a\u062d\u0644\u06cc\u0644",
+            ]
+        ):
             return "Context-dependent follow-up cannot be answered without prior turn context."
 
-        if "\u0627\u062b\u0631 \u0647\u0645\u0632\u0645\u0627\u0646 \u0686\u0646\u062f \u0639\u0627\u0645\u0644" in norm:
+        if (
+            "\u0627\u062b\u0631 \u0647\u0645\u0632\u0645\u0627\u0646 \u0686\u0646\u062f \u0639\u0627\u0645\u0644"
+            in norm
+        ):
             return "Multi-factor effect request does not specify the factors or model."
 
-        if "normalize \u06a9\u0646" in norm or "\u0645\u0646\u0627\u0628\u0639 \u0642\u0627\u0628\u0644 \u0645\u0642\u0627\u06cc\u0633\u0647" in norm:
+        if (
+            "normalize \u06a9\u0646" in norm
+            or "\u0645\u0646\u0627\u0628\u0639 \u0642\u0627\u0628\u0644 \u0645\u0642\u0627\u06cc\u0633\u0647"
+            in norm
+        ):
             return "Normalization/preprocessing policy is underspecified."
 
         if "\u0639\u0644\u062a" in norm and "\u062b\u0627\u0628\u062a \u06a9\u0646" in norm:
             return "Causal proof request needs clarification and cannot be answered as direct SQL."
 
-        if "\u0628\u0647\u062a\u0631\u06cc\u0646 \u0646\u062a\u06cc\u062c\u0647 \u0639\u0644\u0645\u06cc" in norm or (
-            "\u0628\u0631\u0627\u06cc \u0645\u0642\u0627\u0644\u0647" in norm
-            and "\u0627\u0633\u062a\u062e\u0631\u0627\u062c \u06a9\u0646" in norm
+        if (
+            "\u0628\u0647\u062a\u0631\u06cc\u0646 \u0646\u062a\u06cc\u062c\u0647 \u0639\u0644\u0645\u06cc"
+            in norm
+            or (
+                "\u0628\u0631\u0627\u06cc \u0645\u0642\u0627\u0644\u0647" in norm
+                and "\u0627\u0633\u062a\u062e\u0631\u0627\u062c \u06a9\u0646" in norm
+            )
         ):
             return "Research-result mining request needs a pre-declared analysis target."
 

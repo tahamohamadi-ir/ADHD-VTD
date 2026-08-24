@@ -149,7 +149,9 @@ def analyze_question_sql_consistency(question: str | None, sql: str | None) -> S
             )
         )
 
-    if (_has_any(q, _ABOVE_TERMS) or _has_any(q, _BELOW_TERMS)) and not _looks_like_average_threshold_filter(s):
+    if (
+        _has_any(q, _ABOVE_TERMS) or _has_any(q, _BELOW_TERMS)
+    ) and not _looks_like_average_threshold_filter(s):
         issues.append(
             SqlConsistencyIssue(
                 code="QUESTION_SQL_MISSING_AVERAGE_THRESHOLD",
@@ -172,7 +174,9 @@ def analyze_question_sql_consistency(question: str | None, sql: str | None) -> S
                     message="Risk summary questions should include COUNT(*) so the result size is visible.",
                 )
             )
-        if not _selects_average_for(s, "stress_level") or not _selects_average_for(s, "sleep_hours"):
+        if not _selects_average_for(s, "stress_level") or not _selects_average_for(
+            s, "sleep_hours"
+        ):
             issues.append(
                 SqlConsistencyIssue(
                     code="QUESTION_SQL_MISSING_RISK_CONTEXT_AVERAGES",
@@ -227,16 +231,20 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 def _looks_like_rate_sql(sql: str) -> bool:
     return (
-        "100" in sql
-        and ("avg(" in sql or "sum(" in sql or "count(" in sql)
-    ) or "rate" in sql or "pct" in sql or "percent" in sql
+        ("100" in sql and ("avg(" in sql or "sum(" in sql or "count(" in sql))
+        or "rate" in sql
+        or "pct" in sql
+        or "percent" in sql
+    )
 
 
 def _looks_like_change_sql(sql: str) -> bool:
     if " lag(" in f" {sql}" or " lead(" in f" {sql}":
         return True
     if " - " in sql or "-" in sql.replace("->", ""):
-        return any(term in sql for term in ("change", "delta", "diff", "latest", "baseline", "1990"))
+        return any(
+            term in sql for term in ("change", "delta", "diff", "latest", "baseline", "1990")
+        )
     return False
 
 

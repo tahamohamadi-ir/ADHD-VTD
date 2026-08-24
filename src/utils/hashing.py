@@ -3,6 +3,7 @@
 Provides deterministic hashing for SQL normalization and result
 comparison in benchmarks.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,10 +27,7 @@ def result_hash(rows: list[dict[str, Any]]) -> str:
     Rows are sorted by key, values are normalized (floats rounded),
     and the JSON representation is hashed.
     """
-    normalized = [
-        {str(k): _normalize_value(v) for k, v in sorted(row.items())}
-        for row in rows
-    ]
+    normalized = [{str(k): _normalize_value(v) for k, v in sorted(row.items())} for row in rows]
     payload = json.dumps(normalized, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
