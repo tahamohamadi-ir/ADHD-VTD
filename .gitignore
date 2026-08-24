@@ -42,6 +42,9 @@ paper1_review_package_*/
 # Deduplication archives (generated)
 archive/cleanup_*/
 
+# Local delete-review staging (never committed)
+_DELETE_REVIEW/
+
 # OS
 .DS_Store
 Thumbs.db

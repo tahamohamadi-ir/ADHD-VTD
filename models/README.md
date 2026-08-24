@@ -10,6 +10,13 @@
 - `download_repair_manifest.json`: گزارش repair دانلودهای ناقص.
 - `model_integrity_report.json`: نتیجه کنترل integrity.
 
+## اسکریپت دانلود مدل‌ها
+
+اسکریپت مرجع دانلود/repair مدل‌ها در ریشه پروژه است:
+`download_and_repair_hf_models_for_vtd_v1_0_4.py`. نسخه‌های قدیمی (v1.0.1 تا
+v1.0.3 و ابزار legacy بدون repair) در `_DELETE_REVIEW/models/` منتقل شدند
+(move-only؛ لاگ: `_DELETE_REVIEW/_manifest.csv`).
+
 ## زیرپوشه‌ها
 
 - `generation/`: مدل‌های تولید SQL، معمولاً GGUF برای llama.cpp/llama-cpp-python.
