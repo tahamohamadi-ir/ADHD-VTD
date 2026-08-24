@@ -1,0 +1,42 @@
+[
+  {
+    "label": "Qwen2.5-Coder-0.5B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "status": "skipped_existing",
+    "selected_file": "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-0.5B-Instruct-GGUF\\qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+    "seconds": 0.73
+  },
+  {
+    "label": "Qwen3-0.6B-GGUF",
+    "repo_id": "Qwen/Qwen3-0.6B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "status": "skipped_existing",
+    "selected_file": "Qwen3-0.6B-Q8_0.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen3-0.6B-GGUF\\Qwen3-0.6B-Q8_0.gguf",
+    "seconds": 0.25
+  },
+  {
+    "label": "Llama-3.2-1B-Instruct-GGUF",
+    "repo_id": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "status": "skipped_existing",
+    "selected_file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\bartowski__Llama-3.2-1B-Instruct-GGUF\\Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "seconds": 0.25
+  },
+  {
+    "label": "Gemma-3-1B-Instruct-GGUF",
+    "repo_id": "lm-kit/gemma-3-1b-instruct-gguf",
+    "kind": "generation",
+    "format": "gguf",
+    "status": "skipped_existing",
+    "selected_file": "gemma-3-it-1B-Q4_K_M.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\lm-kit__gemma-3-1b-instruct-gguf\\gemma-3-it-1B-Q4_K_M.gguf",
+    "seconds": 0.37
+  }
+]

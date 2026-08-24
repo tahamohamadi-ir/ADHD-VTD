@@ -1,0 +1,88 @@
+[
+  {
+    "label": "Qwen2.5-Coder-3B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=2007.42 MB, min=1400 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2104932800, remote=2104932800"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 1.42
+  },
+  {
+    "label": "Qwen2.5-Coder-7B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "large",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-7B-Instruct-GGUF\\qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=4466.13 MB, min=3000 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=4683073536, remote=4683073536"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.52
+  }
+]

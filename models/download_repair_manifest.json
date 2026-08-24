@@ -1,0 +1,62 @@
+[
+  {
+    "label": "Qwen2.5-Coder-3B-Instruct-GGUF",
+    "repo_id": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "ok_existing",
+    "selected_file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "local_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "canonical_path": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [
+      {
+        "name": "local_file_exists",
+        "ok": true,
+        "detail": "D:\\Project\\ADHD-VTD\\models\\generation\\Qwen__Qwen2.5-Coder-3B-Instruct-GGUF\\qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "suffix_is_gguf",
+        "ok": true,
+        "detail": "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+      },
+      {
+        "name": "local_size_reasonable",
+        "ok": true,
+        "detail": "local=2007.42 MB, min=1400 MB"
+      },
+      {
+        "name": "gguf_magic_header",
+        "ok": true,
+        "detail": "magic=b'GGUF'"
+      },
+      {
+        "name": "remote_size_match",
+        "ok": true,
+        "detail": "local=2104932800, remote=2104932800"
+      }
+    ],
+    "warnings": [],
+    "error": null,
+    "seconds": 0.94
+  },
+  {
+    "label": "Qwen3-4B-GGUF",
+    "repo_id": "ggml-org/Qwen3-4B-GGUF",
+    "kind": "generation",
+    "format": "gguf",
+    "tier": "medium",
+    "status": "interrupted",
+    "selected_file": null,
+    "local_path": null,
+    "canonical_path": null,
+    "repaired_from": null,
+    "backup_path": null,
+    "checks": [],
+    "warnings": [],
+    "error": "KeyboardInterrupt",
+    "seconds": 203.88
+  }
+]

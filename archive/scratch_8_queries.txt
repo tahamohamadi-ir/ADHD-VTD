@@ -1,0 +1,32 @@
+ID: VTD-154
+Q: نمای یکپارچه افراد به تفکیک منبع چه میانگین سنی و تعداد رکوردی دارد؟
+SQL: SELECT source_name, COUNT(*) AS total, ROUND(AVG(age), 2) AS avg_age, SUM(CASE WHEN depression_flag = 1 THEN 1 ELSE 0 END) AS depression_flag_count, SUM(CASE WHEN treatment_flag = 1 THEN 1 ELSE 0 END) AS treatment_flag_count FROM vw_unified_individual_mental_health GROUP BY source_name ORDER BY total DESC;
+
+ID: VTD-155
+Q: در نمای دانشجویی، منبع‌های مختلف از نظر سن و خواب و عملکرد چه تفاوتی دارند؟
+SQL: SELECT source_name, COUNT(*) AS total, ROUND(AVG(age), 2) AS avg_age, ROUND(AVG(sleep_hours), 2) AS avg_sleep_hours, ROUND(AVG(exam_score), 2) AS avg_exam_score, ROUND(AVG(cgpa_10), 2) AS avg_cgpa_10 FROM vw_student_dashboard GROUP BY source_name ORDER BY total DESC;
+
+ID: VTD-206
+Q: شاخص کلی ریسک سلامت روان در نمای یکپارچه افراد را به تفکیک منبع بساز.
+SQL: WITH scored AS (SELECT source_name, record_id, age, gender, depression_flag, anxiety_flag, treatment_flag, stress_score, sleep_hours, social_support_score, depression_score, anxiety_score, productivity_score, (COALESCE(depression_flag,0)*3 + COALESCE(anxiety_flag,0)*2 + CASE WHEN stress_score >= 8 THEN 2 ELSE 0 END + CASE WHEN sleep_hours IS NOT NULL AND sleep_hours < 6 THEN 1 ELSE 0 END + CASE WHEN social_support_score IS NOT NULL AND social_support_score < 40 THEN 1 ELSE 0 END + CASE WHEN depression_score IS NOT NULL AND depression_score >= 20 THEN 2 ELSE 0 END + CASE WHEN anxiety_score IS NOT NULL AND anxiety_score >= 15 THEN 2 ELSE 0 END) AS unified_risk_score FROM vw_unified_individual_mental_health) SELECT source_name, COUNT(*) AS total, ROUND(AVG(unified_risk_score), 2) AS avg_unified_risk_score, MAX(unified_risk_score) AS max_unified_risk_score, SUM(CASE WHEN unified_risk_score >= 4 THEN 1 ELSE 0 END) AS high_risk_records FROM scored GROUP BY source_name ORDER BY avg_unified_risk_score DESC;
+
+ID: VTD-207
+Q: نمای داستانی دانشجویی: ترکیب منبع، جنسیت و گروه سنی را از نظر افسردگی، عملکرد و سلامت روان مقایسه کن.
+SQL: WITH base AS (SELECT source_name, CASE WHEN age < 20 THEN '<20' WHEN age < 25 THEN '20-24' WHEN age < 30 THEN '25-29' ELSE '30+' END AS age_group, gender, depression_flag, exam_score, mental_health_rating, cgpa_10, sleep_hours FROM vw_student_dashboard WHERE age IS NOT NULL), grouped AS (SELECT source_name, age_group, gender, COUNT(*) AS total, AVG(depression_flag) AS depression_rate, AVG(exam_score) AS avg_exam_score, AVG(mental_health_rating) AS avg_mental_health_rating, AVG(cgpa_10) AS avg_cgpa_10, AVG(sleep_hours) AS avg_sleep_hours FROM base GROUP BY source_name, age_group, gender) SELECT source_name, age_group, gender, total, ROUND(100.0 * depression_rate, 2) AS depression_rate_pct, ROUND(avg_exam_score, 2) AS avg_exam_score, ROUND(avg_mental_health_rating, 2) AS avg_mental_health_rating, ROUND(avg_cgpa_10, 2) AS avg_cgpa_10, ROUND(avg_sleep_hours, 2) AS avg_sleep_hours FROM grouped ORDER BY source_name, age_group, gender;
+
+ID: VTD-251
+Q: کیفیت داده نمای یکپارچه را به تفکیک منبع از نظر کامل بودن سن، جنسیت، خواب و شاخص درمان بررسی کن.
+SQL: SELECT source_name, COUNT(*) AS total, ROUND(100.0 * SUM(CASE WHEN age IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 2) AS age_completeness_pct, ROUND(100.0 * SUM(CASE WHEN gender IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 2) AS gender_completeness_pct, ROUND(100.0 * SUM(CASE WHEN sleep_hours IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 2) AS sleep_completeness_pct, ROUND(100.0 * SUM(CASE WHEN treatment_flag IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 2) AS treatment_completeness_pct FROM vw_unified_individual_mental_health GROUP BY source_name ORDER BY total DESC;
+
+ID: VTD-352
+Q: تو view یکپارچه، هر منبع چه میانگین سن، خواب و استرسی داره؟
+SQL: SELECT source_name, COUNT(*) AS n, ROUND(AVG(age),2) AS avg_age, ROUND(AVG(sleep_hours),2) AS avg_sleep, ROUND(AVG(stress_score),2) AS avg_stress FROM vw_unified_individual_mental_health GROUP BY source_name ORDER BY n DESC;
+
+ID: VTD-382
+Q: در view یکپارچه پوشش داده خواب و استرس هر منبع رو بده.
+SQL: SELECT source_name,COUNT(*) AS total_records,ROUND(100.0*SUM(CASE WHEN sleep_hours IS NOT NULL THEN 1 ELSE 0 END)/COUNT(*),2) AS sleep_coverage_pct,ROUND(100.0*SUM(CASE WHEN stress_score IS NOT NULL THEN 1 ELSE 0 END)/COUNT(*),2) AS stress_coverage_pct,ROUND(100.0*SUM(CASE WHEN depression_flag IS NOT NULL THEN 1 ELSE 0 END)/COUNT(*),2) AS depression_flag_coverage_pct FROM vw_unified_individual_mental_health GROUP BY source_name ORDER BY total_records DESC;
+
+ID: VTD-383
+Q: از view یکپارچه خواب رو دسته‌بندی کن و depression flag رو به تفکیک منبع بده.
+SQL: WITH b AS (SELECT source_name,CASE WHEN sleep_hours<6 THEN 'low_sleep' WHEN sleep_hours<=8 THEN 'normal_sleep' ELSE 'high_sleep' END AS sleep_bucket,depression_flag FROM vw_unified_individual_mental_health WHERE sleep_hours IS NOT NULL AND depression_flag IS NOT NULL) SELECT source_name,sleep_bucket,COUNT(*) AS n,ROUND(100.0*SUM(CASE WHEN depression_flag=1 THEN 1 ELSE 0 END)/COUNT(*),2) AS depression_flag_rate_pct FROM b GROUP BY source_name,sleep_bucket ORDER BY source_name,depression_flag_rate_pct DESC;
+

@@ -32,6 +32,8 @@ release-governance documentation.
 - `09_DATASET_AND_EVALUATION_FILES_GUIDE.md`: dataset and evaluation file guide.
 - `10_FULL_DEVELOPMENT_ROADMAP_ZERO_TO_SOTA.md`: long-form historical roadmap.
 - `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`: semantic/business judge workflow.
+- `graph_workflow.mmd`: LangGraph Mermaid diagram (exported from `src/graph/workflow.py`).
+- `PROJECT_INTRODUCTION_FOR_SUPERVISOR_FA.md`: فارسی معرفی پروژه برای سوپروایزر.
 
 ## Cleanup Rules
 
