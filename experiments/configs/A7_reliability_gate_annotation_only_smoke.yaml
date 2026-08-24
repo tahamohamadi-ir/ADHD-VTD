@@ -1,0 +1,32 @@
+config_id: A7_reliability_gate_annotation_only_smoke
+ablation_id: A7_reliability_gate_annotation_only_smoke
+config_version: "phase18_7d_v1"
+mode: agent
+description: "Diagnostic smoke (dev n=30) for annotation-only reliability gate: decisions recorded but never routed."
+dataset:
+  split: dev
+  sample_size: 30
+retrieval:
+  top_k: 5
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  abstention: true
+  multi_candidate_generation: true
+  multi_candidate_adoption: true
+  deterministic_templates: false
+  reliability_gate: true
+  reliability_gate_routing: false
+  llm_judge: false
+  max_retries: 1
+reporting:
+  result_status: config_only_not_a_result
+  paper_scope: "diagnostic smoke"

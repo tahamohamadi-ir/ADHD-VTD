@@ -1,0 +1,9 @@
+{
+  "00_GLOBAL_PARS_SQL_RULES.md": "Always / Global",
+  "10_SQL_SAFETY_PRIVACY_RULES.md": "src/sql_validation/**, src/db/**, src/nlu/safety_intent_detector.py, data/schema/schema_graph.json",
+  "20_QUERY_SHAPE_GENERATION_RULES.md": "src/generation/**, src/sql_validation/shape_*, src/core/query_ir.py, generation/validation graph nodes",
+  "30_BENCHMARK_ARTIFACT_REPRO_RULES.md": "scripts/**, src/evaluation/**, results/**, data/questions/**, docs/paper/**",
+  "40_PERSIAN_NLU_SCHEMA_LINKING_RULES.md": "src/nlu/**, src/schema/**, data/schema/**",
+  "50_PROMPT_ENGINEERING_RULES.md": "src/generation/prompts/**, prompt_builder.py, output_parser.py, judge/repair prompts",
+  "60_PAPER_CLAIM_GOVERNANCE_RULES.md": "docs/**, paper/**, README*.md, DATASET_CARD*.md, limitations*.md, paper_tables*.md"
+}

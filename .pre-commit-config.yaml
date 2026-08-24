@@ -1,0 +1,16 @@
+# Pre-commit hygiene for PARS-SQL.
+# Heavy generated trees are excluded from all hooks.
+exclude: '^(dist/|results/|models/|archive/)'
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      # Check only (no --fix): hooks must never rewrite files implicitly.
+      - id: ruff
+      - id: ruff-format

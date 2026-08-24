@@ -1,0 +1,60 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	initialize_trace(initialize_trace)
+	normalize_input(normalize_input)
+	classify_intent(classify_intent)
+	build_qir(build_qir)
+	link_schema(link_schema)
+	retrieve_context(retrieve_context)
+	build_prompt(build_prompt)
+	plan_multi_candidate(plan_multi_candidate)
+	generate_sql(generate_sql)
+	parse_llm_output(parse_llm_output)
+	validate_sql(validate_sql)
+	execute_sql(execute_sql)
+	format_answer(format_answer)
+	reflect_on_error(reflect_on_error)
+	fail_gracefully(fail_gracefully)
+	ask_clarification(ask_clarification)
+	refuse_unsafe_sql(refuse_unsafe_sql)
+	check_consistency(check_consistency)
+	compute_reliability(compute_reliability)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> initialize_trace;
+	build_prompt --> plan_multi_candidate;
+	build_qir -. &nbsp;answer_without_sql&nbsp; .-> ask_clarification;
+	build_qir -.-> link_schema;
+	build_qir -.-> refuse_unsafe_sql;
+	check_consistency --> execute_sql;
+	classify_intent --> build_qir;
+	compute_reliability -.-> ask_clarification;
+	compute_reliability -.-> fail_gracefully;
+	compute_reliability -.-> format_answer;
+	compute_reliability -.-> reflect_on_error;
+	compute_reliability -.-> refuse_unsafe_sql;
+	execute_sql -.-> compute_reliability;
+	execute_sql -.-> fail_gracefully;
+	execute_sql -.-> reflect_on_error;
+	generate_sql --> parse_llm_output;
+	initialize_trace --> normalize_input;
+	link_schema --> retrieve_context;
+	normalize_input --> classify_intent;
+	parse_llm_output --> validate_sql;
+	plan_multi_candidate --> generate_sql;
+	reflect_on_error --> plan_multi_candidate;
+	retrieve_context --> build_prompt;
+	validate_sql -. &nbsp;execute_sql&nbsp; .-> check_consistency;
+	validate_sql -.-> fail_gracefully;
+	validate_sql -.-> reflect_on_error;
+	ask_clarification --> __end__;
+	fail_gracefully --> __end__;
+	format_answer --> __end__;
+	refuse_unsafe_sql --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

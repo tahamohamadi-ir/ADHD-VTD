@@ -1,0 +1,61 @@
+# Python / IDE / local env
+.venv/
+.env/
+.git/
+.idea/
+.vscode/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Graphify outputs
+graphify-out/
+
+# Codex / local assistant files
+.codex/
+.agents/
+
+# Archives / duplicated old cleanup files
+archive/
+backup/
+backups/
+old/
+tmp/
+temp/
+paper1_review_package_20260622/
+
+# Agent instruction duplicates in generated graph context
+AGENTS.md
+CLAUDE.md
+
+# Local models and tokenizer files
+models/embeddings/
+models/reranker/
+**/merges.txt
+**/vocab.json
+**/tokenizer.json
+**/tokenizer_config.json
+**/special_tokens_map.json
+**/*.safetensors
+**/*.bin
+**/*.onnx
+**/*.pt
+**/*.gguf
+
+# Databases / binary-ish data
+*.db
+*.sqlite
+*.sqlite3
+*.pkl
+*.pickle
+
+# Images/videos unless you really want them semantically analyzed
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.mp4
+*.avi
+*.mov

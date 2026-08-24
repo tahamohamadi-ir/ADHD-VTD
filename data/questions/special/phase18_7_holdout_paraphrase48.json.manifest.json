@@ -1,0 +1,19 @@
+{
+  "dataset_file": "phase18_7_holdout_paraphrase48.json",
+  "generated_at_utc": "2026-08-22T19:58:10.790298+00:00",
+  "method": "rule_based_paraphrase_v1",
+  "seed": 187,
+  "source_kind": "positive400",
+  "source_path": "D:\\Project\\ADHD-VTD\\data\\questions\\full\\vtd_question_sql_400_merged_validated.json",
+  "source_sha256": "2ee2e07d174868da3e797015386f9febf9fe14945337d09aed57238e3d13ab2d",
+  "dataset_sha256": "2a9359e4fa99737b1b9ece1f8c3aa0ddcc0b02131d8a668b286a95a06d9fe771",
+  "rule_count": 30,
+  "source_count": 400,
+  "held_out_count": 48,
+  "difficulty_counts": {
+    "complex": 12,
+    "easy": 12,
+    "hard": 12,
+    "medium": 12
+  }
+}

@@ -1,0 +1,35 @@
+# Minimal dependency set for the CI unit-test job.
+#
+# Derived empirically (see tests/ci_test_files.txt):
+#   - static AST scan of every selected test file + transitive src imports,
+#   - confirmed with a sys.modules dump after a full local run of the list
+#     (`pytest @tests/ci_test_files.txt`) in the development venv,
+#   - verified green in a clean scratch venv containing ONLY these pins.
+#
+# Heavy dependencies (torch, sentence-transformers, transformers, chromadb,
+# hazm, llama-cpp-python, matplotlib, seaborn, statsmodels, openpyxl) are
+# intentionally excluded: none of the selected tests imports them at runtime.
+# Tests needing them stay out of CI and keep running in the local suite.
+
+# =========================
+# Core runtime (used directly by selected tests)
+# =========================
+pydantic==2.13.4
+PyYAML==6.0.3
+Jinja2==3.1.6
+loguru==0.7.3
+sqlglot==30.7.0
+
+# =========================
+# Workflow orchestration (loaded at runtime by graph checkpoint tests)
+# =========================
+langgraph==1.1.10
+langgraph-checkpoint-sqlite==3.0.3
+# Transitive helpers kept explicit because they appear in the runtime module dump:
+orjson==3.11.9
+rich==15.0.0
+
+# =========================
+# Testing / Quality
+# =========================
+pytest==9.0.3

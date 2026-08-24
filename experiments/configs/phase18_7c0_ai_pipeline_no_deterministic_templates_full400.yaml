@@ -1,0 +1,33 @@
+config_id: phase18_7c0_ai_pipeline_no_deterministic_templates_full400
+ablation_id: phase18_7c0_ai_pipeline_no_deterministic_templates_full400
+config_version: "phase18_7c0_ai_pipeline_v1"
+mode: agent
+description: "Phase 18.7c0 anti-overfit AI pipeline baseline on positive400: no deterministic templates, no exact cache, --exclude-self mandatory, lexical bm25 retrieval only."
+dataset:
+  split: positive400
+  sample_size: 0
+retrieval:
+  top_k: 5
+  backend: bm25
+exclude_self: true
+trace_level: compact
+features:
+  nlu: true
+  schema_linking: true
+  value_linking: true
+  cag: true
+  validation: true
+  repair: true
+  reflexion: true
+  safety: true
+  abstention: true
+  multi_candidate_generation: true
+  multi_candidate_adoption: true
+  deterministic_templates: false
+  reliability_gate: false
+  llm_judge: false
+  max_retries: 1
+reporting:
+  result_status: ready_to_run
+  paper_scope: "phase 18.7 full400 candidate, not yet paper final"
+  anti_overfit_rules: "exclude_self=true; exact_sql_cache forbidden; case-id logic forbidden"

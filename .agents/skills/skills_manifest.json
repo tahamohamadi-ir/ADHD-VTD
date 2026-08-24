@@ -1,0 +1,11 @@
+{
+  "target_path": "D:\\Project\\ADHD-VTD\\.agents\\skills",
+  "skills": [
+    {"folder": "artifact-reproducibility", "file": "SKILL.md"},
+    {"folder": "benchmark-evaluation", "file": "SKILL.md"},
+    {"folder": "persian-nlu-schema-linking", "file": "SKILL.md"},
+    {"folder": "prompt-engineering", "file": "SKILL.md"},
+    {"folder": "query-shape-contract-engineering", "file": "SKILL.md"},
+    {"folder": "sql-validation-safety", "file": "SKILL.md"}
+  ]
+}
