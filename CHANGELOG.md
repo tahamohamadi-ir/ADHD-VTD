@@ -23,6 +23,10 @@ All notable changes to PARS-SQL are documented here.
 - Exact binomial McNemar test (`exact_mcnemar_test`) and partial-credit
   semantic score (`partial_credit_semantic_score`, 30/20/50 formula) in
   `src/evaluation`.
+- Fuzzy result-cluster voting (`src/evaluation/result_voting.py`): greedy
+  clustering of executed candidate results (row-ratio ±10% + cell-Jaccard
+  ≥ 0.7) used as selection fallback when exact result-hash majority is absent;
+  flag-gated via `ENABLE_RESULT_HASH_FUZZY_VOTING` (default off).
 - Deterministic EGIR intent-vs-shape critic (`src/sql_validation/egir.py`):
   Persian intent detection (aggregate/split/trend/list) checked against SQL
   structure and result shape, emitting typed issues with Persian repair

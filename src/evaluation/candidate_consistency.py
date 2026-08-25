@@ -46,16 +46,19 @@ class SqlCandidate:
     valid_sql: bool | None = None
     execution_passed: bool | None = None
     result_hash: str | None = None
+    rows: list[Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_record(cls, record: dict[str, Any], index: int) -> "SqlCandidate":
+        rows = record.get("execution_rows") or record.get("rows")
         return cls(
             candidate_id=str(record.get("candidate_id") or f"candidate_{index}"),
             sql=record.get("sql") or record.get("generated_sql"),
             valid_sql=record.get("valid_sql"),
             execution_passed=record.get("execution_passed") or record.get("execution_ok"),
             result_hash=record.get("result_hash") or record.get("execution_result_hash"),
+            rows=list(rows) if isinstance(rows, list) else None,
             metadata={
                 key: value
                 for key, value in record.items()
@@ -242,6 +245,20 @@ def _select_candidate(candidates: list[SqlCandidate]) -> str | None:
             for candidate in candidates:
                 if candidate.result_hash == result_hash:
                     return candidate.candidate_id
+    from src.config import features
+
+    if getattr(features, "ENABLE_RESULT_HASH_FUZZY_VOTING", False):
+        hashed_pairs = [
+            (candidate.candidate_id, candidate.rows or [])
+            for candidate in candidates
+            if candidate.result_hash
+        ]
+        if len(hashed_pairs) >= 2:
+            from src.evaluation.result_voting import select_candidate_by_fuzzy_clusters
+
+            fuzzy_pick = select_candidate_by_fuzzy_clusters(hashed_pairs)
+            if fuzzy_pick is not None:
+                return fuzzy_pick
     return candidates[0].candidate_id if candidates else None
 
 

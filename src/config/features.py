@@ -28,6 +28,7 @@ ENABLE_BM25_RETRIEVAL: bool = True
 # Default-off until each passes its own ablation gate.
 SIMPLICITY_FIRST_PROMPT: bool = True
 REPAIR_CORRECTION_KB: bool = True
+ENABLE_RESULT_HASH_FUZZY_VOTING: bool = False
 
 
 def preset_minimal() -> dict[str, bool]:
@@ -46,6 +47,7 @@ def preset_minimal() -> dict[str, bool]:
         "ENABLE_BM25_RETRIEVAL": False,
         "SIMPLICITY_FIRST_PROMPT": False,
         "REPAIR_CORRECTION_KB": False,
+        "ENABLE_RESULT_HASH_FUZZY_VOTING": False,
     }
 
 
@@ -75,6 +77,7 @@ def preset_full() -> dict[str, bool]:
             "ENABLE_BM25_RETRIEVAL": True,
             "SIMPLICITY_FIRST_PROMPT": True,
             "REPAIR_CORRECTION_KB": True,
+            "ENABLE_RESULT_HASH_FUZZY_VOTING": True,
         }
     )
     return config
