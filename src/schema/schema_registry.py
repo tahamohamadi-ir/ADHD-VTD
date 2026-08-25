@@ -35,6 +35,9 @@ class SchemaRegistry:
     def has_table(self, table: str) -> bool:
         return table in self.tables
 
+    def table_names(self) -> list[str]:
+        return sorted(self.tables)
+
     def has_column(self, table: str, column: str) -> bool:
         return column in self.columns_for_table(table)
 

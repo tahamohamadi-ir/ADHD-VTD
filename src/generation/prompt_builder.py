@@ -2,7 +2,9 @@ from pathlib import Path
 from typing import Any
 from jinja2 import Environment, FileSystemLoader
 
+from src.config import features
 from src.core.query_ir import QueryIR
+from src.generation.prompt_rules import render_correction_kb_block, render_simplicity_block
 
 
 import re
@@ -221,7 +223,8 @@ class PromptBuilder:
             schema=schema,
             value_links=value_links or {},
             few_shot=few_shot or [],
-            analysis_hints=self._build_analysis_hints(question, qir, schema),
+            analysis_hints=self._build_analysis_hints(question, qir, schema)
+            + render_simplicity_block(bool(features.SIMPLICITY_FIRST_PROMPT)),
             prompt_template_name=template_name,
         )
 
@@ -318,6 +321,7 @@ class PromptBuilder:
             previous_sql=previous_sql,
             validation_errors=validation_errors,
             critic_feedback=critic_feedback,
+            correction_examples=render_correction_kb_block(bool(features.REPAIR_CORRECTION_KB)),
         )
 
     def _build_analysis_hints(

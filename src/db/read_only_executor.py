@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+import statistics
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +15,44 @@ except Exception:  # pragma: no cover
     from sqlite_connection import get_readonly_connection
     from result_serializer import ResultSerializer
     from safety_validator import SQLSafetyValidator
+
+
+class _ValuesAggregate:
+    """Collects non-NULL numeric values for the MEDIAN/STDDEV/VARIANCE aggregates."""
+
+    def __init__(self) -> None:
+        self.values: list[float] = []
+
+    def step(self, value: Any) -> None:
+        if value is not None:
+            self.values.append(float(value))
+
+
+class _MedianAggregate(_ValuesAggregate):
+    def finalize(self) -> float | None:
+        if not self.values:
+            return None
+        return float(statistics.median(self.values))
+
+
+class _StdDevAggregate(_ValuesAggregate):
+    def finalize(self) -> float | None:
+        if len(self.values) < 2:
+            return None
+        return float(statistics.stdev(self.values))
+
+
+class _VarianceAggregate(_ValuesAggregate):
+    def finalize(self) -> float | None:
+        if len(self.values) < 2:
+            return None
+        return float(statistics.variance(self.values))
+
+
+def _register_stats_functions(conn: sqlite3.Connection) -> None:
+    conn.create_aggregate("MEDIAN", 1, _MedianAggregate)
+    conn.create_aggregate("STDDEV", 1, _StdDevAggregate)
+    conn.create_aggregate("VARIANCE", 1, _VarianceAggregate)
 
 
 @dataclass(frozen=True)
@@ -49,6 +89,7 @@ class ReadOnlyExecutor:
         limit = max_rows or self.max_rows
         try:
             with get_readonly_connection(self.db_path, timeout=self.timeout) as conn:
+                _register_stats_functions(conn)
                 cur = conn.execute(sql, params or {})
                 rows_raw = cur.fetchmany(limit + 1)
                 rows = [dict(row) for row in rows_raw[:limit]]

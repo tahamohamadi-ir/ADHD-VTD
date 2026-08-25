@@ -115,3 +115,33 @@ skipping one of those three.
 
 Adoption of ANY item requires: feature-flag default-off, unit tests, one smoke
 ablation run, and a Risks.md/task.md entry before default-on promotion.
+
+---
+
+## 5. Implementation status (2026-08-25)
+
+Landed in v0.2.0 (all with unit tests; full suite 790 passing):
+
+| Idea | Status | Where |
+|---|---|---|
+| #1 Deterministic surgeon | PARTIAL — syntax-level strategies landed (`strip_code_fence`, `trailing_semicolon`, `balanced_quote_fix`); schema-grounded GROUP-BY/table strategies still open | `src/sql_validation/surgeon.py` |
+| #3 Typed RepairHint | DONE | `src/sql_validation/validation_result.py`, `schema_validator.py` (difflib suggestions, both qualified/unqualified paths) |
+| #4 Multi-attempt repair memory | DONE | `src/graph/nodes/reflexion_payloads.py::repair_attempt_history` via `reflexion_updates` |
+| #5 SIMPLICITY FIRST block | DONE, flag `SIMPLICITY_FIRST_PROMPT` | `src/generation/prompt_rules.py` + `prompt_builder.py` |
+| #6 Correction KB for repair prompt | DONE, flag `REPAIR_CORRECTION_KB` | same module + `prompts/sql_repair.j2` |
+| #10 Exact McNemar test | DONE | `src/evaluation/statistical_tests.py::exact_mcnemar_test` |
+| #11 Partial-credit semantic score | DONE (not yet wired into reports) | `src/evaluation/metrics.py::partial_credit_semantic_score` |
+| #13 LLM-free CI tier | DONE | `tests/tier2_integration/test_gold_minibench_llm_free.py` |
+| #14 Named config presets | DONE | `src/config/features.py::preset_minimal/default/full` |
+| #20 Viz-intent classifier | DONE, fallback-only | `src/output/chart_recommender.py::classify_viz_intent` |
+| #21 Narrative number guard | DONE, opt-in `rows=` param | `src/output/narrative_generator.py::find_ungrounded_numbers` |
+| #27 SQLite stats aggregates | DONE | `src/db/read_only_executor.py::_register_stats_functions` |
+
+Still open, in recommended order: #2 EGIR intent-vs-result critic → #7
+result-hash voting (flagged) → #8 recalibration CLI → #9 audit report → #12
+negative-result ledger → Tier 3 product track (#16–#23) → Tier 4/5 spikes.
+
+Note on flags: `SIMPLICITY_FIRST_PROMPT` and `REPAIR_CORRECTION_KB` ship ON;
+both are plain prompt-text additions with zero deterministic-behavior impact.
+Run the existing ablation runner once before the next paper-facing benchmark
+to confirm no EX shift, and flip them off via config if any regression shows.

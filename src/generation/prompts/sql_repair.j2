@@ -31,7 +31,10 @@ Columns:
 ### Validation Errors
 {{ validation_errors }}
 
-{% if critic_feedback %}
+{% if correction_examples %}
+{{ correction_examples }}
+
+{% endif %}{% if critic_feedback %}
 ### Critic Feedback
 {{ critic_feedback }}
 {% endif %}

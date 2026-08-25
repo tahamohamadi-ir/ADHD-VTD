@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.graph.nodes.reflexion_payloads import (
     latest_reflexion_context,
+    repair_attempt_history,
     reflexion_updates,
     repair_critic_feedback,
     repair_validation_error_text,
@@ -80,4 +81,17 @@ def test_repair_critic_feedback_and_updates_contract() -> None:
     assert reflexion_updates(prompt="PROMPT", attempts=attempts) == {
         "prompt": "PROMPT",
         "attempts": attempts,
+        "repair_attempt_history": [],
     }
+
+
+def test_repair_attempt_history_keeps_recent_failed_pairs_only() -> None:
+    ok_attempt = SQLAttempt(iteration=0, sql="SELECT 1")
+    failed_no_sql = SQLAttempt(iteration=1, error_message="boom")
+    failures = [
+        SQLAttempt(iteration=i, sql=f"SELECT {i}", error_message=f"err{i}") for i in range(2, 7)
+    ]
+    history = repair_attempt_history([ok_attempt, failed_no_sql, *failures])
+    assert [item["sql"] for item in history] == ["SELECT 4", "SELECT 5", "SELECT 6"]
+    assert history[-1]["error"] == "err6"
+    assert repair_attempt_history(failures, limit=0) == []

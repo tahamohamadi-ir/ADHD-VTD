@@ -207,6 +207,32 @@ def unsafe_sql_count(records: Iterable[dict[str, Any]]) -> MetricResult:
     )
 
 
+def _normalize_cell(value: Any) -> str:
+    if isinstance(value, float):
+        value = round(value, 4)
+    return str(value).strip().lower()
+
+
+def partial_credit_semantic_score(expected_rows: list[tuple], actual_rows: list[tuple]) -> float:
+    """Partial-credit row-set similarity in [0, 1].
+
+    score = 0.30 * row_ratio + 0.20 * column_match + 0.50 * cell-set Jaccard overlap.
+    Both sides empty scores 1.0; exactly one side empty scores 0.0.
+    """
+    if not expected_rows and not actual_rows:
+        return 1.0
+    if not expected_rows or not actual_rows:
+        return 0.0
+    row_ratio = min(1.0, safe_div(len(actual_rows), len(expected_rows)))
+    column_match = 1.0 if len(expected_rows[0]) == len(actual_rows[0]) else 0.0
+    expected_cells = {_normalize_cell(cell) for row in expected_rows for cell in row}
+    actual_cells = {_normalize_cell(cell) for row in actual_rows for cell in row}
+    union_size = len(expected_cells | actual_cells)
+    value_overlap = safe_div(len(expected_cells & actual_cells), union_size)
+    score = 0.30 * row_ratio + 0.20 * column_match + 0.50 * value_overlap
+    return min(1.0, max(0.0, score))
+
+
 def semantic_business_accuracy(records: Iterable[dict[str, Any]]) -> MetricResult:
     judged = [r for r in records if isinstance(r.get("semantic_business_correct"), bool)]
     correct = sum(1 for r in judged if r.get("semantic_business_correct") is True)

@@ -60,5 +60,17 @@ def repair_critic_feedback(critic_feedback: str, repair_plan: str) -> str:
     return f"{critic_feedback}\n\nRepair Plan: {repair_plan}"
 
 
+def repair_attempt_history(attempts: list[SQLAttempt], *, limit: int = 3) -> list[dict[str, str]]:
+    failed = [a for a in attempts if (a.error_message or "").strip() and (a.sql or "").strip()]
+    recent = failed[-limit:] if limit > 0 else []
+    return [
+        {"sql": attempt.sql or "", "error": attempt.error_message or ""} for attempt in recent
+    ]
+
+
 def reflexion_updates(*, prompt: str, attempts: list[SQLAttempt]) -> dict[str, Any]:
-    return {"prompt": prompt, "attempts": attempts}
+    return {
+        "prompt": prompt,
+        "attempts": attempts,
+        "repair_attempt_history": repair_attempt_history(attempts),
+    }

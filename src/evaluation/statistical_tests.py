@@ -119,6 +119,60 @@ def _two_sided_binomial_p_value(successes: int, trials: int) -> float:
     return min(1.0, 2.0 * tail)
 
 
+@dataclass(frozen=True, slots=True)
+class ExactMcNemarResult:
+    b: int
+    c: int
+    n: int
+    statistic: float
+    p_value: float
+    significant_at_0_05: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "b": self.b,
+            "c": self.c,
+            "n": self.n,
+            "statistic": self.statistic,
+            "p_value": self.p_value,
+            "significant_at_0_05": self.significant_at_0_05,
+        }
+
+
+def _continuity_corrected_mcnemar_statistic(b: int, c: int) -> float:
+    discordant = b + c
+    if discordant == 0:
+        return 0.0
+    return (abs(b - c) - 1) ** 2 / discordant
+
+
+def _exact_two_sided_binomial_tail(b: int, c: int) -> float:
+    if b == c:
+        return 1.0
+    n = b + c
+    tail = sum(math.comb(n, k) for k in range(0, min(b, c) + 1)) / (2**n)
+    return min(1.0, 2.0 * tail)
+
+
+def exact_mcnemar_test(correct_a: int, incorrect_b: int) -> ExactMcNemarResult:
+    """Exact McNemar test over discordant paired outcomes only.
+
+    correct_a (b) counts pairs where system A is correct and system B is wrong;
+    incorrect_b (c) counts pairs where system A is wrong and system B is correct.
+    """
+    b = max(0, correct_a)
+    c = max(0, incorrect_b)
+    p_value = round(_exact_two_sided_binomial_tail(b, c), 6)
+    return ExactMcNemarResult(
+        b=b,
+        c=c,
+        n=b + c,
+        statistic=round(_continuity_corrected_mcnemar_statistic(b, c), 6),
+        p_value=p_value,
+        significant_at_0_05=p_value < 0.05,
+    )
+
+
 def mcnemar_test(
     baseline_records: Iterable[dict[str, Any]],
     system_records: Iterable[dict[str, Any]],

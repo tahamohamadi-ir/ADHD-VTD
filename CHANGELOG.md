@@ -2,6 +2,38 @@
 
 All notable changes to PARS-SQL are documented here.
 
+## [0.2.0] - 2026-08-25
+
+### Added (etude-mining quick wins; see docs/IMPROVEMENT_IDEAS_FROM_VTD_COLLECTION.md)
+
+- Deterministic SQL surgeon (`src/sql_validation/surgeon.py`): parse-gated
+  syntax-level strategies (code-fence strip, trailing-semicolon strip,
+  balanced-quote fix) with confidence tracking and idempotency guarantees.
+- Typed repair hints: `RepairHint` dataclass in `validation_result.py`; schema
+  validator now suggests closest known table/column via difflib for unknown
+  identifiers (qualified and unqualified paths, deduplicated per identifier).
+- Multi-attempt repair memory: `repair_attempt_history()` exposes the last 3
+  failed (sql, error) pairs through `reflexion_updates` state payloads.
+- Prompt rules module (`src/generation/prompt_rules.py`) wired into
+  `PromptBuilder` behind flags `SIMPLICITY_FIRST_PROMPT` and
+  `REPAIR_CORRECTION_KB`: anti-overengineering generation rule plus curated
+  broken-to-fixed SQL correction examples injected into the repair template.
+- Feature presets `preset_minimal/default/full()` in `src/config/features.py`
+  for named ablation configurations.
+- Exact binomial McNemar test (`exact_mcnemar_test`) and partial-credit
+  semantic score (`partial_credit_semantic_score`, 30/20/50 formula) in
+  `src/evaluation`.
+- Viz-intent classifier `classify_viz_intent(sql)` with fallback-only
+  integration into `recommend_chart(sql=...)`.
+- Narrative number-grounding guard `find_ungrounded_numbers` with opt-in
+  warning suffix via `generate_narrative(rows=...)`.
+- Read-only executor now registers NULL-safe `MEDIAN/STDDEV/VARIANCE`
+  SQLite aggregates on every connection.
+- LLM-free CI tier: `tests/tier2_integration/test_gold_minibench_llm_free.py`
+  runs loader + gold execution path without any model.
+- New tests across evaluation, sql_validation, graph payloads, output and db
+  modules (suite grew from 674 to 790 passing tests).
+
 ## [0.1.0] - 2026-08-22
 
 ### Added
