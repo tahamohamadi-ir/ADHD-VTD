@@ -1,6 +1,6 @@
 # PARS-SQL Open Risks
 
-Last updated: 2026-07-08
+Last updated: 2026-08-24
 
 This file tracks unresolved risks only. Resolved items should be removed or moved
 to the relevant phase notes after the mitigation is implemented and verified.
@@ -260,3 +260,26 @@ failing.
   explicit latency budget. Do not infer semantic correctness from these timings,
   and do not tune to individual case IDs or gold labels.
 - Close condition: Larger or final-stage evidence documents the latency budget outcome, adoption is not promoted before authoritative semantic/business evidence, and latency remains reported separately from correctness.
+
+## R10. Two live Hugging Face tokens were exposed in plaintext and are not yet revoked
+
+- Area: Repository hygiene / secrets management
+- Status: Open
+- Blocker category: actionable_nonhuman
+- Why it matters: Two personal HF access tokens (`hf_Cfe...KXNw` from a staged
+  `.env.example`, `hf_mWe...WSfX` from the v1.0.4 downloader docstring) sat in
+  plaintext working-tree files. GitHub Push Protection blocked the first push,
+  so neither token ever reached the remote. History was rewritten with
+  filter-branch (commits `58e0baa..e07c45a`), placeholders replaced both tokens,
+  and a token-validity check on 2026-08-24 confirmed BOTH tokens are still
+  active under user `Tahamohamadi`.
+- Current guard: `.gitignore` keeps `.env`/`.env.local` out of the repo;
+  `.env.example` now ships `HF_TOKEN=""`; pre-commit hooks do not scan for
+  secrets, so this guard is manual.
+- Guard command: `git grep -nE "hf_[A-Za-z0-9]{30,}" -- .` must return nothing on HEAD.
+- Next action: Revoke both tokens at huggingface.co/settings/tokens, then
+  optionally run `git reflog expire --expire=now --all && git gc --prune=now`
+  to purge the dangling pre-rewrite objects that still contain them locally
+  (owner chose to defer this purge on 2026-08-24).
+- Close condition: Both tokens report invalid via an authenticated `whoami`
+  probe (or are listed as revoked in the HF dashboard), and `git grep` stays clean.
