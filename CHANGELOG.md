@@ -23,6 +23,17 @@ All notable changes to PARS-SQL are documented here.
 - Exact binomial McNemar test (`exact_mcnemar_test`) and partial-credit
   semantic score (`partial_credit_semantic_score`, 30/20/50 formula) in
   `src/evaluation`.
+- Deterministic EGIR intent-vs-shape critic (`src/sql_validation/egir.py`):
+  Persian intent detection (aggregate/split/trend/list) checked against SQL
+  structure and result shape, emitting typed issues with Persian repair
+  feedback.
+- Ground-truth recalibration CLI (`scripts/recalibrate_ground_truth.py`):
+  re-executes gold SQL via the read-only executor, writes a NEW versioned
+  dataset file plus a `.recalibration.json` audit report with SHA-256 trail;
+  never mutates the input dataset.
+- Negative-result ledger added to `docs/context-hub/FAILURE_PATTERNS.md`
+  (section 0): components measured to hurt, with deltas, per the omni/VTD
+  etude evidence.
 - Viz-intent classifier `classify_viz_intent(sql)` with fallback-only
   integration into `recommend_chart(sql=...)`.
 - Narrative number-grounding guard `find_ungrounded_numbers` with opt-in

@@ -76,6 +76,23 @@ final tables or metrics by hand.
 
 ## Known major failure classes
 
+### 0. Negative-result ledger (components measured to hurt and removed)
+
+Keep every component that was ablated OFF because it measurably degraded a
+metric, with the measured delta. Do not re-enable without a new ablation.
+
+| Component | Measured effect | Source | Status |
+|---|---|---|---|
+| Planner agent (omni etude) | −13.3% EM when enabled | `VTD COLLECTION\vtd_health_omni\docs\8-Benchmark-System.md` | never ported |
+| CoT-only prompt layer (omni etude) | −6.7% EM | same doc | never ported |
+| Old column-level Schema-RAG (omni etude) | −6.7% EM; v2 with hub JOIN hints recovered +15% | same doc | superseded design only |
+| Aggressive auto-correction / proactive verifier (VTD etude) | Replaced correct queries; semantic check added noise (`smart_verifier.py` v2.2 comments) | `VTD COLLECTION\VTD\src\core\smart_verifier.py` | conservative gates only; each repair layer must be individually ablated |
+| Result-hash candidate voting (VTD_V6) | 9× latency, disabled in code comment | `VTD COLLECTION\VTD_V6\src\pipeline\vtd_pipeline.py` | not ported; if revisited, gate behind latency budget check |
+
+Rule: before adding ANY corrective or ensemble layer from
+`docs/IMPROVEMENT_IDEAS_FROM_VTD_COLLECTION.md`, add its row here after its
+first honest ablation, whatever the direction of the result.
+
 ### 1. Scalar question converted to grouped analysis
 
 Example:
