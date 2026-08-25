@@ -151,6 +151,11 @@ def generate_benchmark_markdown_report(summary: dict[str, Any]) -> str:
         lines.append("| Metric | Value | Numerator | Denominator |")
         lines.append("|---|---:|---:|---:|")
         for name, metric in metrics.items():
+            if not isinstance(metric, dict):
+                lines.append(
+                    f"| `{name}` | {_value_cell(metric)} | {'-'} | {'-'} |"
+                )
+                continue
             ci = metric.get("ci95")
             value = _value_cell(metric.get("value"))
             if ci:

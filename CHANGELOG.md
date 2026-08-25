@@ -26,7 +26,11 @@ All notable changes to PARS-SQL are documented here.
 - Deterministic EGIR intent-vs-shape critic (`src/sql_validation/egir.py`):
   Persian intent detection (aggregate/split/trend/list) checked against SQL
   structure and result shape, emitting typed issues with Persian repair
-  feedback.
+  feedback; wired into the `check_consistency` graph node as advisory
+  `egir_report` payloads (severity=warning until ablated).
+- Partial-credit reporting: per-case `partial_credit_semantic` in agent-mode
+  predictions and `partial_credit_semantic_mean/coverage` summary metrics as a
+  separate metric family; paper-table and report renderers are now scalar-safe.
 - Ground-truth recalibration CLI (`scripts/recalibrate_ground_truth.py`):
   re-executes gold SQL via the read-only executor, writes a NEW versioned
   dataset file plus a `.recalibration.json` audit report with SHA-256 trail;

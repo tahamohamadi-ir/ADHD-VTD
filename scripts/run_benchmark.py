@@ -33,7 +33,12 @@ from src.evaluation.action_normalizer import (
     normalize_expected_action,
 )
 from src.evaluation.error_analyzer import analyze_errors
-from src.evaluation.metrics import add_bootstrap_cis, aggregate_basic_metrics, latency_summary
+from src.evaluation.metrics import (
+    add_bootstrap_cis,
+    aggregate_basic_metrics,
+    latency_summary,
+    partial_credit_semantic_score,
+)
 from src.evaluation.reliability_metrics import reliability_score
 from src.evaluation.reliability_gate import evaluate_reliability_gate
 from src.evaluation.sql_consistency_critic import analyze_question_sql_consistency
@@ -346,6 +351,27 @@ def gold_prediction(case: dict[str, Any], executor: ReadOnlyExecutor) -> dict[st
     }
 
 
+def _near_miss_partial_credit(
+    executor: Any, generated_sql: str, gold_sql: str, comparison: dict[str, Any]
+) -> float | None:
+    """Separate-metric family: near-miss credit for SQL that ran but mismatched.
+
+    Never mixed into EX or the reliability score (AGENTS metric-family rule).
+    """
+    if comparison.get("match"):
+        return 1.0
+    if not (comparison.get("generated_ok") and comparison.get("gold_ok")):
+        return None
+    try:
+        gen = executor.execute_readonly(generated_sql)
+        gold = executor.execute_readonly(gold_sql)
+        if not (gen.ok and gold.ok):
+            return None
+        return round(partial_credit_semantic_score(gold.rows, gen.rows), 4)
+    except Exception:  # noqa: BLE001 - diagnostic metric must never break a run
+        return None
+
+
 def classify_agent_error(
     *,
     expected_action: str,
@@ -529,10 +555,15 @@ def agent_prediction(
             result_hash = comparison.get("generated_hash")
             gold_hash = comparison.get("gold_hash")
             ok = execution_correct
+            partial_credit = _near_miss_partial_credit(
+                executor, generated_sql, gold_sql, comparison
+            )
         else:
             ok = False
+            partial_credit = None
     else:
         ok = action_correct
+        partial_credit = None
 
     for attempt in attempts:
         attempt.setdefault("gold_result_hash", gold_hash)
@@ -562,6 +593,7 @@ def agent_prediction(
         "ok": ok,
         "action_correct": action_correct,
         "execution_correct": execution_correct,
+        "partial_credit_semantic": partial_credit,
         "semantic_business_correct": None,
         "valid_sql": valid_sql,
         "normalized_question": final_state_dict.get("normalized_question"),
@@ -1059,6 +1091,16 @@ def run(args: argparse.Namespace) -> Path:
             iterations=args.bootstrap_iterations,
             seed=args.seed,
         )
+        credit_values = [
+            r.get("partial_credit_semantic")
+            for r in records
+            if isinstance(r.get("partial_credit_semantic"), (int, float))
+        ]
+        if credit_values:
+            summary["metrics"]["partial_credit_semantic_mean"] = round(
+                sum(credit_values) / len(credit_values), 4
+            )
+            summary["metrics"]["partial_credit_semantic_coverage"] = len(credit_values)
         summary["reliability"] = reliability_score(records).as_dict()
         summary["retrieval_self_overlap"] = {
             "enabled": exclude_self,

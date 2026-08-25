@@ -89,6 +89,12 @@ def generate_paper_tables(summary: Dict[str, Any], output_path: Path):
     lines.append("|---|---:|---|")
     metrics = summary.get("metrics", {})
     for m_name, m_val in metrics.items():
+        if not isinstance(m_val, dict):
+            rendered = (
+                f"{m_val:.4f}" if isinstance(m_val, (int, float)) else str(m_val)
+            )
+            lines.append(f"| {m_name} | {rendered} | scalar metric |")
+            continue
         val = m_val.get("value", 0)
         ci = m_val.get("ci95")
         rendered = f"{val:.4f}"

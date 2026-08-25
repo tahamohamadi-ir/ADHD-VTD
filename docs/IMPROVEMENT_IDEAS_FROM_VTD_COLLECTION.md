@@ -129,10 +129,10 @@ Landed in v0.2.0 (all with unit tests; full suite 790 passing):
 | #4 Multi-attempt repair memory | DONE | `src/graph/nodes/reflexion_payloads.py::repair_attempt_history` via `reflexion_updates` |
 | #5 SIMPLICITY FIRST block | DONE, flag `SIMPLICITY_FIRST_PROMPT` | `src/generation/prompt_rules.py` + `prompt_builder.py` |
 | #6 Correction KB for repair prompt | DONE, flag `REPAIR_CORRECTION_KB` | same module + `prompts/sql_repair.j2` |
-| #2 EGIR intent-vs-result critic | DONE (standalone module; graph wiring open) | `src/sql_validation/egir.py::check_intent_result_alignment` |
+| #2 EGIR intent-vs-result critic | DONE — wired into `check_consistency` graph node (advisory `egir_report`, severity=warning; gate behavior unchanged pending ablation) | `src/sql_validation/egir.py`, `src/graph/nodes/check_consistency_node.py` |
 | #8 Recalibration CLI | DONE | `scripts/recalibrate_ground_truth.py` (+ `.recalibration.json` report sidecar) |
 | #10 Exact McNemar test | DONE | `src/evaluation/statistical_tests.py::exact_mcnemar_test` |
-| #11 Partial-credit semantic score | DONE (not yet wired into reports) | `src/evaluation/metrics.py::partial_credit_semantic_score` |
+| #11 Partial-credit semantic score | DONE — per-case `partial_credit_semantic` in agent predictions + `partial_credit_semantic_mean/coverage` in summary metrics (separate family, excluded from EX/reliability); scalar-safe metric renderers | `src/evaluation/metrics.py`, `scripts/run_benchmark.py`, `export_utils.py`, `report_generator.py` |
 | #12 Negative-result ledger | DONE | `docs/context-hub/FAILURE_PATTERNS.md` section 0 |
 | #13 LLM-free CI tier | DONE | `tests/tier2_integration/test_gold_minibench_llm_free.py` |
 | #14 Named config presets | DONE | `src/config/features.py::preset_minimal/default/full` |
@@ -140,9 +140,9 @@ Landed in v0.2.0 (all with unit tests; full suite 790 passing):
 | #21 Narrative number guard | DONE, opt-in `rows=` param | `src/output/narrative_generator.py::find_ungrounded_numbers` |
 | #27 SQLite stats aggregates | DONE | `src/db/read_only_executor.py::_register_stats_functions` |
 
-Still open, in recommended order: #7 result-hash voting (flagged) → EGIR graph
-wiring (module done, needs repair-node hook) → partial-credit reporting into
-paper tables (#11 wiring) → Tier 3 product track (#15–#23) → Tier 4/5 spikes.
+Still open, in recommended order: #7 result-hash voting (flagged) → promote
+EGIR warnings to gate-relevant severity after one ablation → Tier 3 product
+track (#15–#23) → Tier 4/5 spikes.
 
 Note on flags: `SIMPLICITY_FIRST_PROMPT` and `REPAIR_CORRECTION_KB` ship ON;
 both are plain prompt-text additions with zero deterministic-behavior impact.
