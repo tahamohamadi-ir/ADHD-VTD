@@ -1,50 +1,78 @@
-﻿.venv/
-.idea/
+﻿# ============================================================
+# PARS-SQL .gitignore
+# Keep source/config/docs tracked; ignore generated, heavy,
+# secret, and local-only artifacts.
+# ============================================================
+
+# --- Environments & secrets ---
+.venv/
+venv/
+env/
+.env*
+!.env.example
+
+# --- Python caches & build outputs ---
 __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+pip-wheel-metadata/
 
+# --- IDE & OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+
+# --- Runtime outputs (keep dirs via .gitkeep) ---
 logs/*
 !logs/.gitkeep
-
 results/*
 !results/.gitkeep
-
 graphify-out/
 
-.env
-.env.local
-
+# --- Local databases & retrieval indexes ---
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 data/rag/chroma/
 data/rag/bm25/
-*.sqlite-journal
 
+# --- Heavy model weights & caches (registry manifests stay tracked) ---
 models/**/*.gguf
 models/**/*.bad_*
 models/**/*.gguf.bad_*
 models/**/.cache/
+.cache/
 models/**/pytorch_model.bin
 models/**/model.safetensors
 models/**/*.pt
 models/**/*.bin
+models/**/*.onnx
+models/**/*.ckpt
+models/**/*.h5
+models/**/*.msgpack
 models/bge-m3/
 models/embeddings/Qwen__Qwen3-Embedding-0.6B/
 
-# Generated release bundles
+# --- Generated bundles & review packages ---
 dist/
 *.zip
 *.tar.gz
-
-# Paper review bundles (generated, large)
 paper1_review_package_*/
 
-# Deduplication archives (generated)
+# --- Deduplication snapshots & local delete-review staging ---
 archive/cleanup_*/
-
-# Local delete-review staging (never committed)
 _DELETE_REVIEW/
 
-# OS
-.DS_Store
-Thumbs.db
+# --- Local bulk collections (old project copies kept on disk only) ---
+VTD COLLECTION/

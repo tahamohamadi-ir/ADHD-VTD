@@ -34,6 +34,9 @@ release-governance documentation.
 - `11_SEMANTIC_BUSINESS_LOGIC_EVALUATION.md`: semantic/business judge workflow.
 - `graph_workflow.mmd`: LangGraph Mermaid diagram (exported from `src/graph/workflow.py`).
 - `PROJECT_INTRODUCTION_FOR_SUPERVISOR_FA.md`: فارسی معرفی پروژه برای سوپروایزر.
+- `IMPROVEMENT_IDEAS_FROM_VTD_COLLECTION.md`: mined improvement candidates from the
+  archived old etudes (`VTD COLLECTION/`, gitignored); ranked, evidence-linked, with
+  anti-pattern catalog and adoption gates.
 
 ## Cleanup Rules
 
