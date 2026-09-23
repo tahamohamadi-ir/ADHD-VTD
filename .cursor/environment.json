@@ -1,0 +1,4 @@
+{
+  "name": "PARS-SQL / VTD-Edge",
+  "install": "bash .cursor/install.sh"
+}
